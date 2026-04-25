@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ interface AssetCardProps {
   description?: string;
   rows?: DetailRow[];
   className?: string;
+  footer?: ReactNode;
 }
 
 export function AssetCard({
@@ -26,14 +28,15 @@ export function AssetCard({
   mode = "summary",
   description,
   rows = [],
-  className
+  className,
+  footer
 }: AssetCardProps) {
   const isDetail = mode === "detail";
 
   return (
     <Card
       className={cn(
-        "overflow-hidden border-white/70 bg-white/70",
+        "overflow-hidden border-slate-200 bg-white",
         isDetail ? "min-h-[25rem]" : "min-h-[12rem]",
         className
       )}
@@ -45,7 +48,7 @@ export function AssetCard({
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
           ) : null}
         </div>
-        <div className="rounded-2xl bg-secondary p-3 text-foreground">
+        <div className="rounded-md border border-indigo-100 bg-indigo-50 p-2.5 text-primary">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </CardHeader>
@@ -55,8 +58,8 @@ export function AssetCard({
         </p>
 
         {isDetail ? (
-          <div className="mt-8 overflow-hidden rounded-3xl border bg-white/60">
-            <div className="grid grid-cols-1 divide-y">
+          <div className="mt-8 overflow-hidden rounded-md border border-slate-200 bg-white">
+            <div className="grid grid-cols-1 divide-y divide-slate-100">
               {rows.map((row) => (
                 <div
                   className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
@@ -66,8 +69,8 @@ export function AssetCard({
                   <span
                     className={cn(
                       "font-semibold",
-                      row.emphasis === "positive" && "text-emerald-700",
-                      row.emphasis === "negative" && "text-red-700"
+                      row.emphasis === "positive" && "text-emerald-600",
+                      row.emphasis === "negative" && "text-red-600"
                     )}
                   >
                     {row.value}
@@ -77,6 +80,7 @@ export function AssetCard({
             </div>
           </div>
         ) : null}
+        {footer ? <div className="mt-6">{footer}</div> : null}
       </CardContent>
     </Card>
   );

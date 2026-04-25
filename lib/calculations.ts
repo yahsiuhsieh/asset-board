@@ -1,3 +1,7 @@
+import {
+  getAnnualScheduledExpenses,
+  getMonthlyAverageExpenses
+} from "@/lib/real-estate-expenses";
 import type { Asset, RealEstateAsset } from "@/types/wealth";
 
 export function calculatePropertyROI(property: RealEstateAsset): number {
@@ -12,6 +16,13 @@ export function calculatePropertyROI(property: RealEstateAsset): number {
 }
 
 export function calculateMonthlyNetCashFlow(property: RealEstateAsset): number {
+  if (property.expenseItems?.length) {
+    return (
+      property.monthlyRent -
+      (property.monthlyMortgage + getMonthlyAverageExpenses(property.expenseItems))
+    );
+  }
+
   return (
     property.monthlyRent -
     (property.monthlyMortgage +
@@ -43,8 +54,9 @@ export function calculateRealEstatePortfolioROI(properties: RealEstateAsset[]): 
     (total, property) =>
       total +
       property.monthlyRent * 12 -
-      property.annualExpenses -
-      property.annualTaxes,
+      (property.expenseItems?.length
+        ? getAnnualScheduledExpenses(property.expenseItems)
+        : property.annualExpenses + property.annualTaxes),
     0
   );
 

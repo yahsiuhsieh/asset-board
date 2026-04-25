@@ -39,10 +39,10 @@ const config: Config = {
         "3xl": "2rem"
       },
       fontFamily: {
-        sans: ["Avenir Next", "SF Pro Display", "Helvetica Neue", "sans-serif"]
+        sans: ["Inter", "SF Pro Text", "Helvetica Neue", "Arial", "sans-serif"]
       },
       boxShadow: {
-        soft: "0 18px 60px rgba(15, 23, 42, 0.08)"
+        soft: "0 12px 32px rgba(50, 50, 93, 0.08)"
       }
     }
   },
