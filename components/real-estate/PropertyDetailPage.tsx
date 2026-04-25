@@ -37,6 +37,7 @@ import { PropertyImage } from "./PropertyImage";
 import { PropertyLocationForm } from "./PropertyLocationForm";
 import { PropertyMap } from "./PropertyMap";
 import { SnapshotForm } from "./SnapshotForm";
+import { ValuationManager } from "./ValuationManager";
 
 interface PropertyDetailPageProps {
   property: RealEstateAssetDetail;
@@ -260,6 +261,17 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
             <PropertyMap property={property} />
             <p className="mt-3 text-sm text-muted-foreground">{property.address}</p>
             <PropertyLocationForm property={property} />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="border-slate-200 bg-white">
+          <CardHeader>
+            <CardTitle>Zillow Valuation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ValuationManager property={property} />
           </CardContent>
         </Card>
       </section>

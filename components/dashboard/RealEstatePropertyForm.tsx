@@ -26,7 +26,6 @@ const initialState: RealEstateActionState = {
 
 const moneyFields = [
   { name: "purchasePrice", label: "Purchase price" },
-  { name: "currentMarketValue", label: "Current market value" },
   { name: "remainingMortgageBalance", label: "Mortgage balance" },
   { name: "monthlyRent", label: "Monthly rent" },
   { name: "monthlyMortgage", label: "Monthly mortgage" }
@@ -61,7 +60,6 @@ function getDefaultValue(property: RealEstateAsset | undefined, field: string): 
 
   const values: Record<string, string | number> = {
     purchasePrice: property.purchasePrice,
-    currentMarketValue: property.currentMarketValue,
     remainingMortgageBalance: property.remainingMortgageBalance,
     monthlyRent: property.monthlyRent,
     monthlyMortgage: property.monthlyMortgage,
