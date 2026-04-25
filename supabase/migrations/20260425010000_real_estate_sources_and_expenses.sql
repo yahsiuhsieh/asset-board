@@ -1,14 +1,14 @@
 alter table public.real_estate_properties
   add column if not exists current_market_value_source text not null default 'manual'
-    check (current_market_value_source in ('manual', 'zillow', 'chase')),
+    check (current_market_value_source in ('manual', 'chase')),
   add column if not exists current_market_value_synced_at timestamptz,
   add column if not exists monthly_rent_source text not null default 'manual'
-    check (monthly_rent_source in ('manual', 'zillow', 'chase')),
+    check (monthly_rent_source in ('manual', 'chase')),
   add column if not exists monthly_rent_synced_at timestamptz;
 
 alter table public.real_estate_metric_snapshots
   add column if not exists source text not null default 'manual'
-    check (source in ('manual', 'zillow', 'chase'));
+    check (source in ('manual', 'chase'));
 
 create table if not exists public.real_estate_expense_items (
   id uuid primary key default gen_random_uuid(),

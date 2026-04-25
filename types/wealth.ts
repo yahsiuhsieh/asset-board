@@ -31,10 +31,7 @@ export interface RealEstateAsset extends BaseAsset {
   latitude?: number | null;
   longitude?: number | null;
   mapZoom: number;
-  currentMarketValueSource: RealEstateDataSource;
   currentMarketValueSyncedAt?: string | null;
-  monthlyRentSource: RealEstateDataSource;
-  monthlyRentSyncedAt?: string | null;
   purchasePrice: number;
   currentMarketValue: number;
   remainingMortgageBalance: number;
@@ -47,7 +44,9 @@ export interface RealEstateAsset extends BaseAsset {
   expenseItems?: RealEstateExpenseItem[];
 }
 
-export type RealEstateDataSource = "manual" | "zillow" | "chase";
+export type RealEstateDataSource = "manual" | "chase";
+export type ValuationProvider = "mock" | "provider";
+export type RealEstateSource = RealEstateDataSource | ValuationProvider;
 
 export type ExpenseFrequency = "monthly" | "quarterly" | "semiannual" | "annual";
 
@@ -96,7 +95,7 @@ export interface RealEstateMetricSnapshot {
   metricType: RealEstateMetricType;
   value: number;
   recordedAt: string;
-  source: RealEstateDataSource;
+  source: RealEstateSource;
   note: string | null;
 }
 

@@ -29,7 +29,7 @@ import {
 } from "@/lib/real-estate-expenses";
 import { getExternalMapUrl } from "@/lib/maps";
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
-import type { RealEstateAssetDetail, RealEstateDataSource } from "@/types/wealth";
+import type { RealEstateAssetDetail } from "@/types/wealth";
 import { ExpenseScheduleManager } from "./ExpenseScheduleManager";
 import { PhotoUploadForm } from "./PhotoUploadForm";
 import { PropertyHistoryCharts } from "./PropertyHistoryCharts";
@@ -53,37 +53,15 @@ function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function formatSource(source: RealEstateDataSource): string {
-  if (source === "zillow") {
-    return "Zillow";
-  }
-
-  if (source === "chase") {
-    return "Chase";
-  }
-
-  return "Manual";
-}
-
-function SourceBadge({ source }: { source: RealEstateDataSource }) {
-  return (
-    <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-primary">
-      {formatSource(source)}
-    </span>
-  );
-}
-
 function MetricTile({
   title,
   value,
   icon: Icon,
-  source,
   tone = "neutral"
 }: {
   title: string;
   value: string;
   icon: typeof Home;
-  source?: RealEstateDataSource;
   tone?: "neutral" | "positive" | "negative";
 }) {
   return (
@@ -105,31 +83,21 @@ function MetricTile({
       >
         {value}
       </p>
-      {source ? (
-        <div className="mt-3">
-          <SourceBadge source={source} />
-        </div>
-      ) : null}
     </div>
   );
 }
 
 function DetailRow({
   label,
-  value,
-  source
+  value
 }: {
   label: string;
   value: string;
-  source?: RealEstateDataSource;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 text-sm last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="flex items-center gap-2 font-semibold">
-        {value}
-        {source ? <SourceBadge source={source} /> : null}
-      </span>
+      <span className="font-semibold">{value}</span>
     </div>
   );
 }
@@ -194,10 +162,6 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
                 {property.address}
               </a>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <SourceBadge source={property.currentMarketValueSource} />
-              <SourceBadge source={property.monthlyRentSource} />
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -205,7 +169,6 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile
           icon={Home}
-          source={property.currentMarketValueSource}
           title="Current Value"
           value={formatCurrency(property.currentMarketValue)}
         />
@@ -218,7 +181,6 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
         />
         <MetricTile
           icon={ChartNoAxesCombined}
-          source={property.monthlyRentSource}
           title="Monthly Rent"
           value={formatCurrency(property.monthlyRent)}
         />
@@ -233,7 +195,6 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
             <DetailRow label="Purchase price" value={formatCurrency(property.purchasePrice)} />
             <DetailRow
               label="Current value"
-              source={property.currentMarketValueSource}
               value={formatCurrency(property.currentMarketValue)}
             />
             <DetailRow
@@ -243,7 +204,6 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
             <DetailRow label="Equity" value={formatCurrency(equity)} />
             <DetailRow
               label="Monthly rent"
-              source={property.monthlyRentSource}
               value={formatCurrency(property.monthlyRent)}
             />
             <DetailRow
@@ -268,7 +228,7 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
       <section>
         <Card className="border-slate-200 bg-white">
           <CardHeader>
-            <CardTitle>Zillow Valuation</CardTitle>
+            <CardTitle>Property Valuation</CardTitle>
           </CardHeader>
           <CardContent>
             <ValuationManager property={property} />
@@ -335,10 +295,7 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
                       ) : null}
                     </div>
                     <p className="font-semibold">{formatCurrency(snapshot.value)}</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-muted-foreground">{snapshot.recordedAt}</p>
-                      <SourceBadge source={snapshot.source} />
-                    </div>
+                    <p className="text-muted-foreground">{snapshot.recordedAt}</p>
                     <form action={deleteMetricSnapshot}>
                       <input name="assetId" type="hidden" value={property.id} />
                       <input name="snapshotId" type="hidden" value={snapshot.id} />

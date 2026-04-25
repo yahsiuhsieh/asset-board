@@ -2,12 +2,12 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type {
   RealEstateAsset,
   RealEstateAssetDetail,
-  RealEstateDataSource,
   RealEstateExpenseCategory,
   RealEstateExpenseItem,
   RealEstateMetricSnapshot,
   RealEstateMetricType,
   RealEstatePhoto,
+  RealEstateSource,
   ExpenseFrequency
 } from "@/types/wealth";
 
@@ -27,10 +27,7 @@ interface RealEstatePropertyRow {
   latitude: string | number | null;
   longitude: string | number | null;
   map_zoom: number | null;
-  current_market_value_source: RealEstateDataSource;
   current_market_value_synced_at: string | null;
-  monthly_rent_source: RealEstateDataSource;
-  monthly_rent_synced_at: string | null;
   purchase_price: string | number;
   current_market_value: string | number;
   remaining_mortgage_balance: string | number;
@@ -69,7 +66,7 @@ interface RealEstateMetricSnapshotRow {
   metric_type: RealEstateMetricType;
   value: string | number;
   recorded_at: string;
-  source: RealEstateDataSource;
+  source: RealEstateSource;
   note: string | null;
 }
 
@@ -107,10 +104,7 @@ function mapRealEstateProperty(row: RealEstatePropertyRow): RealEstateAsset {
     latitude: toOptionalNumber(row.latitude),
     longitude: toOptionalNumber(row.longitude),
     mapZoom: row.map_zoom ?? 12,
-    currentMarketValueSource: row.current_market_value_source,
     currentMarketValueSyncedAt: row.current_market_value_synced_at,
-    monthlyRentSource: row.monthly_rent_source,
-    monthlyRentSyncedAt: row.monthly_rent_synced_at,
     purchasePrice: toNumber(row.purchase_price),
     currentMarketValue: toNumber(row.current_market_value),
     remainingMortgageBalance: toNumber(row.remaining_mortgage_balance),
@@ -186,10 +180,7 @@ async function getPropertyRows() {
       latitude,
       longitude,
       map_zoom,
-      current_market_value_source,
       current_market_value_synced_at,
-      monthly_rent_source,
-      monthly_rent_synced_at,
       purchase_price,
       current_market_value,
       remaining_mortgage_balance,

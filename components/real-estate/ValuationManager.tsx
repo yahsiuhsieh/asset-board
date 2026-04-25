@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import { RefreshCw } from "lucide-react";
 
 import {
-  mockSyncZillowValuation,
+  syncPropertyValuation,
   type RealEstateActionState
 } from "@/app/actions/real-estate";
 import { Button } from "@/components/ui/button";
@@ -44,14 +44,14 @@ function SyncButton() {
   return (
     <Button disabled={pending} type="submit">
       <RefreshCw className={cn("h-4 w-4", pending ? "animate-spin" : "")} />
-      {pending ? "Syncing" : "Sync Zillow"}
+      {pending ? "Syncing" : "Sync Valuation"}
     </Button>
   );
 }
 
 export function ValuationManager({ property }: { property: RealEstateAssetDetail }) {
   const [state, syncAction] = useActionState(
-    mockSyncZillowValuation.bind(null, property.id),
+    syncPropertyValuation.bind(null, property.id),
     initialState
   );
 
@@ -62,7 +62,7 @@ export function ValuationManager({ property }: { property: RealEstateAssetDetail
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Zillow Value
+          Property Value
         </p>
         <p className="mt-2 text-3xl font-semibold tracking-tight">
           {formatCurrency(property.currentMarketValue)}

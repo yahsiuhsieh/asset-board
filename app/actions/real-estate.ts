@@ -5,10 +5,12 @@ import { revalidatePath } from "next/cache";
 
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { fetchPropertyValuation } from "@/lib/valuations/property-valuation-provider";
 import type {
   ExpenseFrequency,
   RealEstateExpenseCategory,
-  RealEstateMetricType
+  RealEstateMetricType,
+  ValuationProvider
 } from "@/types/wealth";
 
 const PROPERTY_PHOTO_BUCKET = "property-photos";
@@ -143,16 +145,17 @@ function readPropertyPayload(formData: FormData) {
   };
 }
 
-interface ZillowValuationRow {
+interface PropertyValuationRow {
+  address: string;
   current_market_value: string | number;
   purchase_price: string | number;
 }
 
-async function loadZillowValuationBase(assetId: string): Promise<number> {
+async function loadPropertyValuationInput(assetId: string): Promise<PropertyValuationRow> {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from("real_estate_properties")
-    .select("current_market_value, purchase_price")
+    .select("address, current_market_value, purchase_price")
     .eq("asset_id", assetId)
     .single();
 
@@ -160,25 +163,14 @@ async function loadZillowValuationBase(assetId: string): Promise<number> {
     throw new Error(`Could not load valuation: ${error.message}`);
   }
 
-  const row = data as ZillowValuationRow;
-  const purchasePrice = Number(row.purchase_price);
-  const currentMarketValue = Number(row.current_market_value);
-
-  if (purchasePrice > 0) {
-    return purchasePrice;
-  }
-
-  if (currentMarketValue > 0) {
-    return currentMarketValue;
-  }
-
-  return 500000;
+  return data as PropertyValuationRow;
 }
 
-async function saveZillowValuation(
+async function savePropertyValuation(
   assetId: string,
   currentMarketValue: number,
-  syncedAt: string
+  syncedAt: string,
+  source: ValuationProvider
 ) {
   const supabase = createServerSupabaseClient();
 
@@ -186,7 +178,7 @@ async function saveZillowValuation(
     .from("real_estate_properties")
     .update({
       current_market_value: currentMarketValue,
-      current_market_value_source: "zillow",
+      current_market_value_source: source,
       current_market_value_synced_at: syncedAt,
       updated_at: syncedAt
     })
@@ -283,7 +275,7 @@ export async function createRealEstateProperty(
     const { error: propertyError } = await supabase.from("real_estate_properties").insert({
       ...payload.property,
       current_market_value: 0,
-      current_market_value_source: "zillow",
+      current_market_value_source: "mock",
       asset_id: asset.id
     });
 
@@ -401,17 +393,7 @@ export async function updatePropertyLocation(
   }
 }
 
-function getMockZillowValue(assetId: string, baseValue: number): number {
-  const seed = Array.from(assetId).reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0
-  );
-  const multiplier = 0.95 + (seed % 1200) / 10000;
-
-  return Math.max(0, Math.round((baseValue * multiplier) / 1000) * 1000);
-}
-
-export async function mockSyncZillowValuation(
+export async function syncPropertyValuation(
   assetId: string,
   _previousState: RealEstateActionState,
   _formData: FormData
@@ -420,20 +402,25 @@ export async function mockSyncZillowValuation(
   void _formData;
 
   try {
-    const valuationBase = await loadZillowValuationBase(assetId);
-    const zillowValue = getMockZillowValue(assetId, valuationBase);
-    const syncedAt = new Date().toISOString();
-    await saveZillowValuation(assetId, zillowValue, syncedAt);
+    const property = await loadPropertyValuationInput(assetId);
+    const valuation = await fetchPropertyValuation({
+      assetId,
+      address: property.address,
+      purchasePrice: Number(property.purchase_price),
+      currentMarketValue: Number(property.current_market_value)
+    });
+
+    await savePropertyValuation(assetId, valuation.value, valuation.syncedAt, valuation.source);
     const supabase = createServerSupabaseClient();
 
     const { error: snapshotError } = await supabase.from("real_estate_metric_snapshots").upsert(
       {
         asset_id: assetId,
         metric_type: "current_market_value",
-        value: zillowValue,
-        recorded_at: syncedAt.slice(0, 10),
-        source: "zillow",
-        note: "Mock Zillow valuation sync"
+        value: valuation.value,
+        recorded_at: valuation.syncedAt.slice(0, 10),
+        source: valuation.source,
+        note: valuation.note
       },
       {
         onConflict: "asset_id,metric_type,recorded_at"
@@ -441,13 +428,17 @@ export async function mockSyncZillowValuation(
     );
 
     if (snapshotError) {
-      return errorState(`Zillow value synced, but snapshot failed: ${snapshotError.message}`);
+      return errorState(`Property value synced, but snapshot failed: ${snapshotError.message}`);
     }
 
     revalidatePropertyPages(assetId);
-    return successState("Zillow value synced.");
+    return successState(
+      valuation.source === "mock"
+        ? "Mock property value synced. Choose a valuation provider for live data."
+        : "Property value synced."
+    );
   } catch (error) {
-    return errorState(error instanceof Error ? error.message : "Could not sync Zillow value.");
+    return errorState(error instanceof Error ? error.message : "Could not sync property value.");
   }
 }
 
