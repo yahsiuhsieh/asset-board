@@ -107,7 +107,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
               className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={property?.address ?? ""}
               name="address"
-              placeholder="1420 Maple Row"
+              placeholder="14693 Gulfstream Ln, Moreno Valley, CA 92553"
               required
             />
           </label>

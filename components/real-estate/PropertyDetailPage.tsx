@@ -29,6 +29,7 @@ import {
 } from "@/lib/real-estate-expenses";
 import { getExternalMapUrl } from "@/lib/maps";
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
+import type { PropertyValuationUsageStatus } from "@/lib/valuations/property-valuation-usage";
 import type { RealEstateAssetDetail } from "@/types/wealth";
 import { ExpenseScheduleManager } from "./ExpenseScheduleManager";
 import { PhotoUploadForm } from "./PhotoUploadForm";
@@ -41,6 +42,7 @@ import { ValuationManager } from "./ValuationManager";
 
 interface PropertyDetailPageProps {
   property: RealEstateAssetDetail;
+  valuationUsage: PropertyValuationUsageStatus;
 }
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -102,7 +104,7 @@ function DetailRow({
   );
 }
 
-export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
+export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailPageProps) {
   const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
   const monthlyAverageExpenses = getMonthlyAverageExpenses(property.expenseItems);
   const annualScheduledExpenses = getAnnualScheduledExpenses(property.expenseItems);
@@ -162,6 +164,7 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
                 {property.address}
               </a>
             </div>
+            <ValuationManager property={property} usage={valuationUsage} />
           </div>
         </CardContent>
       </Card>
@@ -221,17 +224,6 @@ export function PropertyDetailPage({ property }: PropertyDetailPageProps) {
             <PropertyMap property={property} />
             <p className="mt-3 text-sm text-muted-foreground">{property.address}</p>
             <PropertyLocationForm property={property} />
-          </CardContent>
-        </Card>
-      </section>
-
-      <section>
-        <Card className="border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle>Property Valuation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ValuationManager property={property} />
           </CardContent>
         </Card>
       </section>

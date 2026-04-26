@@ -3,9 +3,14 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
+import { normalizePropertyAddress } from "@/lib/addresses";
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { fetchPropertyValuation } from "@/lib/valuations/property-valuation-provider";
+import {
+  getPropertyValuationUsageStatus,
+  recordPropertyValuationUsage
+} from "@/lib/valuations/property-valuation-usage";
 import type {
   ExpenseFrequency,
   RealEstateExpenseCategory,
@@ -110,7 +115,7 @@ function readMapZoom(formData: FormData): number {
 
 function readPropertyPayload(formData: FormData) {
   const name = readText(formData, "name");
-  const address = readText(formData, "address");
+  const address = normalizePropertyAddress(readText(formData, "address"));
 
   if (!name) {
     throw new Error("Property name is required.");
@@ -402,13 +407,35 @@ export async function syncPropertyValuation(
   void _formData;
 
   try {
+    const usageStatus = await getPropertyValuationUsageStatus();
+
+    if (
+      usageStatus.isLiveProvider &&
+      (!usageStatus.isTrackingAvailable || usageStatus.isLimitReached)
+    ) {
+      return errorState(
+        usageStatus.message ??
+          `Monthly live valuation limit reached (${usageStatus.used}/${usageStatus.limit}).`
+      );
+    }
+
     const property = await loadPropertyValuationInput(assetId);
+    const address = normalizePropertyAddress(property.address);
+
+    if (!address) {
+      return errorState("Address is required before syncing property value.");
+    }
+
     const valuation = await fetchPropertyValuation({
       assetId,
-      address: property.address,
+      address,
       purchasePrice: Number(property.purchase_price),
       currentMarketValue: Number(property.current_market_value)
     });
+
+    if (valuation.source === "provider") {
+      await recordPropertyValuationUsage(assetId, valuation.syncedAt);
+    }
 
     await savePropertyValuation(assetId, valuation.value, valuation.syncedAt, valuation.source);
     const supabase = createServerSupabaseClient();
