@@ -4,6 +4,12 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { normalizePropertyAddress } from "@/lib/addresses";
+import {
+  fetchBankTransactions,
+  getTellerConnectionAccounts,
+  type BankTransaction,
+  type BankTransactionProviderName
+} from "@/lib/banking/transaction-provider";
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { fetchPropertyValuation } from "@/lib/valuations/property-valuation-provider";
@@ -12,19 +18,57 @@ import {
   recordPropertyValuationUsage
 } from "@/lib/valuations/property-valuation-usage";
 import type {
-  ExpenseFrequency,
   RealEstateExpenseCategory,
   RealEstateMetricType,
+  RealEstateTransactionClassification,
   ValuationProvider
 } from "@/types/wealth";
 
 const PROPERTY_PHOTO_BUCKET = "property-photos";
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MIN_RENT_CREDIT_REVIEW_AMOUNT = 10;
 
 export interface RealEstateActionState {
   status: "idle" | "success" | "error";
   message: string;
+}
+
+export interface RentTransactionMatch {
+  id: string;
+  connectionId: string;
+  postedAt: string;
+  title: string;
+  memo: string;
+  description: string;
+  amount: number;
+  accountName: string;
+  classification: RealEstateTransactionClassification | null;
+  recordedTransactionId: string | null;
+  amountMatchesTarget: boolean;
+}
+
+export interface RentTransactionMatchState extends RealEstateActionState {
+  provider: string;
+  matchMonth: string;
+  matches: RentTransactionMatch[];
+}
+
+export interface ExpenseTransactionPreview {
+  id: string;
+  connectionId: string;
+  postedAt: string;
+  description: string;
+  amount: number;
+  accountName: string;
+  classification: RealEstateTransactionClassification | null;
+  recordedTransactionId: string | null;
+}
+
+export interface ExpenseTransactionPreviewState extends RealEstateActionState {
+  provider: string;
+  reviewMonth: string;
+  transactions: ExpenseTransactionPreview[];
 }
 
 const successState = (message: string): RealEstateActionState => ({
@@ -113,6 +157,64 @@ function readMapZoom(formData: FormData): number {
   return Math.round(value);
 }
 
+function readMonthStart(formData: FormData, key: string): string {
+  const rawValue = readText(formData, key);
+
+  if (!/^\d{4}-\d{2}$/.test(rawValue)) {
+    throw new Error(`${key} must be a valid month.`);
+  }
+
+  return `${rawValue}-01`;
+}
+
+function readOptionalDate(formData: FormData, key: string): string | null {
+  const value = readText(formData, key);
+
+  if (!value) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${key} must be a valid date.`);
+  }
+
+  return value;
+}
+
+function getMonthRange(monthStart: string): { startDate: string; endDate: string } {
+  const start = new Date(`${monthStart}T00:00:00.000Z`);
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+  const endOfMonth = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+
+  return {
+    startDate: monthStart,
+    endDate: endOfMonth.toISOString().slice(0, 10)
+  };
+}
+
+function transactionMatchesRent(
+  transaction: BankTransaction,
+  expectedAmount: number,
+  tolerance: number
+): boolean {
+  if (transaction.direction !== "credit") {
+    return false;
+  }
+
+  if (Math.abs(transaction.amount - expectedAmount) > tolerance) {
+    return false;
+  }
+
+  return true;
+}
+
+function isReviewableRentCredit(transaction: BankTransaction): boolean {
+  return (
+    transaction.direction === "credit" &&
+    transaction.amount >= MIN_RENT_CREDIT_REVIEW_AMOUNT
+  );
+}
+
 function readPropertyPayload(formData: FormData) {
   const name = readText(formData, "name");
   const address = normalizePropertyAddress(readText(formData, "address"));
@@ -127,6 +229,8 @@ function readPropertyPayload(formData: FormData) {
 
   const now = new Date().toISOString();
   const purchasePrice = readMoney(formData, "purchasePrice");
+  const county = readText(formData, "county") || null;
+  const parcelNumber = readText(formData, "parcelNumber") || null;
 
   return {
     asset: {
@@ -136,15 +240,16 @@ function readPropertyPayload(formData: FormData) {
     },
     property: {
       address,
-      monthly_rent_source: "manual",
+      county,
+      purchased_at: readOptionalDate(formData, "purchasedAt"),
+      parcel_number: parcelNumber,
       purchase_price: purchasePrice,
       remaining_mortgage_balance: readMoney(formData, "remainingMortgageBalance"),
       monthly_rent: readMoney(formData, "monthlyRent"),
       monthly_mortgage: readMoney(formData, "monthlyMortgage"),
-      annual_expenses: readMoney(formData, "annualExpenses"),
-      annual_taxes: readMoney(formData, "annualTaxes"),
-      annual_insurance: readMoney(formData, "annualInsurance"),
-      annual_maintenance: readMoney(formData, "annualMaintenance"),
+      building_cost: readMoney(formData, "buildingCost"),
+      land_cost: readMoney(formData, "landCost"),
+      total_depreciation: readMoney(formData, "totalDepreciation"),
       updated_at: now
     }
   };
@@ -154,6 +259,30 @@ interface PropertyValuationRow {
   address: string;
   current_market_value: string | number;
   purchase_price: string | number;
+}
+
+interface PropertyRentMatchRow {
+  monthly_rent: string | number;
+  rent_match_tolerance: string | number;
+}
+
+interface PropertyBankConnectionRow {
+  id: string;
+  provider: string;
+  access_token: string;
+  account_id: string;
+  account_name: string;
+  status: string;
+}
+
+interface PropertyTransactionClassificationRow {
+  id: string;
+  bank_connection_id: string | null;
+  provider_transaction_id: string;
+  account_id: string;
+  classification: RealEstateTransactionClassification;
+  category: RealEstateExpenseCategory | null;
+  note: string | null;
 }
 
 async function loadPropertyValuationInput(assetId: string): Promise<PropertyValuationRow> {
@@ -169,6 +298,187 @@ async function loadPropertyValuationInput(assetId: string): Promise<PropertyValu
   }
 
   return data as PropertyValuationRow;
+}
+
+async function loadPropertyRentMatchInput(assetId: string): Promise<PropertyRentMatchRow> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_properties")
+    .select(
+      `
+      monthly_rent,
+      rent_match_tolerance
+    `
+    )
+    .eq("asset_id", assetId)
+    .single();
+
+  if (error) {
+    throw new Error(`Could not load rent matching settings: ${error.message}`);
+  }
+
+  return data as PropertyRentMatchRow;
+}
+
+async function loadPropertyBankConnections(
+  assetId: string
+): Promise<PropertyBankConnectionRow[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_bank_connections")
+    .select("id, provider, access_token, account_id, account_name, status")
+    .eq("asset_id", assetId)
+    .eq("status", "active")
+    .order("account_name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Could not load bank connections: ${error.message}`);
+  }
+
+  return (data ?? []) as PropertyBankConnectionRow[];
+}
+
+async function fetchPropertyBankTransactions({
+  assetId,
+  startDate,
+  endDate,
+  expectedRentAmount
+}: {
+  assetId: string;
+  startDate: string;
+  endDate: string;
+  expectedRentAmount?: number;
+}) {
+  const connections = await loadPropertyBankConnections(assetId);
+
+  if (connections.length === 0) {
+    return fetchBankTransactions({
+      startDate,
+      endDate,
+      expectedRentAmount
+    });
+  }
+
+  const transactionGroups = await Promise.all(
+    connections.map((connection) =>
+      fetchBankTransactions({
+        startDate,
+        endDate,
+        expectedRentAmount,
+        tellerAccessToken: connection.access_token,
+        tellerAccountId: connection.account_id,
+        tellerAccountName: connection.account_name,
+        bankConnectionId: connection.id,
+        bankProvider: connection.provider === "teller" ? "teller" : null
+      })
+    )
+  );
+
+  return {
+    provider: transactionGroups.find((group) => group.provider === "teller")?.provider ?? "mock",
+    transactions: transactionGroups.flatMap((group) => group.transactions)
+  };
+}
+
+function getTransactionClassificationKey({
+  connectionId,
+  accountId,
+  transactionId
+}: {
+  connectionId: string | null;
+  accountId: string;
+  transactionId: string;
+}): string {
+  return `${connectionId ?? "mock"}:${accountId}:${transactionId}`;
+}
+
+async function loadPropertyTransactionClassifications({
+  assetId,
+  startDate,
+  endDate
+}: {
+  assetId: string;
+  startDate: string;
+  endDate: string;
+}): Promise<Map<string, PropertyTransactionClassificationRow>> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_property_transactions")
+    .select(
+      `
+      id,
+      bank_connection_id,
+      provider_transaction_id,
+      account_id,
+      classification,
+      category,
+      note
+    `
+    )
+    .eq("asset_id", assetId)
+    .gte("posted_at", startDate)
+    .lte("posted_at", endDate);
+
+  if (error) {
+    throw new Error(`Could not load property transaction ledger: ${error.message}`);
+  }
+
+  const rows = (data ?? []) as PropertyTransactionClassificationRow[];
+
+  return new Map(
+    rows.map((row) => [
+      getTransactionClassificationKey({
+        connectionId: row.bank_connection_id,
+        accountId: row.account_id,
+        transactionId: row.provider_transaction_id
+      }),
+      row
+    ])
+  );
+}
+
+function getLedgerBankConnectionId(transaction: BankTransaction): string | null {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    transaction.connectionId
+  )
+    ? transaction.connectionId
+    : null;
+}
+
+function buildPropertyTransactionLedgerRow({
+  assetId,
+  category,
+  classification,
+  note,
+  provider,
+  transaction,
+  updatedAt
+}: {
+  assetId: string;
+  category: RealEstateExpenseCategory | null;
+  classification: RealEstateTransactionClassification;
+  note: string | null;
+  provider: BankTransactionProviderName;
+  transaction: BankTransaction;
+  updatedAt: string;
+}) {
+  return {
+    asset_id: assetId,
+    bank_connection_id: getLedgerBankConnectionId(transaction),
+    provider,
+    provider_transaction_id: transaction.id,
+    account_id: transaction.accountId,
+    account_name: transaction.accountName,
+    posted_at: transaction.postedAt,
+    description: transaction.description,
+    memo: transaction.memo || null,
+    amount: transaction.amount,
+    direction: transaction.direction,
+    classification,
+    category,
+    note,
+    updated_at: updatedAt
+  };
 }
 
 async function savePropertyValuation(
@@ -224,36 +534,6 @@ function readExpenseCategory(formData: FormData): RealEstateExpenseCategory {
   }
 
   return category;
-}
-
-function readExpenseFrequency(formData: FormData): ExpenseFrequency {
-  const frequency = readText(formData, "frequency") as ExpenseFrequency;
-  const supportedFrequencies: ExpenseFrequency[] = [
-    "monthly",
-    "quarterly",
-    "semiannual",
-    "annual"
-  ];
-
-  if (!supportedFrequencies.includes(frequency)) {
-    throw new Error("Choose a supported expense frequency.");
-  }
-
-  return frequency;
-}
-
-function readPaidMonth(formData: FormData): number | null {
-  const paidMonth = readOptionalNumber(formData, "paidMonth");
-
-  if (paidMonth == null) {
-    return null;
-  }
-
-  if (paidMonth < 1 || paidMonth > 12) {
-    throw new Error("Paid month must be between 1 and 12.");
-  }
-
-  return Math.round(paidMonth);
 }
 
 export async function createRealEstateProperty(
@@ -395,6 +675,543 @@ export async function updatePropertyLocation(
     return successState("Location updated.");
   } catch (error) {
     return errorState(error instanceof Error ? error.message : "Could not update location.");
+  }
+}
+
+export async function updateRentMatchingSettings(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+
+  try {
+    const rentMatchTolerance = readMoney(formData, "rentMatchTolerance");
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+
+    const { data, error } = await supabase
+      .from("real_estate_properties")
+      .update({
+        rent_match_tolerance: rentMatchTolerance,
+        updated_at: now
+      })
+      .eq("asset_id", assetId)
+      .select("asset_id")
+      .single();
+
+    if (error) {
+      return errorState(`Could not update rent matching settings: ${error.message}`);
+    }
+
+    if (!data) {
+      return errorState(
+        "Could not update rent matching settings: no matching property was found."
+      );
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState("Rent matching settings updated.");
+  } catch (error) {
+    return errorState(
+      error instanceof Error ? error.message : "Could not update rent matching settings."
+    );
+  }
+}
+
+export async function connectTellerBank(
+  assetId: string,
+  accessToken: string
+): Promise<RealEstateActionState> {
+  try {
+    const token = accessToken.trim();
+
+    if (!token) {
+      return errorState("Teller access token is missing.");
+    }
+
+    const accounts = await getTellerConnectionAccounts(token);
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const rows = accounts.map((account) => ({
+      asset_id: assetId,
+      provider: "teller",
+      access_token: token,
+      enrollment_id: account.enrollmentId,
+      account_id: account.accountId,
+      account_name: account.accountName,
+      account_type: account.accountType,
+      account_subtype: account.accountSubtype,
+      institution_name: account.institutionName,
+      institution_id: account.institutionId,
+      last_four: account.lastFour,
+      status: "active",
+      connected_at: now,
+      updated_at: now
+    }));
+    const { data, error } = await supabase
+      .from("real_estate_bank_connections")
+      .upsert(rows, {
+        onConflict: "asset_id,provider,account_id"
+      })
+      .select("id, account_name");
+
+    if (error) {
+      return errorState(`Could not save Teller connection: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      return errorState("Could not save Teller connection: no bank accounts were found.");
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState(
+      `${data.length} bank ${data.length === 1 ? "account" : "accounts"} connected.`
+    );
+  } catch (error) {
+    return errorState(error instanceof Error ? error.message : "Could not connect bank.");
+  }
+}
+
+export async function removeBankConnection(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+
+  try {
+    const connectionId = readText(formData, "connectionId");
+
+    if (!connectionId) {
+      return errorState("Choose a bank connection to remove.");
+    }
+
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("real_estate_bank_connections")
+      .delete()
+      .eq("id", connectionId)
+      .eq("asset_id", assetId)
+      .select("id, account_name");
+
+    if (error) {
+      return errorState(`Could not remove bank connection: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      return errorState("Could not remove bank connection: no matching account was found.");
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState("Bank connection removed.");
+  } catch (error) {
+    return errorState(
+      error instanceof Error ? error.message : "Could not remove bank connection."
+    );
+  }
+}
+
+export async function previewRentTransactionMatches(
+  assetId: string,
+  _previousState: RentTransactionMatchState,
+  formData: FormData
+): Promise<RentTransactionMatchState> {
+  void _previousState;
+
+  try {
+    const matchMonth = readMonthStart(formData, "matchMonth");
+    const property = await loadPropertyRentMatchInput(assetId);
+    const expectedAmount = Number(property.monthly_rent);
+    const tolerance = Number(property.rent_match_tolerance);
+
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+      return {
+        status: "error",
+        message: "Monthly rent must be greater than zero before matching transactions.",
+        provider: "",
+        matchMonth: matchMonth.slice(0, 7),
+        matches: []
+      };
+    }
+
+    if (!Number.isFinite(tolerance) || tolerance < 0) {
+      return {
+        status: "error",
+        message: "Rent matching tolerance must be zero or greater.",
+        provider: "",
+        matchMonth: matchMonth.slice(0, 7),
+        matches: []
+      };
+    }
+
+    const { startDate, endDate } = getMonthRange(matchMonth);
+    const [result, classifications] = await Promise.all([
+      fetchPropertyBankTransactions({
+        assetId,
+        startDate,
+        endDate,
+        expectedRentAmount: expectedAmount
+      }),
+      loadPropertyTransactionClassifications({
+        assetId,
+        startDate,
+        endDate
+      })
+    ]);
+    const reviewableCredits = result.transactions
+      .filter(isReviewableRentCredit)
+      .sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+    const autoMatchedCredits = reviewableCredits.filter((transaction) => {
+      const classification = classifications.get(
+        getTransactionClassificationKey({
+          connectionId: getLedgerBankConnectionId(transaction),
+          accountId: transaction.accountId,
+          transactionId: transaction.id
+        })
+      );
+
+      return (
+        !classification &&
+        transactionMatchesRent(transaction, expectedAmount, tolerance)
+      );
+    });
+
+    if (autoMatchedCredits.length > 0) {
+      const now = new Date().toISOString();
+      const supabase = createServerSupabaseClient();
+      const { error } = await supabase.from("real_estate_property_transactions").upsert(
+        autoMatchedCredits.map((transaction) =>
+          buildPropertyTransactionLedgerRow({
+            assetId,
+            category: null,
+            classification: "rental_income",
+            note: "Auto matched by target rent amount.",
+            provider: result.provider,
+            transaction,
+            updatedAt: now
+          })
+        ),
+        {
+          onConflict: "asset_id,provider,account_id,provider_transaction_id"
+        }
+      );
+
+      if (error) {
+        return {
+          status: "error",
+          message: `Could not auto-record rental income: ${error.message}`,
+          provider: result.provider,
+          matchMonth: matchMonth.slice(0, 7),
+          matches: []
+        };
+      }
+
+      revalidatePropertyPages(assetId);
+    }
+
+    const updatedClassifications =
+      autoMatchedCredits.length > 0
+        ? await loadPropertyTransactionClassifications({
+            assetId,
+            startDate,
+            endDate
+          })
+        : classifications;
+    const matches = reviewableCredits
+      .filter((transaction) =>
+        isReviewableRentCredit(transaction)
+      )
+      .map((transaction) => ({
+        id: transaction.id,
+        connectionId: transaction.connectionId,
+        postedAt: transaction.postedAt,
+        title: transaction.title,
+        memo: transaction.memo,
+        description: transaction.description,
+        amount: transaction.amount,
+        accountName: transaction.accountName,
+        classification:
+          updatedClassifications.get(
+            getTransactionClassificationKey({
+              connectionId: getLedgerBankConnectionId(transaction),
+              accountId: transaction.accountId,
+              transactionId: transaction.id
+            })
+          )?.classification ?? null,
+        recordedTransactionId:
+          updatedClassifications.get(
+            getTransactionClassificationKey({
+              connectionId: getLedgerBankConnectionId(transaction),
+              accountId: transaction.accountId,
+              transactionId: transaction.id
+            })
+          )?.id ?? null,
+        amountMatchesTarget: transactionMatchesRent(transaction, expectedAmount, tolerance)
+      }));
+    const unreviewedCount = matches.filter((match) => !match.classification).length;
+    const messageParts = [
+      autoMatchedCredits.length > 0
+        ? `${autoMatchedCredits.length} rental income ${autoMatchedCredits.length === 1 ? "credit was" : "credits were"} auto-recorded.`
+        : "",
+      unreviewedCount > 0
+        ? `${unreviewedCount} credit ${unreviewedCount === 1 ? "needs" : "need"} review.`
+        : "",
+      matches.length > 0 && unreviewedCount === 0 && autoMatchedCredits.length === 0
+        ? "All reviewed credits are already classified."
+        : "",
+      matches.length === 0 ? "No credit transactions over $10 found." : ""
+    ].filter(Boolean);
+
+    return {
+      status: "success",
+      message: messageParts.join(" "),
+      provider: result.provider,
+      matchMonth: matchMonth.slice(0, 7),
+      matches
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof Error ? error.message : "Could not preview rent transaction matches.",
+      provider: "",
+      matchMonth: "",
+      matches: []
+    };
+  }
+}
+
+export async function classifyRentCreditTransaction(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+
+  try {
+    const transactionId = readText(formData, "transactionId");
+    const connectionId = readText(formData, "connectionId");
+    const matchMonth = readMonthStart(formData, "matchMonth");
+    const classification = readText(formData, "classification");
+
+    if (!transactionId || !connectionId) {
+      return errorState("Choose a credit to classify.");
+    }
+
+    if (classification !== "rental_income" && classification !== "ignored") {
+      return errorState("Choose whether this credit is rental income or not rental income.");
+    }
+
+    const { startDate, endDate } = getMonthRange(matchMonth);
+    const result = await fetchPropertyBankTransactions({
+      assetId,
+      startDate,
+      endDate
+    });
+    const matchedTransaction = result.transactions.find(
+      (transaction) =>
+        transaction.id === transactionId &&
+        transaction.connectionId === connectionId &&
+        isReviewableRentCredit(transaction)
+    );
+
+    if (!matchedTransaction) {
+      return errorState("That credit transaction could not be found.");
+    }
+
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase.from("real_estate_property_transactions").upsert(
+      buildPropertyTransactionLedgerRow({
+        assetId,
+        category: null,
+        classification,
+        note:
+          classification === "rental_income"
+            ? "Marked as rental income."
+            : "Marked as not rental income.",
+        provider: result.provider,
+        transaction: matchedTransaction,
+        updatedAt: now
+      }),
+      {
+        onConflict: "asset_id,provider,account_id,provider_transaction_id"
+      }
+    );
+
+    if (error) {
+      return errorState(`Could not save rent credit: ${error.message}`);
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState(
+      classification === "rental_income"
+        ? "Rental income recorded."
+        : "Credit marked as not rental income."
+    );
+  } catch (error) {
+    return errorState(
+      error instanceof Error ? error.message : "Could not classify rent credit."
+    );
+  }
+}
+
+export async function previewExpenseTransactions(
+  assetId: string,
+  _previousState: ExpenseTransactionPreviewState,
+  formData: FormData
+): Promise<ExpenseTransactionPreviewState> {
+  void _previousState;
+
+  try {
+    const reviewMonth = readMonthStart(formData, "reviewMonth");
+    const { startDate, endDate } = getMonthRange(reviewMonth);
+    const [result, classifications] = await Promise.all([
+      fetchPropertyBankTransactions({
+        assetId,
+        startDate,
+        endDate
+      }),
+      loadPropertyTransactionClassifications({
+        assetId,
+        startDate,
+        endDate
+      })
+    ]);
+    const transactions = result.transactions
+      .filter((transaction) => transaction.direction === "debit")
+      .sort((a, b) => b.postedAt.localeCompare(a.postedAt))
+      .flatMap((transaction) => {
+        const classification = classifications.get(
+          getTransactionClassificationKey({
+            connectionId: getLedgerBankConnectionId(transaction),
+            accountId: transaction.accountId,
+            transactionId: transaction.id
+          })
+        );
+
+        if (classification) {
+          return [];
+        }
+
+        return [
+          {
+            id: transaction.id,
+            connectionId: transaction.connectionId,
+            postedAt: transaction.postedAt,
+            description: transaction.description,
+            amount: transaction.amount,
+            accountName: transaction.accountName,
+            classification: null,
+            recordedTransactionId: null
+          }
+        ];
+      });
+
+    return {
+      status: "success",
+      message:
+        transactions.length > 0
+          ? `${transactions.length} expense ${transactions.length === 1 ? "transaction" : "transactions"} found.`
+          : "No unclassified expense transactions found.",
+      provider: result.provider,
+      reviewMonth: reviewMonth.slice(0, 7),
+      transactions
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Could not preview expenses.",
+      provider: "",
+      reviewMonth: "",
+      transactions: []
+    };
+  }
+}
+
+function readTransactionClassification(formData: FormData): RealEstateTransactionClassification {
+  const classification = readText(
+    formData,
+    "classification"
+  ) as RealEstateTransactionClassification;
+
+  if (classification !== "expense" && classification !== "ignored") {
+    throw new Error("Choose whether this transaction is an expense or ignored.");
+  }
+
+  return classification;
+}
+
+export async function classifyPropertyTransaction(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+
+  try {
+    const transactionId = readText(formData, "transactionId");
+    const connectionId = readText(formData, "connectionId");
+    const reviewMonth = readMonthStart(formData, "reviewMonth");
+    const classification = readTransactionClassification(formData);
+    const category = classification === "expense" ? readExpenseCategory(formData) : null;
+    const note = readText(formData, "note") || null;
+
+    if (!transactionId || !connectionId) {
+      return errorState("Choose a transaction to classify.");
+    }
+
+    const { startDate, endDate } = getMonthRange(reviewMonth);
+    const result = await fetchPropertyBankTransactions({
+      assetId,
+      startDate,
+      endDate
+    });
+    const transaction = result.transactions.find(
+      (item) => item.id === transactionId && item.connectionId === connectionId
+    );
+
+    if (!transaction || transaction.direction !== "debit") {
+      return errorState("That expense transaction could not be found.");
+    }
+
+    const provider: BankTransactionProviderName = result.provider;
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase.from("real_estate_property_transactions").upsert(
+      {
+        asset_id: assetId,
+        bank_connection_id: getLedgerBankConnectionId(transaction),
+        provider,
+        provider_transaction_id: transaction.id,
+        account_id: transaction.accountId,
+        account_name: transaction.accountName,
+        posted_at: transaction.postedAt,
+        description: transaction.description,
+        memo: transaction.memo || null,
+        amount: transaction.amount,
+        direction: transaction.direction,
+        classification,
+        category,
+        note,
+        updated_at: now
+      },
+      {
+        onConflict: "asset_id,provider,account_id,provider_transaction_id"
+      }
+    );
+
+    if (error) {
+      return errorState(`Could not save transaction: ${error.message}`);
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState(
+      classification === "expense" ? "Expense recorded." : "Transaction ignored."
+    );
+  } catch (error) {
+    return errorState(error instanceof Error ? error.message : "Could not classify transaction.");
   }
 }
 
@@ -663,57 +1480,23 @@ export async function deleteMetricSnapshot(formData: FormData) {
   revalidatePropertyPages(assetId);
 }
 
-export async function addExpenseItem(
-  assetId: string,
-  _previousState: RealEstateActionState,
-  formData: FormData
-): Promise<RealEstateActionState> {
-  try {
-    const name = readText(formData, "name");
-    const note = readText(formData, "note") || null;
-
-    if (!name) {
-      throw new Error("Expense name is required.");
-    }
-
-    const supabase = createServerSupabaseClient();
-    const { error } = await supabase.from("real_estate_expense_items").insert({
-      asset_id: assetId,
-      name,
-      category: readExpenseCategory(formData),
-      amount: readMoney(formData, "amount"),
-      frequency: readExpenseFrequency(formData),
-      paid_month: readPaidMonth(formData),
-      note
-    });
-
-    if (error) {
-      return errorState(`Could not save expense: ${error.message}`);
-    }
-
-    revalidatePropertyPages(assetId);
-    return successState("Expense saved.");
-  } catch (error) {
-    return errorState(error instanceof Error ? error.message : "Could not save expense.");
-  }
-}
-
-export async function deleteExpenseItem(formData: FormData) {
+export async function deletePropertyTransaction(formData: FormData) {
   const assetId = readText(formData, "assetId");
-  const expenseId = readText(formData, "expenseId");
+  const transactionId = readText(formData, "transactionId");
 
-  if (!assetId || !expenseId) {
-    throw new Error("Missing expense information.");
+  if (!assetId || !transactionId) {
+    throw new Error("Missing transaction information.");
   }
 
   const supabase = createServerSupabaseClient();
   const { error } = await supabase
-    .from("real_estate_expense_items")
+    .from("real_estate_property_transactions")
     .delete()
-    .eq("id", expenseId);
+    .eq("asset_id", assetId)
+    .eq("id", transactionId);
 
   if (error) {
-    throw new Error(`Could not delete expense: ${error.message}`);
+    throw new Error(`Could not delete transaction: ${error.message}`);
   }
 
   revalidatePropertyPages(assetId);

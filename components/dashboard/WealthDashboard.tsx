@@ -26,6 +26,7 @@ import {
   calculatePropertyEquity,
   calculateTotalNetWorth
 } from "@/lib/calculations";
+import { getRecordedExpensesForMonth } from "@/lib/real-estate-expenses";
 import type { Asset, AssetType, RealEstateAsset } from "@/types/wealth";
 
 interface WealthDashboardProps {
@@ -364,11 +365,11 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                       { label: "Equity", value: formatCurrency(equity) },
                       { label: "Monthly rent", value: formatCurrency(property.monthlyRent) },
                       { label: "Mortgage", value: formatCurrency(property.monthlyMortgage) },
-                      { label: "Taxes", value: formatCurrency(property.annualTaxes / 12) },
-                      { label: "Insurance", value: formatCurrency(property.annualInsurance / 12) },
                       {
-                        label: "Maintenance",
-                        value: formatCurrency(property.annualMaintenance / 12)
+                        label: "Current month expenses",
+                        value: formatCurrency(
+                          getRecordedExpensesForMonth(property.propertyTransactions)
+                        )
                       },
                       {
                         label: "Net cash flow",

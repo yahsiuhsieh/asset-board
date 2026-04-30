@@ -1,10 +1,27 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Landmark, Plus, TrendingUp, Wallet } from "lucide-react";
+import {
+  ArrowRight,
+  BadgePercent,
+  Banknote,
+  Building2,
+  CheckCircle2,
+  Landmark,
+  Plus,
+  ReceiptText,
+  TrendingUp,
+  Wallet
+} from "lucide-react";
 
 import { RealEstatePropertyForm } from "@/components/dashboard/RealEstatePropertyForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { calculateMonthlyNetCashFlow, calculatePropertyEquity } from "@/lib/calculations";
+import {
+  calculateAnnualNOI,
+  calculateMonthlyNetCashFlow,
+  calculateMonthlyNOI,
+  calculatePropertyEquity
+} from "@/lib/calculations";
 import { getExternalMapUrl } from "@/lib/maps";
+import { getRentalIncomeForMonth } from "@/lib/real-estate-rent";
 import type { RealEstateAssetDetail } from "@/types/wealth";
 import { PropertyImage } from "./PropertyImage";
 import { PropertyMap } from "./PropertyMap";
@@ -19,12 +36,29 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0
 });
 
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 1
+});
+
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
+function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0%";
+  }
+
+  return percentFormatter.format(value);
+}
+
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function getCurrentMonthRentCollected(property: RealEstateAssetDetail): number {
+  return getRentalIncomeForMonth(property.propertyTransactions);
 }
 
 function MetricTile({
@@ -70,6 +104,16 @@ export function RealEstateListPage({ properties }: RealEstateListPageProps) {
     properties.map((property) => property.remainingMortgageBalance)
   );
   const cashFlow = sum(properties.map(calculateMonthlyNetCashFlow));
+  const monthlyRent = sum(properties.map((property) => property.monthlyRent));
+  const monthlyNOI = sum(properties.map(calculateMonthlyNOI));
+  const annualNOI = sum(properties.map(calculateAnnualNOI));
+  const portfolioCapRate = portfolioValue > 0 ? annualNOI / portfolioValue : 0;
+  const rentCollected = sum(properties.map(getCurrentMonthRentCollected));
+  const collectionRate = monthlyRent > 0 ? rentCollected / monthlyRent : 0;
+  const pendingRentCount = properties.filter(
+    (property) =>
+      property.monthlyRent > 0 && getCurrentMonthRentCollected(property) < property.monthlyRent
+  ).length;
 
   return (
     <div className="grid gap-5">
@@ -114,6 +158,72 @@ export function RealEstateListPage({ properties }: RealEstateListPageProps) {
           tone={cashFlow >= 0 ? "positive" : "negative"}
           value={formatCurrency(cashFlow)}
         />
+      </section>
+
+      <section>
+        <Card className="border-slate-200 bg-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <ReceiptText className="h-5 w-5 text-primary" />
+              Portfolio Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-md border border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Monthly Rent
+                </p>
+                <Banknote className="h-5 w-5 text-primary" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tracking-tight">
+                {formatCurrency(monthlyRent)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Monthly Net Operating Income
+                </p>
+                <TrendingUp className="h-5 w-5 text-primary" />
+              </div>
+              <p
+                className={
+                  monthlyNOI >= 0
+                    ? "mt-3 text-2xl font-semibold tracking-tight text-emerald-600"
+                    : "mt-3 text-2xl font-semibold tracking-tight text-red-600"
+                }
+              >
+                {formatCurrency(monthlyNOI)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Portfolio Cap Rate
+                </p>
+                <BadgePercent className="h-5 w-5 text-primary" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tracking-tight">
+                {formatPercent(portfolioCapRate)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Rent Collected This Month
+                </p>
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tracking-tight">
+                {formatCurrency(rentCollected)}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                {formatPercent(collectionRate)} collected · {pendingRentCount} pending
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">

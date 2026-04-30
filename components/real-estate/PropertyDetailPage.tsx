@@ -4,8 +4,8 @@ import {
   Camera,
   ChartNoAxesCombined,
   Home,
+  Info,
   MapPin,
-  Pencil,
   Star,
   Trash2,
   TrendingUp,
@@ -13,31 +13,35 @@ import {
 } from "lucide-react";
 
 import {
-  deleteMetricSnapshot,
   deletePropertyPhoto,
   setCoverPhoto
 } from "@/app/actions/real-estate";
-import { RealEstatePropertyForm } from "@/components/dashboard/RealEstatePropertyForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  calculateAnnualNOI,
+  calculateCapRate,
+  calculateExpenseRatio,
   calculateMonthlyNetCashFlow,
+  calculateMonthlyNOI,
+  getYtdAverageMonthlyOperatingExpenses,
   calculatePropertyEquity
 } from "@/lib/calculations";
-import {
-  getAnnualScheduledExpenses,
-  getMonthlyAverageExpenses
-} from "@/lib/real-estate-expenses";
+import { getRecordedExpensesForMonth } from "@/lib/real-estate-expenses";
 import { getExternalMapUrl } from "@/lib/maps";
-import { snapshotMetricLabels } from "@/lib/real-estate-history";
 import type { PropertyValuationUsageStatus } from "@/lib/valuations/property-valuation-usage";
 import type { RealEstateAssetDetail } from "@/types/wealth";
-import { ExpenseScheduleManager } from "./ExpenseScheduleManager";
+import { BankConnectionDialog } from "./BankConnectionDialog";
+import { EditPropertyDialog } from "./EditPropertyDialog";
+import { ExpenseTransactionManager } from "./ExpenseTransactionManager";
 import { PhotoUploadForm } from "./PhotoUploadForm";
 import { PropertyHistoryCharts } from "./PropertyHistoryCharts";
 import { PropertyImage } from "./PropertyImage";
+import { PropertyInfoPopover } from "./PropertyInfoPopover";
 import { PropertyLocationForm } from "./PropertyLocationForm";
 import { PropertyMap } from "./PropertyMap";
-import { SnapshotForm } from "./SnapshotForm";
+import { RentCollectionManager } from "./RentCollectionManager";
+import { RentMatchingSettingsForm } from "./RentMatchingSettingsForm";
+import { RentTransactionMatchPreview } from "./RentTransactionMatchPreview";
 import { ValuationManager } from "./ValuationManager";
 
 interface PropertyDetailPageProps {
@@ -51,8 +55,21 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0
 });
 
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 1
+});
+
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
+}
+
+function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0%";
+  }
+
+  return percentFormatter.format(value);
 }
 
 function MetricTile({
@@ -90,27 +107,66 @@ function MetricTile({
 }
 
 function DetailRow({
+  description,
   label,
   value
 }: {
+  description?: string;
   label: string;
   value: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 text-sm last:border-0">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+        {label}
+        {description ? (
+          <span className="group relative inline-flex">
+            <button
+              aria-label={`${label} info`}
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title={description}
+              type="button"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+            <span className="pointer-events-none invisible absolute left-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium leading-relaxed text-slate-600 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+              {description}
+            </span>
+          </span>
+        ) : null}
+      </span>
       <span className="font-semibold">{value}</span>
     </div>
   );
 }
 
+function getTellerEnvironment(): string {
+  const environment = process.env.TELLER_ENVIRONMENT?.trim().toLowerCase();
+
+  if (
+    environment === "sandbox" ||
+    environment === "development" ||
+    environment === "production"
+  ) {
+    return environment;
+  }
+
+  return "sandbox";
+}
+
 export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailPageProps) {
   const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
-  const monthlyAverageExpenses = getMonthlyAverageExpenses(property.expenseItems);
-  const annualScheduledExpenses = getAnnualScheduledExpenses(property.expenseItems);
+  const currentMonthExpenses = getRecordedExpensesForMonth(property.propertyTransactions);
+  const ytdAverageMonthlyExpenses = getYtdAverageMonthlyOperatingExpenses(property);
   const netCashFlow = calculateMonthlyNetCashFlow(property);
+  const monthlyNOI = calculateMonthlyNOI(property);
+  const annualNOI = calculateAnnualNOI(property);
+  const capRate = calculateCapRate(property);
+  const expenseRatio = calculateExpenseRatio(property);
   const equity = calculatePropertyEquity(property);
   const externalMapUrl = getExternalMapUrl(property.address);
+  const tellerApplicationId = process.env.TELLER_APPLICATION_ID?.trim() ?? "";
+  const tellerEnvironment = getTellerEnvironment();
 
   return (
     <div className="grid gap-5">
@@ -132,7 +188,7 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
         </div>
       </section>
 
-      <Card className="overflow-hidden border-slate-200 bg-white">
+      <Card className="border-slate-200 bg-white">
         <CardContent className="p-4 md:p-6">
           <div className="relative">
             <PropertyImage
@@ -153,7 +209,16 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
 
           <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">{property.name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-semibold tracking-tight">{property.name}</h2>
+                <EditPropertyDialog property={property} />
+                <PropertyInfoPopover property={property} />
+                <BankConnectionDialog
+                  applicationId={tellerApplicationId}
+                  environment={tellerEnvironment}
+                  property={property}
+                />
+              </div>
               <a
                 className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
                 href={externalMapUrl}
@@ -189,33 +254,142 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
         />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+      <section>
         <Card className="border-slate-200 bg-white">
           <CardHeader>
-            <CardTitle>Financial Summary</CardTitle>
+            <CardTitle>Performance Trends</CardTitle>
           </CardHeader>
-          <CardContent>
-            <DetailRow label="Purchase price" value={formatCurrency(property.purchasePrice)} />
-            <DetailRow
-              label="Current value"
-              value={formatCurrency(property.currentMarketValue)}
-            />
-            <DetailRow
-              label="Mortgage balance"
-              value={formatCurrency(property.remainingMortgageBalance)}
-            />
-            <DetailRow label="Equity" value={formatCurrency(equity)} />
-            <DetailRow
-              label="Monthly rent"
-              value={formatCurrency(property.monthlyRent)}
-            />
-            <DetailRow
-              label="Monthly mortgage"
-              value={formatCurrency(property.monthlyMortgage)}
+          <CardContent className="grid gap-5">
+            <PropertyHistoryCharts
+              property={property}
+              snapshots={property.snapshots}
+              transactions={property.propertyTransactions}
             />
           </CardContent>
         </Card>
+      </section>
 
+      <section>
+        <Card className="border-slate-200 bg-white">
+          <CardHeader>
+            <CardTitle>Monthly Review</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+              <div className="grid gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
+                <h3 className="text-sm font-semibold text-slate-900">Rent Collection</h3>
+                <RentCollectionManager property={property} />
+                <RentMatchingSettingsForm property={property} />
+                <RentTransactionMatchPreview property={property} />
+              </div>
+
+              <div className="grid gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Expense Transactions
+                </h3>
+                <ExpenseTransactionManager property={property} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="border-slate-200 bg-white">
+          <CardHeader>
+            <CardTitle>Financial Details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-6 xl:grid-cols-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Performance</h3>
+              <div className="mt-2">
+                <DetailRow
+                  description="Monthly rental income minus operating expenses, before debt service."
+                  label="Monthly net operating income"
+                  value={formatCurrency(monthlyNOI)}
+                />
+                <DetailRow
+                  description="Rental income minus average monthly operating expenses, annualized."
+                  label="Annual net operating income"
+                  value={formatCurrency(annualNOI)}
+                />
+                <DetailRow
+                  description="Annual NOI divided by the current property value."
+                  label="Cap rate"
+                  value={formatPercent(capRate)}
+                />
+                <DetailRow
+                  description="Average monthly operating expenses as a percentage of rental income."
+                  label="Expense ratio"
+                  value={formatPercent(expenseRatio)}
+                />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Value & Debt</h3>
+              <div className="mt-2">
+                <DetailRow
+                  description="Original amount paid for the property."
+                  label="Purchase price"
+                  value={formatCurrency(property.purchasePrice)}
+                />
+                <DetailRow
+                  description="Latest stored market value for this property."
+                  label="Current value"
+                  value={formatCurrency(property.currentMarketValue)}
+                />
+                <DetailRow
+                  description="Remaining unpaid loan balance on the property."
+                  label="Mortgage balance"
+                  value={formatCurrency(property.remainingMortgageBalance)}
+                />
+                <DetailRow
+                  description="Expected monthly mortgage payment for this property."
+                  label="Monthly mortgage"
+                  value={formatCurrency(property.monthlyMortgage)}
+                />
+                <DetailRow
+                  description="Current value minus the remaining mortgage balance."
+                  label="Equity"
+                  value={formatCurrency(equity)}
+                />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Monthly Financials</h3>
+              <div className="mt-2">
+                <DetailRow
+                  description="Target monthly rent amount for this property."
+                  label="Monthly rent"
+                  value={formatCurrency(property.monthlyRent)}
+                />
+                <DetailRow
+                  description="Expected monthly mortgage payment for this property."
+                  label="Monthly mortgage"
+                  value={formatCurrency(property.monthlyMortgage)}
+                />
+                <DetailRow
+                  description="Full actual expense transactions posted in the current month."
+                  label="Current month expenses"
+                  value={formatCurrency(currentMonthExpenses)}
+                />
+                <DetailRow
+                  description="All actual expenses from January through this month divided by elapsed months this year."
+                  label="YTD average monthly expenses"
+                  value={formatCurrency(ytdAverageMonthlyExpenses)}
+                />
+                <DetailRow
+                  description="Rent minus mortgage and operating expenses for the month."
+                  label="Net cash flow"
+                  value={formatCurrency(netCashFlow)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
         <Card className="border-slate-200 bg-white">
           <CardHeader>
             <CardTitle>Property Location</CardTitle>
@@ -224,89 +398,6 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
             <PropertyMap property={property} />
             <p className="mt-3 text-sm text-muted-foreground">{property.address}</p>
             <PropertyLocationForm property={property} />
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle>Monthly Cost Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DetailRow
-              label="Monthly mortgage"
-              value={formatCurrency(property.monthlyMortgage)}
-            />
-            <DetailRow
-              label="Scheduled expenses average"
-              value={formatCurrency(monthlyAverageExpenses)}
-            />
-            <DetailRow
-              label="Annual scheduled expenses"
-              value={formatCurrency(annualScheduledExpenses)}
-            />
-            <DetailRow
-              label="Net cash flow"
-              value={formatCurrency(netCashFlow)}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle>Expense Schedules</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ExpenseScheduleManager assetId={property.id} expenses={property.expenseItems} />
-          </CardContent>
-        </Card>
-      </section>
-
-      <section>
-        <Card className="border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle>Timeline Charts</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5">
-            <SnapshotForm assetId={property.id} />
-            <PropertyHistoryCharts snapshots={property.snapshots} />
-            <div className="overflow-hidden rounded-md border border-slate-200">
-              {property.snapshots.length > 0 ? (
-                property.snapshots.map((snapshot) => (
-                  <div
-                    className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[1fr_auto_auto_auto]"
-                    key={snapshot.id}
-                  >
-                    <div>
-                      <p className="font-semibold">
-                        {snapshotMetricLabels[snapshot.metricType]}
-                      </p>
-                      {snapshot.note ? (
-                        <p className="mt-1 text-muted-foreground">{snapshot.note}</p>
-                      ) : null}
-                    </div>
-                    <p className="font-semibold">{formatCurrency(snapshot.value)}</p>
-                    <p className="text-muted-foreground">{snapshot.recordedAt}</p>
-                    <form action={deleteMetricSnapshot}>
-                      <input name="assetId" type="hidden" value={property.id} />
-                      <input name="snapshotId" type="hidden" value={snapshot.id} />
-                      <button
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
-                        type="submit"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                ))
-              ) : (
-                <div className="p-4 text-sm font-semibold text-muted-foreground">
-                  No snapshots yet.
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
       </section>
@@ -377,20 +468,6 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section>
-        <Card className="border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Pencil className="h-5 w-5" />
-              Edit Property
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RealEstatePropertyForm mode="edit" property={property} />
           </CardContent>
         </Card>
       </section>

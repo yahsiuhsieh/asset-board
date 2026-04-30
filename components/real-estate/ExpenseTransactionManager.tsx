@@ -1,0 +1,398 @@
+"use client";
+
+import { useActionState, useCallback, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
+import {
+  Ban,
+  CheckCircle2,
+  ChevronDown,
+  Search,
+  Trash2
+} from "lucide-react";
+
+import {
+  classifyPropertyTransaction,
+  deletePropertyTransaction,
+  previewExpenseTransactions,
+  type ExpenseTransactionPreview,
+  type ExpenseTransactionPreviewState,
+  type RealEstateActionState
+} from "@/app/actions/real-estate";
+import { Button } from "@/components/ui/button";
+import {
+  expenseCategoryLabels,
+  getCurrentMonth,
+  getExpenseTransactionsForMonth,
+  getRecordedExpensesForMonth
+} from "@/lib/real-estate-expenses";
+import { cn } from "@/lib/utils";
+import type {
+  RealEstateAssetDetail,
+  RealEstateExpenseCategory,
+  RealEstatePropertyTransaction
+} from "@/types/wealth";
+
+const initialPreviewState: ExpenseTransactionPreviewState = {
+  status: "idle",
+  message: "",
+  provider: "",
+  reviewMonth: "",
+  transactions: []
+};
+
+const initialActionState: RealEstateActionState = {
+  status: "idle",
+  message: ""
+};
+
+const categoryOptions: RealEstateExpenseCategory[] = [
+  "taxes",
+  "insurance",
+  "maintenance",
+  "hoa",
+  "utilities",
+  "other"
+];
+
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0
+});
+
+function formatCurrency(value: number): string {
+  return currencyFormatter.format(value);
+}
+
+function PreviewButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button disabled={pending} type="submit" variant="secondary">
+      <Search className="h-4 w-4" />
+      {pending ? "Finding" : "Find Transactions"}
+    </Button>
+  );
+}
+
+function RecordExpenseButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button disabled={pending} size="sm" type="submit">
+      <CheckCircle2 className="h-4 w-4" />
+      {pending ? "Recording" : "Record Expense"}
+    </Button>
+  );
+}
+
+function IgnoreButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button disabled={pending} size="sm" type="submit" variant="secondary">
+      <Ban className="h-4 w-4" />
+      {pending ? "Ignoring" : "Ignore"}
+    </Button>
+  );
+}
+
+function getPreviewTransactionKey(transaction: ExpenseTransactionPreview): string {
+  return `${transaction.connectionId}:${transaction.id}`;
+}
+
+function ExpenseTransactionActions({
+  onClassified,
+  propertyId,
+  reviewMonth,
+  transaction,
+  transactionKey
+}: {
+  onClassified: (transactionKey: string) => void;
+  propertyId: string;
+  reviewMonth: string;
+  transaction: ExpenseTransactionPreview;
+  transactionKey: string;
+}) {
+  const router = useRouter();
+  const [expenseState, expenseAction] = useActionState(
+    classifyPropertyTransaction.bind(null, propertyId),
+    initialActionState
+  );
+  const [ignoreState, ignoreAction] = useActionState(
+    classifyPropertyTransaction.bind(null, propertyId),
+    initialActionState
+  );
+  const state = expenseState.message ? expenseState : ignoreState;
+
+  useEffect(() => {
+    if (expenseState.status === "success" || ignoreState.status === "success") {
+      onClassified(transactionKey);
+      router.refresh();
+    }
+  }, [
+    expenseState.status,
+    ignoreState.status,
+    onClassified,
+    router,
+    transactionKey
+  ]);
+
+  if (transaction.classification) {
+    return (
+      <div className="w-fit justify-self-start rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
+        {transaction.classification === "expense" ? "Recorded expense" : "Ignored"}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid w-full min-w-0 gap-2 justify-items-start lg:justify-items-end">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+        <form action={expenseAction} className="contents">
+          <input name="transactionId" type="hidden" value={transaction.id} />
+          <input name="connectionId" type="hidden" value={transaction.connectionId} />
+          <input name="reviewMonth" type="hidden" value={reviewMonth} />
+          <input name="classification" type="hidden" value="expense" />
+          <select
+            className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            defaultValue="other"
+            name="category"
+          >
+            {categoryOptions.map((category) => (
+              <option key={category} value={category}>
+                {expenseCategoryLabels[category]}
+              </option>
+            ))}
+          </select>
+          <RecordExpenseButton />
+        </form>
+        <form action={ignoreAction}>
+          <input name="transactionId" type="hidden" value={transaction.id} />
+          <input name="connectionId" type="hidden" value={transaction.connectionId} />
+          <input name="reviewMonth" type="hidden" value={reviewMonth} />
+          <input name="classification" type="hidden" value="ignored" />
+          <IgnoreButton />
+        </form>
+      </div>
+      {state.message ? (
+        <p
+          className={cn(
+            "max-w-full text-xs font-semibold",
+            state.status === "error" ? "text-red-600" : "text-emerald-600"
+          )}
+        >
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ClassifiedTransactionList({
+  assetId,
+  transactions
+}: {
+  assetId: string;
+  transactions: RealEstatePropertyTransaction[];
+}) {
+  if (transactions.length === 0) {
+    return (
+      <div className="rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
+        No classified transactions this month.
+      </div>
+    );
+  }
+
+  return (
+    <details className="group overflow-hidden rounded-md border border-slate-200">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        <span>Classified This Month ({transactions.length})</span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-slate-100">
+        {transactions.map((transaction) => (
+          <div
+            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+            key={transaction.id}
+          >
+            <div className="min-w-0">
+              <p className="break-words font-semibold">{transaction.description}</p>
+              <p className="mt-1 font-medium text-muted-foreground">
+                {transaction.accountName} · {transaction.postedAt}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {transaction.classification === "expense" && transaction.category
+                  ? expenseCategoryLabels[transaction.category]
+                  : "Ignored"}
+              </p>
+            </div>
+            <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
+              {formatCurrency(transaction.amount)}
+            </p>
+            <form
+              action={deletePropertyTransaction}
+              className="md:col-start-3 md:justify-self-end"
+            >
+              <input name="assetId" type="hidden" value={assetId} />
+              <input name="transactionId" type="hidden" value={transaction.id} />
+              <button
+                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
+                type="submit"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove
+              </button>
+            </form>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+export function ExpenseTransactionManager({
+  property
+}: {
+  property: RealEstateAssetDetail;
+}) {
+  const currentMonth = getCurrentMonth();
+  const [state, formAction] = useActionState(
+    previewExpenseTransactions.bind(null, property.id),
+    initialPreviewState
+  );
+  const [hiddenPreviewTransactionKeys, setHiddenPreviewTransactionKeys] = useState<
+    Set<string>
+  >(new Set());
+  const handleClassified = useCallback((transactionKey: string) => {
+    setHiddenPreviewTransactionKeys((currentKeys) => {
+      if (currentKeys.has(transactionKey)) {
+        return currentKeys;
+      }
+
+      const nextKeys = new Set(currentKeys);
+      nextKeys.add(transactionKey);
+      return nextKeys;
+    });
+  }, []);
+  const currentMonthTransactions = property.propertyTransactions.filter(
+    (transaction) =>
+      transaction.direction === "debit" && transaction.postedAt.slice(0, 7) === currentMonth
+  );
+  const visiblePreviewTransactions = state.transactions.filter(
+    (transaction) => !hiddenPreviewTransactionKeys.has(getPreviewTransactionKey(transaction))
+  );
+  const recordedExpenses = getRecordedExpensesForMonth(
+    property.propertyTransactions,
+    currentMonth
+  );
+  const recordedExpenseCount = getExpenseTransactionsForMonth(
+    property.propertyTransactions,
+    currentMonth
+  ).length;
+  const ignoredCount = currentMonthTransactions.filter(
+    (transaction) => transaction.classification === "ignored"
+  ).length;
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-md border border-slate-200 bg-secondary p-4">
+          <p className="text-sm font-semibold text-muted-foreground">
+            Current Month Expenses
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {formatCurrency(recordedExpenses)}
+          </p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-secondary p-4">
+          <p className="text-sm font-semibold text-muted-foreground">
+            Expense Transactions
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">
+            {recordedExpenseCount}
+          </p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-secondary p-4">
+          <p className="text-sm font-semibold text-muted-foreground">Ignored</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight">{ignoredCount}</p>
+        </div>
+      </div>
+
+      <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5">
+        <div className="grid gap-4 md:grid-cols-[12rem_auto] md:items-end">
+          <label className="grid gap-2 text-sm font-semibold">
+            Review Month
+            <input
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={currentMonth}
+              name="reviewMonth"
+              required
+              type="month"
+            />
+          </label>
+          <PreviewButton />
+        </div>
+      </form>
+
+      {state.message ? (
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            state.status === "error" ? "text-red-600" : "text-emerald-600"
+          )}
+        >
+          {state.message}
+        </p>
+      ) : null}
+
+      {visiblePreviewTransactions.length > 0 ? (
+        <details className="group overflow-hidden rounded-md border border-slate-200">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+            <span>
+              Expense Transactions ({visiblePreviewTransactions.length})
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-slate-100">
+            {visiblePreviewTransactions.map((transaction) => {
+              const transactionKey = getPreviewTransactionKey(transaction);
+
+              return (
+                <div
+                  className="grid min-w-0 gap-3 border-b border-slate-100 p-4 text-sm last:border-0 lg:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_auto_minmax(26rem,auto)] xl:items-center"
+                  key={transactionKey}
+                >
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold">{transaction.description}</p>
+                    <p className="mt-1 font-medium text-muted-foreground">
+                      {transaction.accountName} · {transaction.postedAt}
+                    </p>
+                  </div>
+                  <p className="font-semibold lg:justify-self-end">
+                    {formatCurrency(transaction.amount)}
+                  </p>
+                  <ExpenseTransactionActions
+                    onClassified={handleClassified}
+                    propertyId={property.id}
+                    reviewMonth={state.reviewMonth}
+                    transaction={transaction}
+                    transactionKey={transactionKey}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      ) : null}
+
+      <div className="grid gap-3 border-t border-slate-100 pt-5">
+        <ClassifiedTransactionList
+          assetId={property.id}
+          transactions={currentMonthTransactions}
+        />
+      </div>
+    </div>
+  );
+}

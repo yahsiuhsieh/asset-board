@@ -1,14 +1,14 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type {
   RealEstateAsset,
+  RealEstateBankConnection,
   RealEstateAssetDetail,
   RealEstateExpenseCategory,
-  RealEstateExpenseItem,
   RealEstateMetricSnapshot,
   RealEstateMetricType,
   RealEstatePhoto,
-  RealEstateSource,
-  ExpenseFrequency
+  RealEstatePropertyTransaction,
+  RealEstateSource
 } from "@/types/wealth";
 
 const PROPERTY_PHOTO_BUCKET = "property-photos";
@@ -28,16 +28,39 @@ interface RealEstatePropertyRow {
   longitude: string | number | null;
   map_zoom: number | null;
   current_market_value_synced_at: string | null;
+  county: string | null;
+  purchased_at: string | null;
+  parcel_number: string | null;
   purchase_price: string | number;
   current_market_value: string | number;
   remaining_mortgage_balance: string | number;
   monthly_rent: string | number;
   monthly_mortgage: string | number;
-  annual_expenses: string | number;
-  annual_taxes: string | number;
-  annual_insurance: string | number;
-  annual_maintenance: string | number;
+  building_cost: string | number;
+  land_cost: string | number;
+  total_depreciation: string | number;
+  rent_collection_month: string | null;
+  rent_collected_amount: string | number;
+  rent_collected_at: string | null;
+  rent_match_tolerance: string | number;
   asset: AssetRow | AssetRow[] | null;
+}
+
+interface RealEstateBankConnectionRow {
+  id: string;
+  asset_id: string;
+  provider: "teller";
+  enrollment_id: string | null;
+  account_id: string;
+  account_name: string;
+  account_type: string | null;
+  account_subtype: string | null;
+  institution_name: string | null;
+  institution_id: string | null;
+  last_four: string | null;
+  status: "active" | "disconnected";
+  connected_at: string;
+  last_synced_at: string | null;
 }
 
 interface RealEstatePhotoRow {
@@ -49,17 +72,6 @@ interface RealEstatePhotoRow {
   is_cover: boolean;
 }
 
-interface RealEstateExpenseItemRow {
-  id: string;
-  asset_id: string;
-  name: string;
-  category: RealEstateExpenseCategory;
-  amount: string | number;
-  frequency: ExpenseFrequency;
-  paid_month: number | null;
-  note: string | null;
-}
-
 interface RealEstateMetricSnapshotRow {
   id: string;
   asset_id: string;
@@ -67,6 +79,24 @@ interface RealEstateMetricSnapshotRow {
   value: string | number;
   recorded_at: string;
   source: RealEstateSource;
+  note: string | null;
+}
+
+interface RealEstatePropertyTransactionRow {
+  id: string;
+  asset_id: string;
+  bank_connection_id: string | null;
+  provider: "mock" | "teller";
+  provider_transaction_id: string;
+  account_id: string;
+  account_name: string;
+  posted_at: string;
+  description: string;
+  memo: string | null;
+  amount: string | number;
+  direction: "credit" | "debit";
+  classification: "expense" | "rental_income" | "ignored";
+  category: RealEstateExpenseCategory | null;
   note: string | null;
 }
 
@@ -105,28 +135,40 @@ function mapRealEstateProperty(row: RealEstatePropertyRow): RealEstateAsset {
     longitude: toOptionalNumber(row.longitude),
     mapZoom: row.map_zoom ?? 12,
     currentMarketValueSyncedAt: row.current_market_value_synced_at,
+    county: row.county,
+    purchasedAt: row.purchased_at,
+    parcelNumber: row.parcel_number,
     purchasePrice: toNumber(row.purchase_price),
     currentMarketValue: toNumber(row.current_market_value),
     remainingMortgageBalance: toNumber(row.remaining_mortgage_balance),
     monthlyRent: toNumber(row.monthly_rent),
     monthlyMortgage: toNumber(row.monthly_mortgage),
-    annualExpenses: toNumber(row.annual_expenses),
-    annualTaxes: toNumber(row.annual_taxes),
-    annualInsurance: toNumber(row.annual_insurance),
-    annualMaintenance: toNumber(row.annual_maintenance)
+    buildingCost: toNumber(row.building_cost),
+    landCost: toNumber(row.land_cost),
+    totalDepreciation: toNumber(row.total_depreciation),
+    rentCollectionMonth: row.rent_collection_month,
+    rentCollectedAmount: toNumber(row.rent_collected_amount),
+    rentCollectedAt: row.rent_collected_at,
+    rentMatchTolerance: toNumber(row.rent_match_tolerance)
   };
 }
 
-function mapExpenseItem(row: RealEstateExpenseItemRow): RealEstateExpenseItem {
+function mapBankConnection(row: RealEstateBankConnectionRow): RealEstateBankConnection {
   return {
     id: row.id,
     assetId: row.asset_id,
-    name: row.name,
-    category: row.category,
-    amount: toNumber(row.amount),
-    frequency: row.frequency,
-    paidMonth: row.paid_month,
-    note: row.note
+    provider: row.provider,
+    enrollmentId: row.enrollment_id,
+    accountId: row.account_id,
+    accountName: row.account_name,
+    accountType: row.account_type,
+    accountSubtype: row.account_subtype,
+    institutionName: row.institution_name,
+    institutionId: row.institution_id,
+    lastFour: row.last_four,
+    status: row.status,
+    connectedAt: row.connected_at,
+    lastSyncedAt: row.last_synced_at
   };
 }
 
@@ -138,6 +180,28 @@ function mapSnapshot(row: RealEstateMetricSnapshotRow): RealEstateMetricSnapshot
     value: toNumber(row.value),
     recordedAt: row.recorded_at,
     source: row.source,
+    note: row.note
+  };
+}
+
+function mapPropertyTransaction(
+  row: RealEstatePropertyTransactionRow
+): RealEstatePropertyTransaction {
+  return {
+    id: row.id,
+    assetId: row.asset_id,
+    bankConnectionId: row.bank_connection_id,
+    provider: row.provider,
+    providerTransactionId: row.provider_transaction_id,
+    accountId: row.account_id,
+    accountName: row.account_name,
+    postedAt: row.posted_at,
+    description: row.description,
+    memo: row.memo,
+    amount: toNumber(row.amount),
+    direction: row.direction,
+    classification: row.classification,
+    category: row.category,
     note: row.note
   };
 }
@@ -181,15 +245,21 @@ async function getPropertyRows() {
       longitude,
       map_zoom,
       current_market_value_synced_at,
+      county,
+      purchased_at,
+      parcel_number,
       purchase_price,
       current_market_value,
       remaining_mortgage_balance,
       monthly_rent,
       monthly_mortgage,
-      annual_expenses,
-      annual_taxes,
-      annual_insurance,
-      annual_maintenance,
+      building_cost,
+      land_cost,
+      total_depreciation,
+      rent_collection_month,
+      rent_collected_amount,
+      rent_collected_at,
+      rent_match_tolerance,
       asset:assets!inner (
         id,
         name,
@@ -207,24 +277,43 @@ async function getPropertyRows() {
   return (data ?? []) as RealEstatePropertyRow[];
 }
 
-async function getExpenseRows(assetIds: string[]): Promise<RealEstateExpenseItemRow[]> {
+async function getBankConnectionRows(
+  assetIds: string[]
+): Promise<RealEstateBankConnectionRow[]> {
   if (assetIds.length === 0) {
     return [];
   }
 
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
-    .from("real_estate_expense_items")
-    .select("id, asset_id, name, category, amount, frequency, paid_month, note")
+    .from("real_estate_bank_connections")
+    .select(
+      `
+      id,
+      asset_id,
+      provider,
+      enrollment_id,
+      account_id,
+      account_name,
+      account_type,
+      account_subtype,
+      institution_name,
+      institution_id,
+      last_four,
+      status,
+      connected_at,
+      last_synced_at
+    `
+    )
     .in("asset_id", assetIds)
-    .order("category", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("institution_name", { ascending: true })
+    .order("account_name", { ascending: true });
 
   if (error) {
-    throw new Error(`Failed to load property expenses: ${error.message}`);
+    throw new Error(`Failed to load bank connections: ${error.message}`);
   }
 
-  return (data ?? []) as RealEstateExpenseItemRow[];
+  return (data ?? []) as RealEstateBankConnectionRow[];
 }
 
 async function getPhotoRows(assetIds: string[]): Promise<RealEstatePhotoRow[]> {
@@ -264,15 +353,58 @@ async function getSnapshotRows(assetId: string): Promise<RealEstateMetricSnapsho
   return (data ?? []) as RealEstateMetricSnapshotRow[];
 }
 
+async function getPropertyTransactionRows(
+  assetIds: string[]
+): Promise<RealEstatePropertyTransactionRow[]> {
+  if (assetIds.length === 0) {
+    return [];
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_property_transactions")
+    .select(
+      `
+      id,
+      asset_id,
+      bank_connection_id,
+      provider,
+      provider_transaction_id,
+      account_id,
+      account_name,
+      posted_at,
+      description,
+      memo,
+      amount,
+      direction,
+      classification,
+      category,
+      note
+    `
+    )
+    .in("asset_id", assetIds)
+    .order("posted_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to load property transactions: ${error.message}`);
+  }
+
+  return (data ?? []) as RealEstatePropertyTransactionRow[];
+}
+
 export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
   const rows = await getPropertyRows();
   const properties = rows.map(mapRealEstateProperty);
-  const expenseRows = await getExpenseRows(properties.map((property) => property.id));
-  const expenses = expenseRows.map(mapExpenseItem);
+  const assetIds = properties.map((property) => property.id);
+  const transactionRows = await getPropertyTransactionRows(assetIds);
+  const transactions = transactionRows.map(mapPropertyTransaction);
 
   return properties.map((property) => ({
     ...property,
-    expenseItems: expenses.filter((expense) => expense.assetId === property.id)
+    propertyTransactions: transactions.filter(
+      (transaction) => transaction.assetId === property.id
+    )
   }));
 }
 
@@ -280,20 +412,23 @@ export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDe
   const rows = await getPropertyRows();
   const properties = rows.map(mapRealEstateProperty);
   const assetIds = properties.map((property) => property.id);
-  const [photoRows, expenseRows] = await Promise.all([
+  const [photoRows, transactionRows] = await Promise.all([
     getPhotoRows(assetIds),
-    getExpenseRows(assetIds)
+    getPropertyTransactionRows(assetIds)
   ]);
-  const [photos, expenses] = await Promise.all([
+  const [photos, transactions] = await Promise.all([
     Promise.all(photoRows.map(mapPhoto)),
-    Promise.resolve(expenseRows.map(mapExpenseItem))
+    Promise.resolve(transactionRows.map(mapPropertyTransaction))
   ]);
 
   return properties.map((property) => ({
     ...property,
     photos: photos.filter((photo) => photo.assetId === property.id),
     snapshots: [],
-    expenseItems: expenses.filter((expense) => expense.assetId === property.id)
+    propertyTransactions: transactions.filter(
+      (transaction) => transaction.assetId === property.id
+    ),
+    bankConnections: []
   }));
 }
 
@@ -309,15 +444,22 @@ export async function getRealEstateAssetDetail(
 
   const property = mapRealEstateProperty(row);
   const photoRows = await getPhotoRows([assetId]);
-  const [photos, snapshots, expenseRows] = await Promise.all([
+  const [
+    photos,
+    snapshots,
+    bankConnectionRows,
+    transactionRows
+  ] = await Promise.all([
     Promise.all(photoRows.map(mapPhoto)),
     getSnapshotRows(assetId).then((rows) => rows.map(mapSnapshot)),
-    getExpenseRows([assetId])
+    getBankConnectionRows([assetId]),
+    getPropertyTransactionRows([assetId])
   ]);
 
   return {
     ...property,
-    expenseItems: expenseRows.map(mapExpenseItem),
+    bankConnections: bankConnectionRows.map(mapBankConnection),
+    propertyTransactions: transactionRows.map(mapPropertyTransaction),
     photos,
     snapshots
   };

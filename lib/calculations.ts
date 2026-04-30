@@ -1,35 +1,59 @@
 import {
-  getAnnualScheduledExpenses,
-  getMonthlyAverageExpenses
+  getRecordedExpensesForMonth,
+  getYtdAverageMonthlyExpenses
 } from "@/lib/real-estate-expenses";
 import type { Asset, RealEstateAsset } from "@/types/wealth";
+
+export function getMonthlyOperatingExpenses(
+  property: RealEstateAsset,
+  month?: string
+): number {
+  return getRecordedExpensesForMonth(property.propertyTransactions, month);
+}
+
+export function getYtdAverageMonthlyOperatingExpenses(
+  property: RealEstateAsset,
+  month?: string
+): number {
+  return getYtdAverageMonthlyExpenses(property.propertyTransactions, month);
+}
 
 export function calculatePropertyROI(property: RealEstateAsset): number {
   if (property.purchasePrice <= 0) {
     return 0;
   }
 
-  return (
-    (property.monthlyRent * 12 - property.annualExpenses - property.annualTaxes) /
-    property.purchasePrice
-  );
+  return calculateAnnualNOI(property) / property.purchasePrice;
 }
 
 export function calculateMonthlyNetCashFlow(property: RealEstateAsset): number {
-  if (property.expenseItems?.length) {
-    return (
-      property.monthlyRent -
-      (property.monthlyMortgage + getMonthlyAverageExpenses(property.expenseItems))
-    );
+  return property.monthlyRent - (property.monthlyMortgage + getMonthlyOperatingExpenses(property));
+}
+
+export function calculateMonthlyNOI(property: RealEstateAsset): number {
+  return property.monthlyRent - getMonthlyOperatingExpenses(property);
+}
+
+export function calculateAnnualNOI(property: RealEstateAsset): number {
+  return (
+    property.monthlyRent - getYtdAverageMonthlyOperatingExpenses(property)
+  ) * 12;
+}
+
+export function calculateCapRate(property: RealEstateAsset): number {
+  if (property.currentMarketValue <= 0) {
+    return 0;
   }
 
-  return (
-    property.monthlyRent -
-    (property.monthlyMortgage +
-      property.annualTaxes / 12 +
-      property.annualInsurance / 12 +
-      property.annualMaintenance / 12)
-  );
+  return calculateAnnualNOI(property) / property.currentMarketValue;
+}
+
+export function calculateExpenseRatio(property: RealEstateAsset): number {
+  if (property.monthlyRent <= 0) {
+    return 0;
+  }
+
+  return getYtdAverageMonthlyOperatingExpenses(property) / property.monthlyRent;
 }
 
 export function calculatePropertyEquity(property: RealEstateAsset): number {
@@ -51,12 +75,7 @@ export function calculateRealEstatePortfolioROI(properties: RealEstateAsset[]): 
   }
 
   const annualNetIncome = properties.reduce(
-    (total, property) =>
-      total +
-      property.monthlyRent * 12 -
-      (property.expenseItems?.length
-        ? getAnnualScheduledExpenses(property.expenseItems)
-        : property.annualExpenses + property.annualTaxes),
+    (total, property) => total + calculateAnnualNOI(property),
     0
   );
 

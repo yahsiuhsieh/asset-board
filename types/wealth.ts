@@ -32,23 +32,50 @@ export interface RealEstateAsset extends BaseAsset {
   longitude?: number | null;
   mapZoom: number;
   currentMarketValueSyncedAt?: string | null;
+  county: string | null;
+  purchasedAt: string | null;
+  parcelNumber: string | null;
   purchasePrice: number;
   currentMarketValue: number;
   remainingMortgageBalance: number;
   monthlyRent: number;
   monthlyMortgage: number;
-  annualExpenses: number;
-  annualTaxes: number;
-  annualInsurance: number;
-  annualMaintenance: number;
-  expenseItems?: RealEstateExpenseItem[];
+  buildingCost: number;
+  landCost: number;
+  totalDepreciation: number;
+  rentCollectionMonth?: string | null;
+  rentCollectedAmount: number;
+  rentCollectedAt?: string | null;
+  rentMatchTolerance: number;
+  propertyTransactions?: RealEstatePropertyTransaction[];
+}
+
+export interface RealEstateBankConnection {
+  id: string;
+  assetId: string;
+  provider: "teller";
+  enrollmentId: string | null;
+  accountId: string;
+  accountName: string;
+  accountType: string | null;
+  accountSubtype: string | null;
+  institutionName: string | null;
+  institutionId: string | null;
+  lastFour: string | null;
+  status: "active" | "disconnected";
+  connectedAt: string;
+  lastSyncedAt: string | null;
 }
 
 export type RealEstateDataSource = "manual" | "chase";
 export type ValuationProvider = "mock" | "provider";
 export type RealEstateSource = RealEstateDataSource | ValuationProvider;
 
-export type ExpenseFrequency = "monthly" | "quarterly" | "semiannual" | "annual";
+export type RealEstateBankTransactionDirection = "credit" | "debit";
+export type RealEstateTransactionClassification =
+  | "expense"
+  | "rental_income"
+  | "ignored";
 
 export type RealEstateExpenseCategory =
   | "taxes"
@@ -58,14 +85,21 @@ export type RealEstateExpenseCategory =
   | "utilities"
   | "other";
 
-export interface RealEstateExpenseItem {
+export interface RealEstatePropertyTransaction {
   id: string;
   assetId: string;
-  name: string;
-  category: RealEstateExpenseCategory;
+  bankConnectionId: string | null;
+  provider: "mock" | "teller";
+  providerTransactionId: string;
+  accountId: string;
+  accountName: string;
+  postedAt: string;
+  description: string;
+  memo: string | null;
   amount: number;
-  frequency: ExpenseFrequency;
-  paidMonth: number | null;
+  direction: RealEstateBankTransactionDirection;
+  classification: RealEstateTransactionClassification;
+  category: RealEstateExpenseCategory | null;
   note: string | null;
 }
 
@@ -83,11 +117,7 @@ export type RealEstateMetricType =
   | "current_market_value"
   | "monthly_rent"
   | "remaining_mortgage_balance"
-  | "monthly_mortgage"
-  | "annual_taxes"
-  | "annual_insurance"
-  | "annual_maintenance"
-  | "annual_expenses";
+  | "monthly_mortgage";
 
 export interface RealEstateMetricSnapshot {
   id: string;
@@ -102,7 +132,8 @@ export interface RealEstateMetricSnapshot {
 export interface RealEstateAssetDetail extends RealEstateAsset {
   photos: RealEstatePhoto[];
   snapshots: RealEstateMetricSnapshot[];
-  expenseItems: RealEstateExpenseItem[];
+  propertyTransactions: RealEstatePropertyTransaction[];
+  bankConnections: RealEstateBankConnection[];
 }
 
 export interface CarAsset extends BaseAsset {
