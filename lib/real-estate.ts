@@ -8,6 +8,7 @@ import type {
   RealEstateMetricType,
   RealEstatePhoto,
   RealEstatePropertyTransaction,
+  RealEstateRentalStatus,
   RealEstateSource
 } from "@/types/wealth";
 
@@ -24,6 +25,7 @@ interface RealEstatePropertyRow {
   id: string;
   asset_id: string;
   address: string;
+  rental_status: RealEstateRentalStatus;
   latitude: string | number | null;
   longitude: string | number | null;
   map_zoom: number | null;
@@ -95,7 +97,7 @@ interface RealEstatePropertyTransactionRow {
   memo: string | null;
   amount: string | number;
   direction: "credit" | "debit";
-  classification: "expense" | "rental_income" | "ignored";
+  classification: "expense" | "rental_income" | "ignored" | null;
   category: RealEstateExpenseCategory | null;
   note: string | null;
 }
@@ -131,6 +133,7 @@ function mapRealEstateProperty(row: RealEstatePropertyRow): RealEstateAsset {
     type: "real-estate",
     value: toNumber(asset.value),
     address: row.address,
+    rentalStatus: row.rental_status,
     latitude: toOptionalNumber(row.latitude),
     longitude: toOptionalNumber(row.longitude),
     mapZoom: row.map_zoom ?? 12,
@@ -241,6 +244,7 @@ async function getPropertyRows() {
       id,
       asset_id,
       address,
+      rental_status,
       latitude,
       longitude,
       map_zoom,

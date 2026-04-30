@@ -28,12 +28,14 @@ import {
 } from "@/lib/calculations";
 import { getRecordedExpensesForMonth } from "@/lib/real-estate-expenses";
 import { getExternalMapUrl } from "@/lib/maps";
+import type { PropertyAnnualQualityResult } from "@/lib/real-estate-annual-quality";
 import type { PropertyValuationUsageStatus } from "@/lib/valuations/property-valuation-usage";
 import type { RealEstateAssetDetail } from "@/types/wealth";
 import { BankConnectionDialog } from "./BankConnectionDialog";
 import { EditPropertyDialog } from "./EditPropertyDialog";
 import { ExpenseTransactionManager } from "./ExpenseTransactionManager";
 import { PhotoUploadForm } from "./PhotoUploadForm";
+import { PropertyAnnualReportIssues } from "./PropertyAnnualReportIssues";
 import { PropertyHistoryCharts } from "./PropertyHistoryCharts";
 import { PropertyImage } from "./PropertyImage";
 import { PropertyInfoPopover } from "./PropertyInfoPopover";
@@ -45,6 +47,9 @@ import { RentTransactionMatchPreview } from "./RentTransactionMatchPreview";
 import { ValuationManager } from "./ValuationManager";
 
 interface PropertyDetailPageProps {
+  annualQualityResult: PropertyAnnualQualityResult;
+  annualReportYear: string;
+  annualReportYears: string[];
   property: RealEstateAssetDetail;
   valuationUsage: PropertyValuationUsageStatus;
 }
@@ -70,6 +75,16 @@ function formatPercent(value: number): string {
   }
 
   return percentFormatter.format(value);
+}
+
+function getRentalStatusLabel(status: RealEstateAssetDetail["rentalStatus"]): string {
+  return status === "vacant" ? "Vacant" : "Rented";
+}
+
+function getRentalStatusClassName(status: RealEstateAssetDetail["rentalStatus"]): string {
+  return status === "vacant"
+    ? "border-amber-200 bg-amber-50 text-amber-700"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700";
 }
 
 function MetricTile({
@@ -154,7 +169,13 @@ function getTellerEnvironment(): string {
   return "sandbox";
 }
 
-export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailPageProps) {
+export function PropertyDetailPage({
+  annualQualityResult,
+  annualReportYear,
+  annualReportYears,
+  property,
+  valuationUsage
+}: PropertyDetailPageProps) {
   const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
   const currentMonthExpenses = getRecordedExpensesForMonth(property.propertyTransactions);
   const ytdAverageMonthlyExpenses = getYtdAverageMonthlyOperatingExpenses(property);
@@ -219,15 +240,24 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
                   property={property}
                 />
               </div>
-              <a
-                className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
-                href={externalMapUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <MapPin className="h-4 w-4" />
-                {property.address}
-              </a>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <a
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+                  href={externalMapUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {property.address}
+                </a>
+                <span
+                  className={`inline-flex w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${getRentalStatusClassName(
+                    property.rentalStatus
+                  )}`}
+                >
+                  {getRentalStatusLabel(property.rentalStatus)}
+                </span>
+              </div>
             </div>
             <ValuationManager property={property} usage={valuationUsage} />
           </div>
@@ -251,6 +281,14 @@ export function PropertyDetailPage({ property, valuationUsage }: PropertyDetailP
           icon={ChartNoAxesCombined}
           title="Monthly Rent"
           value={formatCurrency(property.monthlyRent)}
+        />
+      </section>
+
+      <section>
+        <PropertyAnnualReportIssues
+          annualReportYear={annualReportYear}
+          annualReportYears={annualReportYears}
+          qualityResult={annualQualityResult}
         />
       </section>
 

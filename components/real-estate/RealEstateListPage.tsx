@@ -21,13 +21,18 @@ import {
   calculatePropertyEquity
 } from "@/lib/calculations";
 import { getExternalMapUrl } from "@/lib/maps";
+import type { PropertyAnnualQualityResult } from "@/lib/real-estate-annual-quality";
 import { getRentalIncomeForMonth } from "@/lib/real-estate-rent";
 import type { RealEstateAssetDetail } from "@/types/wealth";
+import { PortfolioAnnualTransactionsExport } from "./PortfolioAnnualTransactionsExport";
 import { PropertyImage } from "./PropertyImage";
 import { PropertyMap } from "./PropertyMap";
 
 interface RealEstateListPageProps {
   properties: RealEstateAssetDetail[];
+  annualReportYear: string;
+  annualReportYears: string[];
+  annualQualityResults: PropertyAnnualQualityResult[];
 }
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -59,6 +64,16 @@ function sum(values: number[]): number {
 
 function getCurrentMonthRentCollected(property: RealEstateAssetDetail): number {
   return getRentalIncomeForMonth(property.propertyTransactions);
+}
+
+function getRentalStatusLabel(status: RealEstateAssetDetail["rentalStatus"]): string {
+  return status === "vacant" ? "Vacant" : "Rented";
+}
+
+function getRentalStatusClassName(status: RealEstateAssetDetail["rentalStatus"]): string {
+  return status === "vacant"
+    ? "border-amber-200 bg-amber-50 text-amber-700"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700";
 }
 
 function MetricTile({
@@ -97,7 +112,12 @@ function MetricTile({
   );
 }
 
-export function RealEstateListPage({ properties }: RealEstateListPageProps) {
+export function RealEstateListPage({
+  annualQualityResults,
+  annualReportYear,
+  annualReportYears,
+  properties
+}: RealEstateListPageProps) {
   const portfolioValue = sum(properties.map((property) => property.value));
   const equity = sum(properties.map(calculatePropertyEquity));
   const mortgageBalance = sum(
@@ -130,13 +150,21 @@ export function RealEstateListPage({ properties }: RealEstateListPageProps) {
               Track property values, rent, cash flow, locations, and history.
             </p>
           </div>
-          <a
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-            href="#add-property"
-          >
-            <Plus className="h-4 w-4" />
-            Add Property
-          </a>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <PortfolioAnnualTransactionsExport
+              annualQualityResults={annualQualityResults}
+              annualReportYear={annualReportYear}
+              annualReportYears={annualReportYears}
+              properties={properties}
+            />
+            <a
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+              href="#add-property"
+            >
+              <Plus className="h-4 w-4" />
+              Add Property
+            </a>
+          </div>
         </div>
       </section>
 
@@ -255,6 +283,13 @@ export function RealEstateListPage({ properties }: RealEstateListPageProps) {
                         >
                           {property.address}
                         </a>
+                        <span
+                          className={`mt-2 inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${getRentalStatusClassName(
+                            property.rentalStatus
+                          )}`}
+                        >
+                          {getRentalStatusLabel(property.rentalStatus)}
+                        </span>
                       </div>
                       <Link
                         className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium hover:bg-secondary"

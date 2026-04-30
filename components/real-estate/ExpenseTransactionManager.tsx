@@ -102,6 +102,27 @@ function getPreviewTransactionKey(transaction: ExpenseTransactionPreview): strin
   return `${transaction.connectionId}:${transaction.id}`;
 }
 
+function getStoredTransactionConnectionId(
+  transaction: RealEstatePropertyTransaction
+): string {
+  return transaction.bankConnectionId ?? transaction.provider;
+}
+
+function getStoredPendingExpensePreview(
+  transaction: RealEstatePropertyTransaction
+): ExpenseTransactionPreview {
+  return {
+    id: transaction.providerTransactionId,
+    connectionId: getStoredTransactionConnectionId(transaction),
+    postedAt: transaction.postedAt,
+    description: transaction.description,
+    amount: transaction.amount,
+    accountName: transaction.accountName,
+    classification: null,
+    recordedTransactionId: transaction.id
+  };
+}
+
 function ExpenseTransactionActions({
   onClassified,
   propertyId,
@@ -200,7 +221,7 @@ function ClassifiedTransactionList({
   if (transactions.length === 0) {
     return (
       <div className="rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
-        No classified transactions this month.
+        No classified expense transactions for this month.
       </div>
     );
   }
@@ -208,7 +229,7 @@ function ClassifiedTransactionList({
   return (
     <details className="group overflow-hidden rounded-md border border-slate-200">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-        <span>Classified This Month ({transactions.length})</span>
+        <span>Classified Transactions ({transactions.length})</span>
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
       <div className="border-t border-slate-100">
@@ -223,10 +244,62 @@ function ClassifiedTransactionList({
                 {transaction.accountName} · {transaction.postedAt}
               </p>
               <p className="mt-1 text-muted-foreground">
-                {transaction.classification === "expense" && transaction.category
-                  ? expenseCategoryLabels[transaction.category]
-                  : "Ignored"}
+                {transaction.category ? expenseCategoryLabels[transaction.category] : "Expense"}
               </p>
+            </div>
+            <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
+              {formatCurrency(transaction.amount)}
+            </p>
+            <form
+              action={deletePropertyTransaction}
+              className="md:col-start-3 md:justify-self-end"
+            >
+              <input name="assetId" type="hidden" value={assetId} />
+              <input name="transactionId" type="hidden" value={transaction.id} />
+              <button
+                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
+                type="submit"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove
+              </button>
+            </form>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function IgnoredTransactionList({
+  assetId,
+  transactions
+}: {
+  assetId: string;
+  transactions: RealEstatePropertyTransaction[];
+}) {
+  if (transactions.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="group overflow-hidden rounded-md border border-slate-200">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        <span>Ignored Transactions ({transactions.length})</span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-slate-100">
+        {transactions.map((transaction) => (
+          <div
+            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+            key={transaction.id}
+          >
+            <div className="min-w-0">
+              <p className="break-words font-semibold">{transaction.description}</p>
+              <p className="mt-1 font-medium text-muted-foreground">
+                {transaction.accountName} · {transaction.postedAt}
+              </p>
+              <p className="mt-1 text-muted-foreground">Ignored</p>
             </div>
             <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
               {formatCurrency(transaction.amount)}
@@ -262,9 +335,17 @@ export function ExpenseTransactionManager({
     previewExpenseTransactions.bind(null, property.id),
     initialPreviewState
   );
+  const [selectedReviewMonth, setSelectedReviewMonth] = useState(currentMonth);
   const [hiddenPreviewTransactionKeys, setHiddenPreviewTransactionKeys] = useState<
     Set<string>
   >(new Set());
+
+  useEffect(() => {
+    if (state.reviewMonth) {
+      setSelectedReviewMonth(state.reviewMonth);
+    }
+  }, [state.reviewMonth]);
+
   const handleClassified = useCallback((transactionKey: string) => {
     setHiddenPreviewTransactionKeys((currentKeys) => {
       if (currentKeys.has(transactionKey)) {
@@ -276,31 +357,49 @@ export function ExpenseTransactionManager({
       return nextKeys;
     });
   }, []);
-  const currentMonthTransactions = property.propertyTransactions.filter(
+  const reviewMonthTransactions = property.propertyTransactions.filter(
     (transaction) =>
-      transaction.direction === "debit" && transaction.postedAt.slice(0, 7) === currentMonth
+      transaction.direction === "debit" &&
+      transaction.postedAt.slice(0, 7) === selectedReviewMonth
   );
-  const visiblePreviewTransactions = state.transactions.filter(
-    (transaction) => !hiddenPreviewTransactionKeys.has(getPreviewTransactionKey(transaction))
+  const storedPendingExpensePreviews = reviewMonthTransactions
+    .filter((transaction) => transaction.classification == null)
+    .map(getStoredPendingExpensePreview);
+  const visiblePreviewTransactions = [
+    ...storedPendingExpensePreviews,
+    ...state.transactions.filter(
+      (transaction) => transaction.postedAt.slice(0, 7) === selectedReviewMonth
+    )
+  ].filter(
+    (transaction, index, transactions) =>
+      !hiddenPreviewTransactionKeys.has(getPreviewTransactionKey(transaction)) &&
+      transactions.findIndex(
+        (candidate) =>
+          getPreviewTransactionKey(candidate) === getPreviewTransactionKey(transaction)
+      ) === index
+  );
+  const classifiedReviewMonthTransactions = reviewMonthTransactions.filter(
+    (transaction) => transaction.classification === "expense"
+  );
+  const ignoredReviewMonthTransactions = reviewMonthTransactions.filter(
+    (transaction) => transaction.classification === "ignored"
   );
   const recordedExpenses = getRecordedExpensesForMonth(
     property.propertyTransactions,
-    currentMonth
+    selectedReviewMonth
   );
   const recordedExpenseCount = getExpenseTransactionsForMonth(
     property.propertyTransactions,
-    currentMonth
+    selectedReviewMonth
   ).length;
-  const ignoredCount = currentMonthTransactions.filter(
-    (transaction) => transaction.classification === "ignored"
-  ).length;
+  const ignoredCount = ignoredReviewMonthTransactions.length;
 
   return (
     <div className="grid gap-5">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-md border border-slate-200 bg-secondary p-4">
           <p className="text-sm font-semibold text-muted-foreground">
-            Current Month Expenses
+            Selected Month Expenses
           </p>
           <p className="mt-2 text-2xl font-semibold tracking-tight">
             {formatCurrency(recordedExpenses)}
@@ -326,10 +425,11 @@ export function ExpenseTransactionManager({
             Review Month
             <input
               className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-              defaultValue={currentMonth}
               name="reviewMonth"
+              onChange={(event) => setSelectedReviewMonth(event.target.value)}
               required
               type="month"
+              value={selectedReviewMonth}
             />
           </label>
           <PreviewButton />
@@ -351,7 +451,7 @@ export function ExpenseTransactionManager({
         <details className="group overflow-hidden rounded-md border border-slate-200">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span>
-              Expense Transactions ({visiblePreviewTransactions.length})
+              Unclassified Transactions ({visiblePreviewTransactions.length})
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
           </summary>
@@ -376,7 +476,7 @@ export function ExpenseTransactionManager({
                   <ExpenseTransactionActions
                     onClassified={handleClassified}
                     propertyId={property.id}
-                    reviewMonth={state.reviewMonth}
+                    reviewMonth={selectedReviewMonth}
                     transaction={transaction}
                     transactionKey={transactionKey}
                   />
@@ -390,7 +490,11 @@ export function ExpenseTransactionManager({
       <div className="grid gap-3 border-t border-slate-100 pt-5">
         <ClassifiedTransactionList
           assetId={property.id}
-          transactions={currentMonthTransactions}
+          transactions={classifiedReviewMonthTransactions}
+        />
+        <IgnoredTransactionList
+          assetId={property.id}
+          transactions={ignoredReviewMonthTransactions}
         />
       </div>
     </div>

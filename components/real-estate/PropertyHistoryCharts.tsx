@@ -9,6 +9,7 @@ import {
   LabelList,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,7 +27,10 @@ import {
   type MonthlyExpenseCategoryPoint,
   type PropertyValueEquityPoint
 } from "@/lib/real-estate-history";
-import { expenseCategoryLabels } from "@/lib/real-estate-expenses";
+import {
+  expenseCategoryLabels,
+  getYtdAverageMonthlyExpenses
+} from "@/lib/real-estate-expenses";
 import type {
   RealEstateAssetDetail,
   RealEstateMetricSnapshot,
@@ -53,6 +57,7 @@ const chartColors = {
   rent: "#2563eb",
   cashFlow: "#0f766e",
   expenseTotal: "#334155",
+  expenseAverage: "#7c3aed",
   expenses: {
     taxes: "#2563eb",
     insurance: "#0284c7",
@@ -265,10 +270,15 @@ function PropertyValueEquityChart({
 }
 
 function MonthlyExpenseChart({
+  ytdAverageMonthlyExpenses,
   points
 }: {
+  ytdAverageMonthlyExpenses: number;
   points: MonthlyExpenseCategoryPoint[];
 }) {
+  const shouldShowAverageLine =
+    Number.isFinite(ytdAverageMonthlyExpenses) && ytdAverageMonthlyExpenses > 0;
+
   return (
     <div className="min-w-0 rounded-md border border-slate-200 bg-white p-4">
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -339,6 +349,22 @@ function MonthlyExpenseChart({
                     position="top"
                   />
                 </Line>
+                {shouldShowAverageLine ? (
+                  <ReferenceLine
+                    ifOverflow="extendDomain"
+                    label={{
+                      fill: chartColors.expenseAverage,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      position: "insideTopRight",
+                      value: `YTD avg ${currencyFormatter.format(ytdAverageMonthlyExpenses)}/mo`
+                    }}
+                    stroke={chartColors.expenseAverage}
+                    strokeDasharray="6 5"
+                    strokeWidth={2}
+                    y={ytdAverageMonthlyExpenses}
+                  />
+                ) : null}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -351,9 +377,27 @@ function MonthlyExpenseChart({
               {
                 color: chartColors.expenseTotal,
                 label: "Total Expenses"
-              }
+              },
+              ...(shouldShowAverageLine
+                ? [
+                    {
+                      color: chartColors.expenseAverage,
+                      label: "YTD Average Monthly Expenses"
+                    }
+                  ]
+                : [])
             ]}
           />
+          {shouldShowAverageLine ? (
+            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">
+              <span
+                aria-hidden="true"
+                className="h-px w-8 border-t-2 border-dashed"
+                style={{ borderColor: chartColors.expenseAverage }}
+              />
+              Average is calculated from January through the current month.
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="flex h-64 items-center justify-center rounded-md bg-secondary text-sm font-semibold text-muted-foreground">
@@ -398,7 +442,10 @@ export function PropertyHistoryCharts({
         stroke={chartColors.rent}
         title={snapshotMetricLabels.monthly_rent}
       />
-      <MonthlyExpenseChart points={getMonthlyExpenseCategorySeries(transactions)} />
+      <MonthlyExpenseChart
+        points={getMonthlyExpenseCategorySeries(transactions)}
+        ytdAverageMonthlyExpenses={getYtdAverageMonthlyExpenses(transactions)}
+      />
       <ChartCard
         countUnit="month"
         points={monthlyNetCashFlowPoints}

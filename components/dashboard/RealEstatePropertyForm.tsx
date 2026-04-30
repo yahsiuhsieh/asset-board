@@ -41,6 +41,11 @@ const metadataFields = [
   { name: "parcelNumber", label: "Parcel number", placeholder: "APN / parcel number", type: "text" }
 ] as const;
 
+const rentalStatusOptions = [
+  { value: "rented", label: "Rented" },
+  { value: "vacant", label: "Vacant" }
+] as const;
+
 function SubmitButton({
   formId,
   isPending,
@@ -78,6 +83,7 @@ function getDefaultValue(property: RealEstateAsset | undefined, field: string): 
     remainingMortgageBalance: property.remainingMortgageBalance,
     monthlyMortgage: property.monthlyMortgage,
     monthlyRent: property.monthlyRent,
+    rentalStatus: property.rentalStatus,
     county: property.county ?? "",
     purchasedAt: property.purchasedAt ?? "",
     parcelNumber: property.parcelNumber ?? "",
@@ -130,7 +136,21 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
           </label>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Rental status
+            <select
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={getDefaultValue(property, "rentalStatus") || "rented"}
+              name="rentalStatus"
+            >
+              {rentalStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           {metadataFields.map((field) => (
             <label className="grid gap-2 text-sm font-semibold" key={field.name}>
               {field.label}

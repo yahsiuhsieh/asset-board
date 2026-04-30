@@ -25,9 +25,12 @@ export interface CryptoAsset extends BaseAsset {
   currentPrice: number;
 }
 
+export type RealEstateRentalStatus = "rented" | "vacant";
+
 export interface RealEstateAsset extends BaseAsset {
   type: "real-estate";
   address: string;
+  rentalStatus: RealEstateRentalStatus;
   latitude?: number | null;
   longitude?: number | null;
   mapZoom: number;
@@ -98,7 +101,7 @@ export interface RealEstatePropertyTransaction {
   memo: string | null;
   amount: number;
   direction: RealEstateBankTransactionDirection;
-  classification: RealEstateTransactionClassification;
+  classification: RealEstateTransactionClassification | null;
   category: RealEstateExpenseCategory | null;
   note: string | null;
 }

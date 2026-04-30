@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "test:real-estate-export": "node --test scripts/test-real-estate-transaction-export.mjs",
+    "test:real-estate-quality": "node --test scripts/test-real-estate-quality.mjs"
   },
   "dependencies": {
     "@radix-ui/react-tabs": "^1.1.12",

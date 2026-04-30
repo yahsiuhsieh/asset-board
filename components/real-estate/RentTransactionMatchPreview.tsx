@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, ChevronDown, Search } from "lucide-react";
+import { Ban, CheckCircle2, ChevronDown, Search, Trash2 } from "lucide-react";
 
 import {
   classifyRentCreditTransaction,
+  deletePropertyTransaction,
   previewRentTransactionMatches,
   type RealEstateActionState,
   type RentTransactionMatch,
@@ -14,7 +15,10 @@ import {
 } from "@/app/actions/real-estate";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { RealEstateAssetDetail } from "@/types/wealth";
+import type {
+  RealEstateAssetDetail,
+  RealEstatePropertyTransaction
+} from "@/types/wealth";
 
 const initialState: RentTransactionMatchState = {
   status: "idle",
@@ -52,7 +56,7 @@ function PreviewButton() {
   return (
     <Button disabled={pending} type="submit" variant="secondary">
       <Search className="h-4 w-4" />
-      {pending ? "Reviewing" : "Review Credits"}
+      {pending ? "Finding" : "Find Rent Income"}
     </Button>
   );
 }
@@ -82,10 +86,12 @@ function NotRentalIncomeButton() {
 function RentMatchAction({
   match,
   matchMonth,
+  onClassified,
   propertyId
 }: {
   match: RentTransactionMatch;
   matchMonth: string;
+  onClassified: (matchKey: string) => void;
   propertyId: string;
 }) {
   const router = useRouter();
@@ -98,12 +104,20 @@ function RentMatchAction({
     applyInitialState
   );
   const state = rentalIncomeState.message ? rentalIncomeState : ignoredState;
+  const matchKey = getRentMatchKey(match);
 
   useEffect(() => {
     if (rentalIncomeState.status === "success" || ignoredState.status === "success") {
+      onClassified(matchKey);
       router.refresh();
     }
-  }, [ignoredState.status, rentalIncomeState.status, router]);
+  }, [
+    ignoredState.status,
+    matchKey,
+    onClassified,
+    rentalIncomeState.status,
+    router
+  ]);
 
   if (state.status === "success") {
     return (
@@ -135,6 +149,11 @@ function RentMatchAction({
         <form action={rentalIncomeAction}>
           <input name="transactionId" type="hidden" value={match.id} />
           <input name="connectionId" type="hidden" value={match.connectionId} />
+          <input
+            name="recordedTransactionId"
+            type="hidden"
+            value={match.recordedTransactionId ?? ""}
+          />
           <input name="matchMonth" type="hidden" value={matchMonth} />
           <input name="classification" type="hidden" value="rental_income" />
           <MarkRentalIncomeButton />
@@ -142,6 +161,11 @@ function RentMatchAction({
         <form action={ignoredAction}>
           <input name="transactionId" type="hidden" value={match.id} />
           <input name="connectionId" type="hidden" value={match.connectionId} />
+          <input
+            name="recordedTransactionId"
+            type="hidden"
+            value={match.recordedTransactionId ?? ""}
+          />
           <input name="matchMonth" type="hidden" value={matchMonth} />
           <input name="classification" type="hidden" value="ignored" />
           <NotRentalIncomeButton />
@@ -161,6 +185,159 @@ function RentMatchAction({
   );
 }
 
+function getStoredTransactionConnectionId(
+  transaction: RealEstatePropertyTransaction
+): string {
+  return transaction.bankConnectionId ?? transaction.provider;
+}
+
+function getRentMatchKey(match: RentTransactionMatch): string {
+  return `${match.connectionId}:${match.id}`;
+}
+
+function transactionMatchesTargetRange(
+  amount: number,
+  expectedAmount: number,
+  tolerance: number
+): boolean {
+  return amount >= expectedAmount - tolerance && amount <= expectedAmount + tolerance;
+}
+
+function getStoredPendingRentMatch(
+  transaction: RealEstatePropertyTransaction,
+  property: RealEstateAssetDetail
+): RentTransactionMatch {
+  return {
+    id: transaction.providerTransactionId,
+    connectionId: getStoredTransactionConnectionId(transaction),
+    postedAt: transaction.postedAt,
+    title: transaction.description,
+    memo: transaction.memo ?? "",
+    description: transaction.description,
+    amount: transaction.amount,
+    accountName: transaction.accountName,
+    classification: null,
+    recordedTransactionId: transaction.id,
+    amountMatchesTarget: transactionMatchesTargetRange(
+      transaction.amount,
+      property.monthlyRent,
+      property.rentMatchTolerance
+    )
+  };
+}
+
+function ClassifiedRentTransactionList({
+  assetId,
+  transactions
+}: {
+  assetId: string;
+  transactions: RealEstatePropertyTransaction[];
+}) {
+  if (transactions.length === 0) {
+    return (
+      <div className="rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
+        No classified rent income transactions for this month.
+      </div>
+    );
+  }
+
+  return (
+    <details className="group overflow-hidden rounded-md border border-slate-200">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        <span>Classified Transactions ({transactions.length})</span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-slate-100">
+        {transactions.map((transaction) => (
+          <div
+            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+            key={transaction.id}
+          >
+            <div className="min-w-0">
+              <p className="break-words font-semibold">{transaction.description}</p>
+              <p className="mt-1 font-medium text-muted-foreground">
+                {transaction.accountName} · {transaction.postedAt}
+              </p>
+              <p className="mt-1 text-muted-foreground">Rental income</p>
+            </div>
+            <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
+              {formatCurrency(transaction.amount)}
+            </p>
+            <form
+              action={deletePropertyTransaction}
+              className="md:col-start-3 md:justify-self-end"
+            >
+              <input name="assetId" type="hidden" value={assetId} />
+              <input name="transactionId" type="hidden" value={transaction.id} />
+              <button
+                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
+                type="submit"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove
+              </button>
+            </form>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function IgnoredRentTransactionList({
+  assetId,
+  transactions
+}: {
+  assetId: string;
+  transactions: RealEstatePropertyTransaction[];
+}) {
+  if (transactions.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="group overflow-hidden rounded-md border border-slate-200">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        <span>Ignored Transactions ({transactions.length})</span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-slate-100">
+        {transactions.map((transaction) => (
+          <div
+            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+            key={transaction.id}
+          >
+            <div className="min-w-0">
+              <p className="break-words font-semibold">{transaction.description}</p>
+              <p className="mt-1 font-medium text-muted-foreground">
+                {transaction.accountName} · {transaction.postedAt}
+              </p>
+              <p className="mt-1 text-muted-foreground">Not rental income</p>
+            </div>
+            <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
+              {formatCurrency(transaction.amount)}
+            </p>
+            <form
+              action={deletePropertyTransaction}
+              className="md:col-start-3 md:justify-self-end"
+            >
+              <input name="assetId" type="hidden" value={assetId} />
+              <input name="transactionId" type="hidden" value={transaction.id} />
+              <button
+                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
+                type="submit"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove
+              </button>
+            </form>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export function RentTransactionMatchPreview({
   property
 }: {
@@ -171,6 +348,8 @@ export function RentTransactionMatchPreview({
     previewRentTransactionMatches.bind(null, property.id),
     initialState
   );
+  const [selectedMatchMonth, setSelectedMatchMonth] = useState(getCurrentMonth());
+  const [hiddenMatchKeys, setHiddenMatchKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (state.status === "success") {
@@ -178,18 +357,70 @@ export function RentTransactionMatchPreview({
     }
   }, [router, state.status]);
 
+  useEffect(() => {
+    if (state.matchMonth) {
+      setSelectedMatchMonth(state.matchMonth);
+    }
+  }, [state.matchMonth]);
+
+  const handleClassified = useCallback((matchKey: string) => {
+    setHiddenMatchKeys((currentKeys) => {
+      if (currentKeys.has(matchKey)) {
+        return currentKeys;
+      }
+
+      const nextKeys = new Set(currentKeys);
+      nextKeys.add(matchKey);
+      return nextKeys;
+    });
+  }, []);
+  const storedPendingRentMatches = property.propertyTransactions
+    .filter(
+      (transaction) =>
+        transaction.direction === "credit" &&
+        transaction.classification == null &&
+        transaction.postedAt.slice(0, 7) === selectedMatchMonth
+    )
+    .map((transaction) => getStoredPendingRentMatch(transaction, property));
+  const visibleMatches = [
+    ...storedPendingRentMatches,
+    ...state.matches.filter(
+      (match) =>
+        match.classification == null &&
+        match.postedAt.slice(0, 7) === selectedMatchMonth
+    )
+  ].filter(
+    (match, index, matches) =>
+      !hiddenMatchKeys.has(getRentMatchKey(match)) &&
+      matches.findIndex((candidate) => getRentMatchKey(candidate) === getRentMatchKey(match)) ===
+        index
+  );
+  const classifiedReviewMonthTransactions = property.propertyTransactions.filter(
+    (transaction) =>
+      transaction.direction === "credit" &&
+      transaction.classification === "rental_income" &&
+      transaction.postedAt.slice(0, 7) === selectedMatchMonth
+  );
+  const ignoredReviewMonthTransactions = property.propertyTransactions.filter(
+    (transaction) =>
+      transaction.direction === "credit" &&
+      transaction.classification === "ignored" &&
+      transaction.postedAt.slice(0, 7) === selectedMatchMonth
+  );
+
   return (
     <div className="grid gap-4 border-t border-slate-100 pt-5">
       <form action={formAction} className="grid gap-4">
         <div className="grid gap-4 md:grid-cols-[12rem_auto] md:items-end">
           <label className="grid gap-2 text-sm font-semibold">
-            Match Month
+            Review Month
             <input
               className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-              defaultValue={getCurrentMonth()}
               name="matchMonth"
+              onChange={(event) => setSelectedMatchMonth(event.target.value)}
               required
               type="month"
+              value={selectedMatchMonth}
             />
           </label>
           <PreviewButton />
@@ -207,19 +438,19 @@ export function RentTransactionMatchPreview({
         </p>
       ) : null}
 
-      {state.matches.length > 0 ? (
+      {visibleMatches.length > 0 ? (
         <details className="group overflow-hidden rounded-md border border-slate-200">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span>
-              Credit Transactions ({state.matches.length})
+              Income Transactions ({visibleMatches.length})
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
           </summary>
           <div className="border-t border-slate-100">
-            {state.matches.map((match) => (
+            {visibleMatches.map((match) => (
               <div
                 className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[1fr_auto_auto] md:items-center"
-                key={match.id}
+                key={getRentMatchKey(match)}
               >
                 <div>
                   <p className="text-sm font-semibold">{match.description}</p>
@@ -235,7 +466,8 @@ export function RentTransactionMatchPreview({
                 <p className="font-semibold">{formatCurrency(match.amount)}</p>
                 <RentMatchAction
                   match={match}
-                  matchMonth={state.matchMonth}
+                  matchMonth={selectedMatchMonth}
+                  onClassified={handleClassified}
                   propertyId={property.id}
                 />
               </div>
@@ -243,6 +475,17 @@ export function RentTransactionMatchPreview({
           </div>
         </details>
       ) : null}
+
+      <div className="grid gap-3 border-t border-slate-100 pt-5">
+        <ClassifiedRentTransactionList
+          assetId={property.id}
+          transactions={classifiedReviewMonthTransactions}
+        />
+        <IgnoredRentTransactionList
+          assetId={property.id}
+          transactions={ignoredReviewMonthTransactions}
+        />
+      </div>
     </div>
   );
 }
