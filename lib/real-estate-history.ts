@@ -4,6 +4,7 @@ import type {
   RealEstateMetricType,
   RealEstatePropertyTransaction
 } from "@/types/wealth";
+import { getRentRecognitionMonth } from "@/lib/real-estate-monthly-review";
 
 export const snapshotMetricLabels: Record<RealEstateMetricType, string> = {
   current_market_value: "Current Value",
@@ -93,7 +94,7 @@ export function getMonthlyRentSeries(
       continue;
     }
 
-    const month = transaction.postedAt.slice(0, 7);
+    const month = getRentRecognitionMonth(transaction);
     transactionRentByMonth.set(
       month,
       (transactionRentByMonth.get(month) ?? 0) + transaction.amount

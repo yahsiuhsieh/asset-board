@@ -103,6 +103,19 @@ export interface RealEstatePropertyTransaction {
   direction: RealEstateBankTransactionDirection;
   classification: RealEstateTransactionClassification | null;
   category: RealEstateExpenseCategory | null;
+  rentPeriodMonth: string | null;
+  note: string | null;
+}
+
+export type RealEstateMonthlyReviewStatus = "ready" | "needs_review";
+
+export interface RealEstateMonthlyReview {
+  id: string;
+  assetId: string;
+  reviewMonth: string;
+  rentStatus: RealEstateMonthlyReviewStatus;
+  expenseStatus: RealEstateMonthlyReviewStatus;
+  closedAt: string | null;
   note: string | null;
 }
 
@@ -137,6 +150,7 @@ export interface RealEstateAssetDetail extends RealEstateAsset {
   snapshots: RealEstateMetricSnapshot[];
   propertyTransactions: RealEstatePropertyTransaction[];
   bankConnections: RealEstateBankConnection[];
+  monthlyReviews: RealEstateMonthlyReview[];
 }
 
 export interface CarAsset extends BaseAsset {

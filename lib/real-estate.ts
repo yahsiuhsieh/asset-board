@@ -6,6 +6,7 @@ import type {
   RealEstateExpenseCategory,
   RealEstateMetricSnapshot,
   RealEstateMetricType,
+  RealEstateMonthlyReview,
   RealEstatePhoto,
   RealEstatePropertyTransaction,
   RealEstateRentalStatus,
@@ -99,6 +100,17 @@ interface RealEstatePropertyTransactionRow {
   direction: "credit" | "debit";
   classification: "expense" | "rental_income" | "ignored" | null;
   category: RealEstateExpenseCategory | null;
+  rent_period_month: string | null;
+  note: string | null;
+}
+
+interface RealEstateMonthlyReviewRow {
+  id: string;
+  asset_id: string;
+  review_month: string;
+  rent_status: "ready" | "needs_review";
+  expense_status: "ready" | "needs_review";
+  closed_at: string | null;
   note: string | null;
 }
 
@@ -205,6 +217,19 @@ function mapPropertyTransaction(
     direction: row.direction,
     classification: row.classification,
     category: row.category,
+    rentPeriodMonth: row.rent_period_month,
+    note: row.note
+  };
+}
+
+function mapMonthlyReview(row: RealEstateMonthlyReviewRow): RealEstateMonthlyReview {
+  return {
+    id: row.id,
+    assetId: row.asset_id,
+    reviewMonth: row.review_month,
+    rentStatus: row.rent_status,
+    expenseStatus: row.expense_status,
+    closedAt: row.closed_at,
     note: row.note
   };
 }
@@ -383,6 +408,7 @@ async function getPropertyTransactionRows(
       direction,
       classification,
       category,
+      rent_period_month,
       note
     `
     )
@@ -395,6 +421,37 @@ async function getPropertyTransactionRows(
   }
 
   return (data ?? []) as RealEstatePropertyTransactionRow[];
+}
+
+async function getMonthlyReviewRows(
+  assetIds: string[]
+): Promise<RealEstateMonthlyReviewRow[]> {
+  if (assetIds.length === 0) {
+    return [];
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_monthly_reviews")
+    .select(
+      `
+      id,
+      asset_id,
+      review_month,
+      rent_status,
+      expense_status,
+      closed_at,
+      note
+    `
+    )
+    .in("asset_id", assetIds)
+    .order("review_month", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to load monthly reviews: ${error.message}`);
+  }
+
+  return (data ?? []) as RealEstateMonthlyReviewRow[];
 }
 
 export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
@@ -420,10 +477,12 @@ export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDe
     getPhotoRows(assetIds),
     getPropertyTransactionRows(assetIds)
   ]);
-  const [photos, transactions] = await Promise.all([
+  const [monthlyReviewRows, photos, transactions] = await Promise.all([
+    getMonthlyReviewRows(assetIds),
     Promise.all(photoRows.map(mapPhoto)),
     Promise.resolve(transactionRows.map(mapPropertyTransaction))
   ]);
+  const monthlyReviews = monthlyReviewRows.map(mapMonthlyReview);
 
   return properties.map((property) => ({
     ...property,
@@ -432,7 +491,8 @@ export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDe
     propertyTransactions: transactions.filter(
       (transaction) => transaction.assetId === property.id
     ),
-    bankConnections: []
+    bankConnections: [],
+    monthlyReviews: monthlyReviews.filter((review) => review.assetId === property.id)
   }));
 }
 
@@ -452,18 +512,21 @@ export async function getRealEstateAssetDetail(
     photos,
     snapshots,
     bankConnectionRows,
-    transactionRows
+    transactionRows,
+    monthlyReviewRows
   ] = await Promise.all([
     Promise.all(photoRows.map(mapPhoto)),
     getSnapshotRows(assetId).then((rows) => rows.map(mapSnapshot)),
     getBankConnectionRows([assetId]),
-    getPropertyTransactionRows([assetId])
+    getPropertyTransactionRows([assetId]),
+    getMonthlyReviewRows([assetId])
   ]);
 
   return {
     ...property,
     bankConnections: bankConnectionRows.map(mapBankConnection),
     propertyTransactions: transactionRows.map(mapPropertyTransaction),
+    monthlyReviews: monthlyReviewRows.map(mapMonthlyReview),
     photos,
     snapshots
   };

@@ -33,7 +33,7 @@ import type { PropertyValuationUsageStatus } from "@/lib/valuations/property-val
 import type { RealEstateAssetDetail } from "@/types/wealth";
 import { BankConnectionDialog } from "./BankConnectionDialog";
 import { EditPropertyDialog } from "./EditPropertyDialog";
-import { ExpenseTransactionManager } from "./ExpenseTransactionManager";
+import { MonthlyReviewWorkspace } from "./MonthlyReviewWorkspace";
 import { PhotoUploadForm } from "./PhotoUploadForm";
 import { PropertyAnnualReportIssues } from "./PropertyAnnualReportIssues";
 import { PropertyHistoryCharts } from "./PropertyHistoryCharts";
@@ -41,9 +41,6 @@ import { PropertyImage } from "./PropertyImage";
 import { PropertyInfoPopover } from "./PropertyInfoPopover";
 import { PropertyLocationForm } from "./PropertyLocationForm";
 import { PropertyMap } from "./PropertyMap";
-import { RentCollectionManager } from "./RentCollectionManager";
-import { RentMatchingSettingsForm } from "./RentMatchingSettingsForm";
-import { RentTransactionMatchPreview } from "./RentTransactionMatchPreview";
 import { ValuationManager } from "./ValuationManager";
 
 interface PropertyDetailPageProps {
@@ -308,28 +305,7 @@ export function PropertyDetailPage({
       </section>
 
       <section>
-        <Card className="border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle>Monthly Review</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-              <div className="grid gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">Rent Collection</h3>
-                <RentCollectionManager property={property} />
-                <RentMatchingSettingsForm property={property} />
-                <RentTransactionMatchPreview property={property} />
-              </div>
-
-              <div className="grid gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Expense Transactions
-                </h3>
-                <ExpenseTransactionManager property={property} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MonthlyReviewWorkspace property={property} />
       </section>
 
       <section>

@@ -50,6 +50,7 @@ function transaction(overrides) {
     direction: "credit",
     classification: "rental_income",
     category: null,
+    rentPeriodMonth: null,
     note: null,
     ...overrides
   };
@@ -76,6 +77,7 @@ test("builds annual export rows across properties", () => {
           transaction({
             id: "rent-2025",
             postedAt: "2025-01-05",
+            rentPeriodMonth: "2026-02-01",
             description: "January rent",
             amount: 1800,
             classification: "rental_income"
@@ -84,6 +86,11 @@ test("builds annual export rows across properties", () => {
             id: "ignored-2025",
             postedAt: "2025-01-06",
             classification: "ignored"
+          }),
+          transaction({
+            id: "unclassified-2025",
+            postedAt: "2025-01-07",
+            classification: null
           }),
           transaction({
             id: "rent-2024",
@@ -158,33 +165,5 @@ test("lists years and defaults to current year when available", () => {
   assert.equal(
     helpers.getDefaultPortfolioAnnualExportYear(["2025", "2024"], "2026"),
     "2025"
-  );
-});
-
-test("serializes CSV with escaping", () => {
-  const csv = helpers.serializePortfolioAnnualTransactionsCsv([
-    {
-      date: "2025-03-12",
-      type: "expense",
-      category: "maintenance",
-      description: 'AC "repair", urgent\nsame day',
-      account: "Checking, main",
-      amount: 125.5,
-      propertyId: "property-1",
-      propertyName: 'Duplex "A"',
-      propertyAddress: "100 Main St, Unit 2"
-    }
-  ]);
-
-  assert.equal(
-    csv,
-    'date,type,category,description,account,amount,property name,property address\r\n2025-03-12,expense,maintenance,"AC ""repair"", urgent\nsame day","Checking, main",125.50,"Duplex ""A""","100 Main St, Unit 2"\r\n'
-  );
-});
-
-test("uses the portfolio annual export filename", () => {
-  assert.equal(
-    helpers.getPortfolioAnnualExportFilename("2025"),
-    "wealthvibe-real-estate-2025-transactions.csv"
   );
 });

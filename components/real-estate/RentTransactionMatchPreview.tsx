@@ -14,6 +14,10 @@ import {
   type RentTransactionMatchState
 } from "@/app/actions/real-estate";
 import { Button } from "@/components/ui/button";
+import {
+  getRentRecognitionMonth,
+  RENT_TRANSACTION_SEARCH_BUFFER_DAYS
+} from "@/lib/real-estate-monthly-review";
 import { cn } from "@/lib/utils";
 import type {
   RealEstateAssetDetail,
@@ -43,18 +47,15 @@ function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function getCurrentMonth(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-
-  return `${now.getFullYear()}-${month}`;
-}
-
 function PreviewButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button disabled={pending} type="submit" variant="secondary">
+    <Button
+      className="min-w-[11rem] border border-primary/15 shadow-sm"
+      disabled={pending}
+      type="submit"
+    >
       <Search className="h-4 w-4" />
       {pending ? "Finding" : "Find Rent Income"}
     </Button>
@@ -146,7 +147,7 @@ function RentMatchAction({
   return (
     <div className="grid w-full min-w-0 gap-2 justify-items-start md:justify-items-end">
       <div className="flex w-full min-w-0 flex-wrap items-center gap-2 md:justify-end">
-        <form action={rentalIncomeAction}>
+        <form action={rentalIncomeAction} className="flex flex-wrap items-center gap-2">
           <input name="transactionId" type="hidden" value={match.id} />
           <input name="connectionId" type="hidden" value={match.connectionId} />
           <input
@@ -156,6 +157,16 @@ function RentMatchAction({
           />
           <input name="matchMonth" type="hidden" value={matchMonth} />
           <input name="classification" type="hidden" value="rental_income" />
+          <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+            Apply to
+            <input
+              className="h-8 w-32 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={match.rentPeriodMonth ?? matchMonth}
+              name="rentPeriodMonth"
+              required
+              type="month"
+            />
+          </label>
           <MarkRentalIncomeButton />
         </form>
         <form action={ignoredAction}>
@@ -218,6 +229,7 @@ function getStoredPendingRentMatch(
     accountName: transaction.accountName,
     classification: null,
     recordedTransactionId: transaction.id,
+    rentPeriodMonth: transaction.rentPeriodMonth,
     amountMatchesTarget: transactionMatchesTargetRange(
       transaction.amount,
       property.monthlyRent,
@@ -258,7 +270,9 @@ function ClassifiedRentTransactionList({
               <p className="mt-1 font-medium text-muted-foreground">
                 {transaction.accountName} · {transaction.postedAt}
               </p>
-              <p className="mt-1 text-muted-foreground">Rental income</p>
+              <p className="mt-1 text-muted-foreground">
+                Rental income · applies to {getRentRecognitionMonth(transaction)}
+              </p>
             </div>
             <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
               {formatCurrency(transaction.amount)}
@@ -339,17 +353,19 @@ function IgnoredRentTransactionList({
 }
 
 export function RentTransactionMatchPreview({
-  property
+  property,
+  reviewMonth
 }: {
   property: RealEstateAssetDetail;
+  reviewMonth: string;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState(
     previewRentTransactionMatches.bind(null, property.id),
     initialState
   );
-  const [selectedMatchMonth, setSelectedMatchMonth] = useState(getCurrentMonth());
   const [hiddenMatchKeys, setHiddenMatchKeys] = useState<Set<string>>(new Set());
+  const selectedMatchMonth = reviewMonth;
 
   useEffect(() => {
     if (state.status === "success") {
@@ -358,10 +374,8 @@ export function RentTransactionMatchPreview({
   }, [router, state.status]);
 
   useEffect(() => {
-    if (state.matchMonth) {
-      setSelectedMatchMonth(state.matchMonth);
-    }
-  }, [state.matchMonth]);
+    setHiddenMatchKeys(new Set());
+  }, [selectedMatchMonth]);
 
   const handleClassified = useCallback((matchKey: string) => {
     setHiddenMatchKeys((currentKeys) => {
@@ -379,7 +393,7 @@ export function RentTransactionMatchPreview({
       (transaction) =>
         transaction.direction === "credit" &&
         transaction.classification == null &&
-        transaction.postedAt.slice(0, 7) === selectedMatchMonth
+        getRentRecognitionMonth(transaction) === selectedMatchMonth
     )
     .map((transaction) => getStoredPendingRentMatch(transaction, property));
   const visibleMatches = [
@@ -387,7 +401,7 @@ export function RentTransactionMatchPreview({
     ...state.matches.filter(
       (match) =>
         match.classification == null &&
-        match.postedAt.slice(0, 7) === selectedMatchMonth
+        state.matchMonth === selectedMatchMonth
     )
   ].filter(
     (match, index, matches) =>
@@ -399,35 +413,32 @@ export function RentTransactionMatchPreview({
     (transaction) =>
       transaction.direction === "credit" &&
       transaction.classification === "rental_income" &&
-      transaction.postedAt.slice(0, 7) === selectedMatchMonth
+      getRentRecognitionMonth(transaction) === selectedMatchMonth
   );
   const ignoredReviewMonthTransactions = property.propertyTransactions.filter(
     (transaction) =>
       transaction.direction === "credit" &&
       transaction.classification === "ignored" &&
-      transaction.postedAt.slice(0, 7) === selectedMatchMonth
+      getRentRecognitionMonth(transaction) === selectedMatchMonth
   );
+  const shouldShowPreviewMessage =
+    state.message && (!state.matchMonth || state.matchMonth === selectedMatchMonth);
 
   return (
     <div className="grid gap-4 border-t border-slate-100 pt-5">
       <form action={formAction} className="grid gap-4">
-        <div className="grid gap-4 md:grid-cols-[12rem_auto] md:items-end">
-          <label className="grid gap-2 text-sm font-semibold">
-            Review Month
-            <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-              name="matchMonth"
-              onChange={(event) => setSelectedMatchMonth(event.target.value)}
-              required
-              type="month"
-              value={selectedMatchMonth}
-            />
-          </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <input name="matchMonth" type="hidden" value={selectedMatchMonth} />
           <PreviewButton />
+          <p className="text-sm font-medium text-muted-foreground">
+            Searches bank credits from {RENT_TRANSACTION_SEARCH_BUFFER_DAYS} days before{" "}
+            {selectedMatchMonth} starts through {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}{" "}
+            days after it ends.
+          </p>
         </div>
       </form>
 
-      {state.message ? (
+      {shouldShowPreviewMessage ? (
         <p
           className={cn(
             "text-sm font-semibold",

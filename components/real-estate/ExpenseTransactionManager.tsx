@@ -22,7 +22,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   expenseCategoryLabels,
-  getCurrentMonth,
   getExpenseTransactionsForMonth,
   getRecordedExpensesForMonth
 } from "@/lib/real-estate-expenses";
@@ -69,7 +68,11 @@ function PreviewButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button disabled={pending} type="submit" variant="secondary">
+    <Button
+      className="min-w-[11rem] border border-primary/15 shadow-sm"
+      disabled={pending}
+      type="submit"
+    >
       <Search className="h-4 w-4" />
       {pending ? "Finding" : "Find Transactions"}
     </Button>
@@ -169,8 +172,8 @@ function ExpenseTransactionActions({
   }
 
   return (
-    <div className="grid w-full min-w-0 gap-2 justify-items-start lg:justify-items-end">
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+    <div className="grid w-full min-w-0 gap-2 justify-items-start lg:w-auto lg:justify-items-end">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
         <form action={expenseAction} className="contents">
           <input name="transactionId" type="hidden" value={transaction.id} />
           <input name="connectionId" type="hidden" value={transaction.connectionId} />
@@ -326,25 +329,24 @@ function IgnoredTransactionList({
 }
 
 export function ExpenseTransactionManager({
-  property
+  property,
+  reviewMonth
 }: {
   property: RealEstateAssetDetail;
+  reviewMonth: string;
 }) {
-  const currentMonth = getCurrentMonth();
   const [state, formAction] = useActionState(
     previewExpenseTransactions.bind(null, property.id),
     initialPreviewState
   );
-  const [selectedReviewMonth, setSelectedReviewMonth] = useState(currentMonth);
   const [hiddenPreviewTransactionKeys, setHiddenPreviewTransactionKeys] = useState<
     Set<string>
   >(new Set());
+  const selectedReviewMonth = reviewMonth;
 
   useEffect(() => {
-    if (state.reviewMonth) {
-      setSelectedReviewMonth(state.reviewMonth);
-    }
-  }, [state.reviewMonth]);
+    setHiddenPreviewTransactionKeys(new Set());
+  }, [selectedReviewMonth]);
 
   const handleClassified = useCallback((transactionKey: string) => {
     setHiddenPreviewTransactionKeys((currentKeys) => {
@@ -393,6 +395,8 @@ export function ExpenseTransactionManager({
     selectedReviewMonth
   ).length;
   const ignoredCount = ignoredReviewMonthTransactions.length;
+  const shouldShowPreviewMessage =
+    state.message && (!state.reviewMonth || state.reviewMonth === selectedReviewMonth);
 
   return (
     <div className="grid gap-5">
@@ -420,23 +424,16 @@ export function ExpenseTransactionManager({
       </div>
 
       <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5">
-        <div className="grid gap-4 md:grid-cols-[12rem_auto] md:items-end">
-          <label className="grid gap-2 text-sm font-semibold">
-            Review Month
-            <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-              name="reviewMonth"
-              onChange={(event) => setSelectedReviewMonth(event.target.value)}
-              required
-              type="month"
-              value={selectedReviewMonth}
-            />
-          </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <input name="reviewMonth" type="hidden" value={selectedReviewMonth} />
           <PreviewButton />
+          <p className="text-sm font-medium text-muted-foreground">
+            Searches debit transactions posted in {selectedReviewMonth}.
+          </p>
         </div>
       </form>
 
-      {state.message ? (
+      {shouldShowPreviewMessage ? (
         <p
           className={cn(
             "text-sm font-semibold",
@@ -461,7 +458,7 @@ export function ExpenseTransactionManager({
 
               return (
                 <div
-                  className="grid min-w-0 gap-3 border-b border-slate-100 p-4 text-sm last:border-0 lg:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_auto_minmax(26rem,auto)] xl:items-center"
+                  className="grid min-w-0 gap-3 border-b border-slate-100 p-4 text-sm last:border-0 lg:grid-cols-[minmax(0,1fr)_7rem_auto] lg:items-center"
                   key={transactionKey}
                 >
                   <div className="min-w-0">

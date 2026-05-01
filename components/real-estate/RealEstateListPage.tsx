@@ -150,21 +150,12 @@ export function RealEstateListPage({
               Track property values, rent, cash flow, locations, and history.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <PortfolioAnnualTransactionsExport
-              annualQualityResults={annualQualityResults}
-              annualReportYear={annualReportYear}
-              annualReportYears={annualReportYears}
-              properties={properties}
-            />
-            <a
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-              href="#add-property"
-            >
-              <Plus className="h-4 w-4" />
-              Add Property
-            </a>
-          </div>
+          <PortfolioAnnualTransactionsExport
+            annualQualityResults={annualQualityResults}
+            annualReportYear={annualReportYear}
+            annualReportYears={annualReportYears}
+            properties={properties}
+          />
         </div>
       </section>
 

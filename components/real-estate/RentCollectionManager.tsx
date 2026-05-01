@@ -7,25 +7,15 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0
 });
 
-const percentFormatter = new Intl.NumberFormat("en-US", {
-  style: "percent",
-  maximumFractionDigits: 0
-});
-
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0%";
-  }
-
-  return percentFormatter.format(value);
-}
-
-function getTrackedCollectedAmount(property: RealEstateAssetDetail): number {
-  return getRentalIncomeForMonth(property.propertyTransactions, getCurrentMonth());
+function getTrackedCollectedAmount(
+  property: RealEstateAssetDetail,
+  reviewMonth: string
+): number {
+  return getRentalIncomeForMonth(property.propertyTransactions, reviewMonth);
 }
 
 function getCollectionStatus(property: RealEstateAssetDetail, collectedAmount: number): string {
@@ -44,31 +34,54 @@ function getCollectionStatus(property: RealEstateAssetDetail, collectedAmount: n
   return "Pending";
 }
 
-export function RentCollectionManager({ property }: { property: RealEstateAssetDetail }) {
-  const collectedAmount = getTrackedCollectedAmount(property);
-  const collectionRate = property.monthlyRent > 0 ? collectedAmount / property.monthlyRent : 0;
+function getCollectionStatusClassName(status: string): string {
+  if (status === "Collected") {
+    return "text-emerald-700";
+  }
+
+  if (status === "Partial") {
+    return "text-amber-700";
+  }
+
+  if (status === "Pending") {
+    return "text-red-600";
+  }
+
+  return "text-slate-900";
+}
+
+export function RentCollectionManager({
+  property,
+  reviewMonth = getCurrentMonth()
+}: {
+  property: RealEstateAssetDetail;
+  reviewMonth?: string;
+}) {
+  const collectedAmount = getTrackedCollectedAmount(property, reviewMonth);
+  const collectionStatus = getCollectionStatus(property, collectedAmount);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <div>
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="rounded-md border border-slate-200 bg-secondary p-4">
         <p className="text-sm font-semibold text-muted-foreground">Collected</p>
         <p className="mt-2 text-2xl font-semibold tracking-tight">
           {formatCurrency(collectedAmount)}
         </p>
       </div>
-      <div>
+      <div className="rounded-md border border-slate-200 bg-secondary p-4">
         <p className="text-sm font-semibold text-muted-foreground">Target Rent</p>
         <p className="mt-2 text-2xl font-semibold tracking-tight">
           {formatCurrency(property.monthlyRent)}
         </p>
       </div>
-      <div>
+      <div className="rounded-md border border-slate-200 bg-secondary p-4">
         <p className="text-sm font-semibold text-muted-foreground">Status</p>
-        <p className="mt-2 text-2xl font-semibold tracking-tight">
-          {getCollectionStatus(property, collectedAmount)}
-        </p>
-        <p className="mt-1 text-sm font-semibold text-muted-foreground">
-          {formatPercent(collectionRate)}
+        <p
+          className={`mt-2 text-2xl font-semibold tracking-tight ${getCollectionStatusClassName(
+            collectionStatus
+          )}`}
+        >
+          {collectionStatus}
         </p>
       </div>
     </div>

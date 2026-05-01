@@ -3,11 +3,17 @@ import type {
   RealEstatePropertyTransaction,
   RealEstateRentalStatus
 } from "@/types/wealth";
+import {
+  getPropertyReviewMonths,
+  getRentRecognitionMonth,
+  normalizeReviewMonth
+} from "@/lib/real-estate-monthly-review";
 
 export type AnnualQualityIssueSeverity = "blocking" | "warning";
 
 export type AnnualQualityIssueCode =
   | "missing_rent_months"
+  | "open_monthly_reviews"
   | "unclassified_expense_transactions"
   | "missing_expense_category"
   | "ignored_transactions"
@@ -38,72 +44,8 @@ function getCurrentYear(): string {
   return String(new Date().getFullYear());
 }
 
-function getCurrentYearMonth(today = new Date()): { year: number; month: number } {
-  return {
-    year: today.getFullYear(),
-    month: today.getMonth() + 1
-  };
-}
-
 function getTransactionYear(transaction: RealEstatePropertyTransaction): string {
   return transaction.postedAt.slice(0, 4);
-}
-
-function getTransactionMonth(transaction: RealEstatePropertyTransaction): string {
-  return transaction.postedAt.slice(0, 7);
-}
-
-function getPropertyReviewMonths(
-  property: RealEstateAssetDetail,
-  year: string,
-  today = new Date()
-): string[] {
-  const numericYear = Number(year);
-  const current = getCurrentYearMonth(today);
-
-  if (!Number.isInteger(numericYear)) {
-    return [];
-  }
-
-  let endMonth = 12;
-
-  if (numericYear > current.year) {
-    return [];
-  }
-
-  if (numericYear === current.year) {
-    endMonth = current.month;
-  }
-
-  let startMonth = 1;
-
-  if (property.purchasedAt) {
-    const purchasedYear = Number(property.purchasedAt.slice(0, 4));
-    const purchasedMonth = Number(property.purchasedAt.slice(5, 7));
-
-    if (Number.isInteger(purchasedYear) && purchasedYear > numericYear) {
-      return [];
-    }
-
-    if (
-      purchasedYear === numericYear &&
-      Number.isInteger(purchasedMonth) &&
-      purchasedMonth >= 1 &&
-      purchasedMonth <= 12
-    ) {
-      startMonth = purchasedMonth;
-    }
-  }
-
-  if (startMonth > endMonth) {
-    return [];
-  }
-
-  return Array.from({ length: endMonth - startMonth + 1 }, (_, index) => {
-    const month = String(startMonth + index).padStart(2, "0");
-
-    return `${year}-${month}`;
-  });
 }
 
 function getTransactionsForYear(
@@ -137,6 +79,14 @@ export function getPortfolioAnnualReportYears(
 
     for (const transaction of property.propertyTransactions) {
       years.add(getTransactionYear(transaction));
+
+      if (transaction.rentPeriodMonth) {
+        years.add(transaction.rentPeriodMonth.slice(0, 4));
+      }
+    }
+
+    for (const review of property.monthlyReviews ?? []) {
+      years.add(review.reviewMonth.slice(0, 4));
     }
   }
 
@@ -168,14 +118,28 @@ export function getPropertyAnnualQualityResult(
 ): PropertyAnnualQualityResult {
   const reviewMonths = getPropertyReviewMonths(property, year, today);
   const transactions = getTransactionsForYear(property.propertyTransactions, year);
+  const monthlyReviews = property.monthlyReviews ?? [];
+  const closedReviewMonths = new Set(
+    monthlyReviews
+      .filter(
+        (review) =>
+          review.closedAt && normalizeReviewMonth(review.reviewMonth).startsWith(year)
+      )
+      .map((review) => normalizeReviewMonth(review.reviewMonth))
+  );
+  const openReviewMonths = reviewMonths.filter((month) => !closedReviewMonths.has(month));
+  const closedExpectedReviewMonths = reviewMonths.filter((month) =>
+    closedReviewMonths.has(month)
+  );
   const rentalIncomeMonths = new Set(
-    transactions
+    property.propertyTransactions
       .filter(
         (transaction) =>
           transaction.classification === "rental_income" &&
-          transaction.direction === "credit"
+          transaction.direction === "credit" &&
+          getRentRecognitionMonth(transaction).startsWith(year)
       )
-      .map(getTransactionMonth)
+      .map(getRentRecognitionMonth)
   );
   const expenses = transactions.filter(
     (transaction) => transaction.classification === "expense"
@@ -193,8 +157,22 @@ export function getPropertyAnnualQualityResult(
   const issues: AnnualQualityIssue[] = [];
   const missingRentMonths =
     property.monthlyRent > 0
-      ? reviewMonths.filter((month) => !rentalIncomeMonths.has(month))
+      ? closedExpectedReviewMonths.filter((month) => !rentalIncomeMonths.has(month))
       : [];
+
+  if (openReviewMonths.length > 0) {
+    issues.push(
+      makeIssue({
+        id: `${property.id}:open-monthly-reviews`,
+        code: "open_monthly_reviews",
+        severity: "blocking",
+        title: "Open monthly reviews",
+        description: `${openReviewMonths.length} expected ${openReviewMonths.length === 1 ? "month is" : "months are"} not closed.`,
+        months: openReviewMonths,
+        count: openReviewMonths.length
+      })
+    );
+  }
 
   if (property.rentalStatus === "rented" && missingRentMonths.length > 0) {
     issues.push(

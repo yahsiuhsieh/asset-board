@@ -10,7 +10,16 @@ import {
   type BankTransaction,
   type BankTransactionProviderName
 } from "@/lib/banking/transaction-provider";
+import { getRealEstateAssetDetail } from "@/lib/real-estate";
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
+import {
+  getMonthlyReviewAssessment,
+  RENT_TRANSACTION_SEARCH_BUFFER_DAYS
+} from "@/lib/real-estate-monthly-review";
+import {
+  getMonthlyExpenseDebitSyncDecisions,
+  getMonthlyRentCreditSyncDecisions
+} from "@/lib/real-estate-monthly-transaction-sync";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { fetchPropertyValuation } from "@/lib/valuations/property-valuation-provider";
 import {
@@ -46,6 +55,7 @@ export interface RentTransactionMatch {
   accountName: string;
   classification: RealEstateTransactionClassification | null;
   recordedTransactionId: string | null;
+  rentPeriodMonth: string | null;
   amountMatchesTarget: boolean;
 }
 
@@ -203,20 +213,19 @@ function getMonthRange(monthStart: string): { startDate: string; endDate: string
   };
 }
 
-function transactionMatchesRent(
-  transaction: BankTransaction,
-  expectedAmount: number,
-  tolerance: number
-): boolean {
-  if (transaction.direction !== "credit") {
-    return false;
-  }
+function getBufferedMonthRange(
+  monthStart: string,
+  bufferDays: number
+): { startDate: string; endDate: string } {
+  const start = new Date(`${monthStart}T00:00:00.000Z`);
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+  const bufferedStart = new Date(start.getTime() - bufferDays * 24 * 60 * 60 * 1000);
+  const bufferedEnd = new Date(end.getTime() + (bufferDays - 1) * 24 * 60 * 60 * 1000);
 
-  if (Math.abs(transaction.amount - expectedAmount) > tolerance) {
-    return false;
-  }
-
-  return true;
+  return {
+    startDate: bufferedStart.toISOString().slice(0, 10),
+    endDate: bufferedEnd.toISOString().slice(0, 10)
+  };
 }
 
 function isReviewableRentCredit(transaction: BankTransaction): boolean {
@@ -294,6 +303,7 @@ interface PropertyTransactionClassificationRow {
   account_id: string;
   classification: RealEstateTransactionClassification | null;
   category: RealEstateExpenseCategory | null;
+  rent_period_month: string | null;
   note: string | null;
 }
 
@@ -350,27 +360,17 @@ async function loadPropertyBankConnections(
   return (data ?? []) as PropertyBankConnectionRow[];
 }
 
-async function fetchPropertyBankTransactions({
-  assetId,
+async function fetchConnectedPropertyBankTransactions({
+  connections,
   startDate,
   endDate,
   expectedRentAmount
 }: {
-  assetId: string;
+  connections: PropertyBankConnectionRow[];
   startDate: string;
   endDate: string;
   expectedRentAmount?: number;
 }) {
-  const connections = await loadPropertyBankConnections(assetId);
-
-  if (connections.length === 0) {
-    return fetchBankTransactions({
-      startDate,
-      endDate,
-      expectedRentAmount
-    });
-  }
-
   const transactionGroups = await Promise.all(
     connections.map((connection) =>
       fetchBankTransactions({
@@ -392,6 +392,60 @@ async function fetchPropertyBankTransactions({
   };
 }
 
+async function fetchPropertyBankTransactions({
+  assetId,
+  startDate,
+  endDate,
+  expectedRentAmount
+}: {
+  assetId: string;
+  startDate: string;
+  endDate: string;
+  expectedRentAmount?: number;
+}) {
+  const connections = await loadPropertyBankConnections(assetId);
+
+  if (connections.length === 0) {
+    return fetchBankTransactions({
+      startDate,
+      endDate,
+      expectedRentAmount
+    });
+  }
+
+  return fetchConnectedPropertyBankTransactions({
+    connections,
+    endDate,
+    expectedRentAmount,
+    startDate
+  });
+}
+
+async function fetchPropertyConnectedBankTransactions({
+  assetId,
+  startDate,
+  endDate,
+  expectedRentAmount
+}: {
+  assetId: string;
+  startDate: string;
+  endDate: string;
+  expectedRentAmount?: number;
+}) {
+  const connections = await loadPropertyBankConnections(assetId);
+
+  if (connections.length === 0) {
+    return null;
+  }
+
+  return fetchConnectedPropertyBankTransactions({
+    connections,
+    endDate,
+    expectedRentAmount,
+    startDate
+  });
+}
+
 function getTransactionClassificationKey({
   connectionId,
   accountId,
@@ -402,6 +456,21 @@ function getTransactionClassificationKey({
   transactionId: string;
 }): string {
   return `${connectionId ?? "mock"}:${accountId}:${transactionId}`;
+}
+
+function getBankTransactionClassification(
+  classifications: Map<string, PropertyTransactionClassificationRow>,
+  transaction: BankTransaction
+): PropertyTransactionClassificationRow | null {
+  return (
+    classifications.get(
+      getTransactionClassificationKey({
+        connectionId: getLedgerBankConnectionId(transaction),
+        accountId: transaction.accountId,
+        transactionId: transaction.id
+      })
+    ) ?? null
+  );
 }
 
 async function loadPropertyTransactionClassifications({
@@ -424,6 +493,7 @@ async function loadPropertyTransactionClassifications({
       account_id,
       classification,
       category,
+      rent_period_month,
       note
     `
     )
@@ -463,6 +533,7 @@ function buildPropertyTransactionLedgerRow({
   classification,
   note,
   provider,
+  rentPeriodMonth,
   transaction,
   updatedAt
 }: {
@@ -471,6 +542,7 @@ function buildPropertyTransactionLedgerRow({
   classification: RealEstateTransactionClassification | null;
   note: string | null;
   provider: BankTransactionProviderName;
+  rentPeriodMonth: string | null;
   transaction: BankTransaction;
   updatedAt: string;
 }) {
@@ -488,6 +560,7 @@ function buildPropertyTransactionLedgerRow({
     direction: transaction.direction,
     classification,
     category,
+    rent_period_month: rentPeriodMonth,
     note,
     updated_at: updatedAt
   };
@@ -824,6 +897,298 @@ export async function removeBankConnection(
   }
 }
 
+interface RentCreditSyncResult {
+  autoMatchedCount: number;
+  matchMonth: string;
+  matches: RentTransactionMatch[];
+  pendingReviewCount: number;
+  provider: string;
+  skippedBankSync: boolean;
+  wroteLedgerRows: boolean;
+}
+
+async function syncRentCreditsForReviewMonth({
+  allowMockFallback = true,
+  assetId,
+  matchMonth
+}: {
+  allowMockFallback?: boolean;
+  assetId: string;
+  matchMonth: string;
+}): Promise<RentCreditSyncResult> {
+  const property = await loadPropertyRentMatchInput(assetId);
+  const expectedAmount = Number(property.monthly_rent);
+  const tolerance = Number(property.rent_match_tolerance);
+
+  if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+    throw new Error("Monthly rent must be greater than zero before matching transactions.");
+  }
+
+  if (!Number.isFinite(tolerance) || tolerance < 0) {
+    throw new Error("Rent matching tolerance must be zero or greater.");
+  }
+
+  const { startDate, endDate } = getBufferedMonthRange(
+    matchMonth,
+    RENT_TRANSACTION_SEARCH_BUFFER_DAYS
+  );
+  const transactionResult = allowMockFallback
+    ? await fetchPropertyBankTransactions({
+        assetId,
+        startDate,
+        endDate,
+        expectedRentAmount: expectedAmount
+      })
+    : await fetchPropertyConnectedBankTransactions({
+        assetId,
+        startDate,
+        endDate,
+        expectedRentAmount: expectedAmount
+      });
+
+  if (!transactionResult) {
+    return {
+      autoMatchedCount: 0,
+      matchMonth: matchMonth.slice(0, 7),
+      matches: [],
+      pendingReviewCount: 0,
+      provider: "",
+      skippedBankSync: true,
+      wroteLedgerRows: false
+    };
+  }
+
+  let classifications = await loadPropertyTransactionClassifications({
+    assetId,
+    startDate,
+    endDate
+  });
+  let decisions = getMonthlyRentCreditSyncDecisions({
+    expectedAmount,
+    getClassification: (transaction) =>
+      getBankTransactionClassification(classifications, transaction),
+    minimumAmount: MIN_RENT_CREDIT_REVIEW_AMOUNT,
+    reviewMonth: matchMonth,
+    tolerance,
+    transactions: transactionResult.transactions
+  });
+  const autoMatchedDecisions = decisions.filter(
+    (decision) => decision.shouldAutoRecordRentalIncome
+  );
+  let wroteLedgerRows = false;
+
+  if (autoMatchedDecisions.length > 0) {
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase.from("real_estate_property_transactions").upsert(
+      autoMatchedDecisions.map((decision) =>
+        buildPropertyTransactionLedgerRow({
+          assetId,
+          category: null,
+          classification: "rental_income",
+          note: "Auto matched by target rent amount.",
+          provider: transactionResult.provider,
+          rentPeriodMonth: matchMonth,
+          transaction: decision.transaction,
+          updatedAt: now
+        })
+      ),
+      {
+        onConflict: "asset_id,provider,account_id,provider_transaction_id"
+      }
+    );
+
+    if (error) {
+      throw new Error(`Could not auto-record rental income: ${error.message}`);
+    }
+
+    wroteLedgerRows = true;
+    classifications = await loadPropertyTransactionClassifications({
+      assetId,
+      startDate,
+      endDate
+    });
+    decisions = getMonthlyRentCreditSyncDecisions({
+      expectedAmount,
+      getClassification: (transaction) =>
+        getBankTransactionClassification(classifications, transaction),
+      minimumAmount: MIN_RENT_CREDIT_REVIEW_AMOUNT,
+      reviewMonth: matchMonth,
+      tolerance,
+      transactions: transactionResult.transactions
+    });
+  }
+
+  const pendingDecisions = decisions.filter(
+    (decision) => decision.shouldCreatePendingReview
+  );
+
+  if (pendingDecisions.length > 0) {
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase
+      .from("real_estate_property_transactions")
+      .upsert(
+        pendingDecisions.map((decision) =>
+          buildPropertyTransactionLedgerRow({
+            assetId,
+            category: null,
+            classification: null,
+            note: "Needs rent review.",
+            provider: transactionResult.provider,
+            rentPeriodMonth: matchMonth,
+            transaction: decision.transaction,
+            updatedAt: now
+          })
+        ),
+        {
+          onConflict: "asset_id,provider,account_id,provider_transaction_id"
+        }
+      );
+
+    if (error) {
+      throw new Error(`Could not save pending rent credits: ${error.message}`);
+    }
+
+    wroteLedgerRows = true;
+  }
+
+  const matches = decisions.map((decision) => ({
+    id: decision.transaction.id,
+    connectionId: decision.transaction.connectionId,
+    postedAt: decision.transaction.postedAt,
+    title: decision.transaction.title,
+    memo: decision.transaction.memo,
+    description: decision.transaction.description,
+    amount: decision.transaction.amount,
+    accountName: decision.transaction.accountName,
+    classification: decision.classification?.classification ?? null,
+    recordedTransactionId: decision.classification?.id ?? null,
+    rentPeriodMonth: decision.rentPeriodMonth,
+    amountMatchesTarget: decision.amountMatchesTarget
+  }));
+
+  return {
+    autoMatchedCount: autoMatchedDecisions.length,
+    matchMonth: matchMonth.slice(0, 7),
+    matches,
+    pendingReviewCount: matches.filter((match) => !match.classification).length,
+    provider: transactionResult.provider,
+    skippedBankSync: false,
+    wroteLedgerRows
+  };
+}
+
+interface ExpenseTransactionSyncResult {
+  pendingReviewCount: number;
+  provider: string;
+  reviewMonth: string;
+  skippedBankSync: boolean;
+  transactions: ExpenseTransactionPreview[];
+  wroteLedgerRows: boolean;
+}
+
+async function syncExpenseTransactionsForReviewMonth({
+  allowMockFallback = true,
+  assetId,
+  reviewMonth
+}: {
+  allowMockFallback?: boolean;
+  assetId: string;
+  reviewMonth: string;
+}): Promise<ExpenseTransactionSyncResult> {
+  const { startDate, endDate } = getMonthRange(reviewMonth);
+  const transactionResult = allowMockFallback
+    ? await fetchPropertyBankTransactions({
+        assetId,
+        startDate,
+        endDate
+      })
+    : await fetchPropertyConnectedBankTransactions({
+        assetId,
+        startDate,
+        endDate
+      });
+
+  if (!transactionResult) {
+    return {
+      pendingReviewCount: 0,
+      provider: "",
+      reviewMonth: reviewMonth.slice(0, 7),
+      skippedBankSync: true,
+      transactions: [],
+      wroteLedgerRows: false
+    };
+  }
+
+  const classifications = await loadPropertyTransactionClassifications({
+    assetId,
+    startDate,
+    endDate
+  });
+  const decisions = getMonthlyExpenseDebitSyncDecisions({
+    getClassification: (transaction) =>
+      getBankTransactionClassification(classifications, transaction),
+    transactions: transactionResult.transactions
+  });
+  const pendingDecisions = decisions.filter(
+    (decision) => decision.shouldCreatePendingReview
+  );
+  let wroteLedgerRows = false;
+
+  if (pendingDecisions.length > 0) {
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase
+      .from("real_estate_property_transactions")
+      .upsert(
+        pendingDecisions.map((decision) =>
+          buildPropertyTransactionLedgerRow({
+            assetId,
+            category: null,
+            classification: null,
+            note: "Needs expense review.",
+            provider: transactionResult.provider,
+            rentPeriodMonth: null,
+            transaction: decision.transaction,
+            updatedAt: now
+          })
+        ),
+        {
+          onConflict: "asset_id,provider,account_id,provider_transaction_id"
+        }
+      );
+
+    if (error) {
+      throw new Error(`Could not save pending expense transactions: ${error.message}`);
+    }
+
+    wroteLedgerRows = true;
+  }
+
+  const transactions = decisions
+    .filter((decision) => decision.shouldShowAsUnclassified)
+    .map((decision) => ({
+      id: decision.transaction.id,
+      connectionId: decision.transaction.connectionId,
+      postedAt: decision.transaction.postedAt,
+      description: decision.transaction.description,
+      amount: decision.transaction.amount,
+      accountName: decision.transaction.accountName,
+      classification: null,
+      recordedTransactionId: decision.classification?.id ?? null
+    }));
+
+  return {
+    pendingReviewCount: transactions.length,
+    provider: transactionResult.provider,
+    reviewMonth: reviewMonth.slice(0, 7),
+    skippedBankSync: false,
+    transactions,
+    wroteLedgerRows
+  };
+}
+
 export async function previewRentTransactionMatches(
   assetId: string,
   _previousState: RentTransactionMatchState,
@@ -833,194 +1198,36 @@ export async function previewRentTransactionMatches(
 
   try {
     const matchMonth = readMonthStart(formData, "matchMonth");
-    const property = await loadPropertyRentMatchInput(assetId);
-    const expectedAmount = Number(property.monthly_rent);
-    const tolerance = Number(property.rent_match_tolerance);
-
-    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
-      return {
-        status: "error",
-        message: "Monthly rent must be greater than zero before matching transactions.",
-        provider: "",
-        matchMonth: matchMonth.slice(0, 7),
-        matches: []
-      };
-    }
-
-    if (!Number.isFinite(tolerance) || tolerance < 0) {
-      return {
-        status: "error",
-        message: "Rent matching tolerance must be zero or greater.",
-        provider: "",
-        matchMonth: matchMonth.slice(0, 7),
-        matches: []
-      };
-    }
-
-    const { startDate, endDate } = getMonthRange(matchMonth);
-    const [result, classifications] = await Promise.all([
-      fetchPropertyBankTransactions({
-        assetId,
-        startDate,
-        endDate,
-        expectedRentAmount: expectedAmount
-      }),
-      loadPropertyTransactionClassifications({
-        assetId,
-        startDate,
-        endDate
-      })
-    ]);
-    const reviewableCredits = result.transactions
-      .filter(isReviewableRentCredit)
-      .sort((a, b) => b.postedAt.localeCompare(a.postedAt));
-    const autoMatchedCredits = reviewableCredits.filter((transaction) => {
-      const classification = classifications.get(
-        getTransactionClassificationKey({
-          connectionId: getLedgerBankConnectionId(transaction),
-          accountId: transaction.accountId,
-          transactionId: transaction.id
-        })
-      );
-
-      return (
-        !classification &&
-        transactionMatchesRent(transaction, expectedAmount, tolerance)
-      );
+    const result = await syncRentCreditsForReviewMonth({
+      assetId,
+      matchMonth
     });
 
-    if (autoMatchedCredits.length > 0) {
-      const now = new Date().toISOString();
-      const supabase = createServerSupabaseClient();
-      const { error } = await supabase.from("real_estate_property_transactions").upsert(
-        autoMatchedCredits.map((transaction) =>
-          buildPropertyTransactionLedgerRow({
-            assetId,
-            category: null,
-            classification: "rental_income",
-            note: "Auto matched by target rent amount.",
-            provider: result.provider,
-            transaction,
-            updatedAt: now
-          })
-        ),
-        {
-          onConflict: "asset_id,provider,account_id,provider_transaction_id"
-        }
-      );
-
-      if (error) {
-        return {
-          status: "error",
-          message: `Could not auto-record rental income: ${error.message}`,
-          provider: result.provider,
-          matchMonth: matchMonth.slice(0, 7),
-          matches: []
-        };
-      }
-
+    if (result.wroteLedgerRows) {
       revalidatePropertyPages(assetId);
     }
 
-    const updatedClassifications =
-      autoMatchedCredits.length > 0
-        ? await loadPropertyTransactionClassifications({
-            assetId,
-            startDate,
-            endDate
-          })
-        : classifications;
-    const pendingLedgerRows: ReturnType<typeof buildPropertyTransactionLedgerRow>[] = [];
-    const matches = reviewableCredits
-      .filter((transaction) =>
-        isReviewableRentCredit(transaction)
-      )
-      .map((transaction) => {
-        const classification = updatedClassifications.get(
-          getTransactionClassificationKey({
-            connectionId: getLedgerBankConnectionId(transaction),
-            accountId: transaction.accountId,
-            transactionId: transaction.id
-          })
-        );
-
-        if (!classification) {
-          pendingLedgerRows.push(
-            buildPropertyTransactionLedgerRow({
-              assetId,
-              category: null,
-              classification: null,
-              note: "Needs rent review.",
-              provider: result.provider,
-              transaction,
-              updatedAt: new Date().toISOString()
-            })
-          );
-        }
-
-        return {
-          id: transaction.id,
-          connectionId: transaction.connectionId,
-          postedAt: transaction.postedAt,
-          title: transaction.title,
-          memo: transaction.memo,
-          description: transaction.description,
-          amount: transaction.amount,
-          accountName: transaction.accountName,
-          classification: classification?.classification ?? null,
-          recordedTransactionId: classification?.id ?? null,
-          amountMatchesTarget: transactionMatchesRent(transaction, expectedAmount, tolerance)
-        };
-      });
-
-    if (pendingLedgerRows.length > 0) {
-      const now = new Date().toISOString();
-      const supabase = createServerSupabaseClient();
-      const { error } = await supabase
-        .from("real_estate_property_transactions")
-        .upsert(
-          pendingLedgerRows.map((row) => ({
-            ...row,
-            updated_at: now
-          })),
-          {
-            onConflict: "asset_id,provider,account_id,provider_transaction_id"
-          }
-        );
-
-      if (error) {
-        return {
-          status: "error",
-          message: `Could not save pending rent credits: ${error.message}`,
-          provider: result.provider,
-          matchMonth: matchMonth.slice(0, 7),
-          matches: []
-        };
-      }
-
-      revalidatePropertyPages(assetId);
-    }
-
-    const unreviewedCount = matches.filter((match) => !match.classification).length;
     const messageParts = [
-      autoMatchedCredits.length > 0
-        ? `${autoMatchedCredits.length} rental income ${autoMatchedCredits.length === 1 ? "credit was" : "credits were"} auto-recorded.`
+      result.autoMatchedCount > 0
+        ? `${result.autoMatchedCount} rental income ${result.autoMatchedCount === 1 ? "credit was" : "credits were"} auto-recorded.`
         : "",
-      unreviewedCount > 0
-        ? `${unreviewedCount} credit ${unreviewedCount === 1 ? "needs" : "need"} review.`
+      result.pendingReviewCount > 0
+        ? `${result.pendingReviewCount} credit ${result.pendingReviewCount === 1 ? "needs" : "need"} review.`
         : "",
-      matches.length > 0 && unreviewedCount === 0 && autoMatchedCredits.length === 0
+      result.matches.length > 0 &&
+      result.pendingReviewCount === 0 &&
+      result.autoMatchedCount === 0
         ? "All reviewed credits are already classified."
         : "",
-      matches.length === 0 ? "No credit transactions over $10 found." : ""
+      result.matches.length === 0 ? "No credit transactions over $10 found." : ""
     ].filter(Boolean);
 
     return {
       status: "success",
       message: messageParts.join(" "),
       provider: result.provider,
-      matchMonth: matchMonth.slice(0, 7),
-      matches
+      matchMonth: result.matchMonth,
+      matches: result.matches
     };
   } catch (error) {
     return {
@@ -1047,6 +1254,10 @@ export async function classifyRentCreditTransaction(
     const recordedTransactionId = readText(formData, "recordedTransactionId");
     const matchMonth = readMonthStart(formData, "matchMonth");
     const classification = readText(formData, "classification");
+    const rentPeriodMonth =
+      classification === "rental_income"
+        ? readMonthStart(formData, "rentPeriodMonth")
+        : null;
 
     if (!recordedTransactionId && (!transactionId || !connectionId)) {
       return errorState("Choose a credit to classify.");
@@ -1064,6 +1275,7 @@ export async function classifyRentCreditTransaction(
         .update({
           classification,
           category: null,
+          rent_period_month: rentPeriodMonth,
           note:
             classification === "rental_income"
               ? "Marked as rental income."
@@ -1091,7 +1303,10 @@ export async function classifyRentCreditTransaction(
       );
     }
 
-    const { startDate, endDate } = getMonthRange(matchMonth);
+    const { startDate, endDate } = getBufferedMonthRange(
+      matchMonth,
+      RENT_TRANSACTION_SEARCH_BUFFER_DAYS
+    );
     const result = await fetchPropertyBankTransactions({
       assetId,
       startDate,
@@ -1120,6 +1335,7 @@ export async function classifyRentCreditTransaction(
             ? "Marked as rental income."
             : "Marked as not rental income.",
         provider: result.provider,
+        rentPeriodMonth,
         transaction: matchedTransaction,
         updatedAt: now
       }),
@@ -1154,94 +1370,24 @@ export async function previewExpenseTransactions(
 
   try {
     const reviewMonth = readMonthStart(formData, "reviewMonth");
-    const { startDate, endDate } = getMonthRange(reviewMonth);
-    const [result, classifications] = await Promise.all([
-      fetchPropertyBankTransactions({
-        assetId,
-        startDate,
-        endDate
-      }),
-      loadPropertyTransactionClassifications({
-        assetId,
-        startDate,
-        endDate
-      })
-    ]);
-    const pendingLedgerRows: ReturnType<typeof buildPropertyTransactionLedgerRow>[] = [];
-    const transactions = result.transactions
-      .filter((transaction) => transaction.direction === "debit")
-      .sort((a, b) => b.postedAt.localeCompare(a.postedAt))
-      .flatMap((transaction) => {
-        const classification = classifications.get(
-          getTransactionClassificationKey({
-            connectionId: getLedgerBankConnectionId(transaction),
-            accountId: transaction.accountId,
-            transactionId: transaction.id
-          })
-        );
+    const result = await syncExpenseTransactionsForReviewMonth({
+      assetId,
+      reviewMonth
+    });
 
-        if (classification?.classification) {
-          return [];
-        }
-
-        if (!classification) {
-          pendingLedgerRows.push(
-            buildPropertyTransactionLedgerRow({
-              assetId,
-              category: null,
-              classification: null,
-              note: "Needs expense review.",
-              provider: result.provider,
-              transaction,
-              updatedAt: new Date().toISOString()
-            })
-          );
-        }
-
-        return [
-          {
-            id: transaction.id,
-            connectionId: transaction.connectionId,
-            postedAt: transaction.postedAt,
-            description: transaction.description,
-            amount: transaction.amount,
-            accountName: transaction.accountName,
-            classification: null,
-            recordedTransactionId: classification?.id ?? null
-          }
-        ];
-      });
-
-    if (pendingLedgerRows.length > 0) {
-      const supabase = createServerSupabaseClient();
-      const { error } = await supabase
-        .from("real_estate_property_transactions")
-        .upsert(pendingLedgerRows, {
-          onConflict: "asset_id,provider,account_id,provider_transaction_id"
-        });
-
-      if (error) {
-        return {
-          status: "error",
-          message: `Could not save pending expense transactions: ${error.message}`,
-          provider: result.provider,
-          reviewMonth: reviewMonth.slice(0, 7),
-          transactions: []
-        };
-      }
-
+    if (result.wroteLedgerRows) {
       revalidatePropertyPages(assetId);
     }
 
     return {
       status: "success",
       message:
-        transactions.length > 0
-          ? `${transactions.length} expense ${transactions.length === 1 ? "transaction" : "transactions"} found.`
+        result.transactions.length > 0
+          ? `${result.transactions.length} expense ${result.transactions.length === 1 ? "transaction" : "transactions"} found.`
           : "No unclassified expense transactions found.",
       provider: result.provider,
-      reviewMonth: reviewMonth.slice(0, 7),
-      transactions
+      reviewMonth: result.reviewMonth,
+      transactions: result.transactions
     };
   } catch (error) {
     return {
@@ -1318,6 +1464,7 @@ export async function classifyPropertyTransaction(
         direction: transaction.direction,
         classification,
         category,
+        rent_period_month: null,
         note,
         updated_at: now
       },
@@ -1336,6 +1483,174 @@ export async function classifyPropertyTransaction(
     );
   } catch (error) {
     return errorState(error instanceof Error ? error.message : "Could not classify transaction.");
+  }
+}
+
+function getMonthlyCloseBlockedMessage(
+  assessment: ReturnType<typeof getMonthlyReviewAssessment>
+): string {
+  const blockers = [
+    !assessment.isReviewMonthComplete ? "review month is still in progress" : "",
+    assessment.rentStatus === "needs_review" ? "rent is not ready" : "",
+    assessment.unclassifiedRentCreditCount > 0
+      ? `${assessment.unclassifiedRentCreditCount} credit ${assessment.unclassifiedRentCreditCount === 1 ? "needs" : "need"} rent review`
+      : "",
+    assessment.unclassifiedExpenseCount > 0
+      ? `${assessment.unclassifiedExpenseCount} debit ${assessment.unclassifiedExpenseCount === 1 ? "transaction is" : "transactions are"} unclassified`
+      : "",
+    assessment.missingExpenseCategoryCount > 0
+      ? `${assessment.missingExpenseCategoryCount} expense ${assessment.missingExpenseCategoryCount === 1 ? "transaction is" : "transactions are"} missing a category`
+      : ""
+  ].filter(Boolean);
+
+  return `Could not close ${assessment.reviewMonth}: ${blockers.join("; ")}.`;
+}
+
+export async function closeMonthlyReview(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+  let wroteLedgerRows = false;
+
+  try {
+    const reviewMonth = readMonthStart(formData, "reviewMonth");
+    const note = readText(formData, "note") || null;
+    const currentProperty = await getRealEstateAssetDetail(assetId);
+
+    if (!currentProperty) {
+      return errorState("Could not close month: property was not found.");
+    }
+
+    const currentAssessment = getMonthlyReviewAssessment(currentProperty, reviewMonth);
+
+    if (!currentAssessment.isReviewMonthComplete) {
+      return errorState(getMonthlyCloseBlockedMessage(currentAssessment));
+    }
+
+    if (currentProperty.rentalStatus === "rented" && currentProperty.monthlyRent > 0) {
+      const rentSyncResult = await syncRentCreditsForReviewMonth({
+        allowMockFallback: false,
+        assetId,
+        matchMonth: reviewMonth
+      });
+
+      wroteLedgerRows ||= rentSyncResult.wroteLedgerRows;
+    }
+
+    const expenseSyncResult = await syncExpenseTransactionsForReviewMonth({
+      allowMockFallback: false,
+      assetId,
+      reviewMonth
+    });
+
+    wroteLedgerRows ||= expenseSyncResult.wroteLedgerRows;
+
+    if (wroteLedgerRows) {
+      revalidatePropertyPages(assetId);
+    }
+
+    const property = await getRealEstateAssetDetail(assetId);
+
+    if (!property) {
+      return errorState("Could not close month: property was not found.");
+    }
+
+    const assessment = getMonthlyReviewAssessment(property, reviewMonth);
+
+    if (!assessment.isReadyToClose) {
+      return errorState(getMonthlyCloseBlockedMessage(assessment));
+    }
+
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase.from("real_estate_monthly_reviews").upsert(
+      {
+        asset_id: assetId,
+        review_month: assessment.reviewMonthDate,
+        rent_status: assessment.rentStatus,
+        expense_status: assessment.expenseStatus,
+        closed_at: now,
+        note,
+        updated_at: now
+      },
+      {
+        onConflict: "asset_id,review_month"
+      }
+    );
+
+    if (error) {
+      return errorState(`Could not close month: ${error.message}`);
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState("");
+  } catch (error) {
+    if (wroteLedgerRows) {
+      revalidatePropertyPages(assetId);
+    }
+
+    return errorState(error instanceof Error ? error.message : "Could not close month.");
+  }
+}
+
+export async function reopenMonthlyReview(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+
+  try {
+    const reviewMonth = readMonthStart(formData, "reviewMonth");
+    const property = await getRealEstateAssetDetail(assetId);
+
+    if (!property) {
+      return errorState("Could not reopen month: property was not found.");
+    }
+
+    const assessment = getMonthlyReviewAssessment(property, reviewMonth);
+    const now = new Date().toISOString();
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("real_estate_monthly_reviews")
+      .update({
+        rent_status: assessment.rentStatus,
+        expense_status: assessment.expenseStatus,
+        closed_at: null,
+        updated_at: now
+      })
+      .eq("asset_id", assetId)
+      .eq("review_month", assessment.reviewMonthDate)
+      .select("id");
+
+    if (error) {
+      return errorState(`Could not reopen month: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      const { error: insertError } = await supabase
+        .from("real_estate_monthly_reviews")
+        .insert({
+          asset_id: assetId,
+          review_month: assessment.reviewMonthDate,
+          rent_status: assessment.rentStatus,
+          expense_status: assessment.expenseStatus,
+          closed_at: null,
+          note: null,
+          updated_at: now
+        });
+
+      if (insertError) {
+        return errorState(`Could not reopen month: ${insertError.message}`);
+      }
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState("");
+  } catch (error) {
+    return errorState(error instanceof Error ? error.message : "Could not reopen month.");
   }
 }
 

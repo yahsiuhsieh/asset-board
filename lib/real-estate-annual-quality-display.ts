@@ -51,6 +51,14 @@ function formatIssueMonths(months: string[] | undefined): string | null {
 export function getAnnualQualityIssueDisplay(
   issue: AnnualQualityIssue
 ): AnnualQualityIssueDisplay {
+  if (issue.code === "open_monthly_reviews") {
+    return {
+      detail: formatIssueMonths(issue.months) ?? issue.description,
+      meta: formatIssueCount(issue.count, "month", "months"),
+      title: issue.title
+    };
+  }
+
   if (issue.code === "missing_rent_months") {
     return {
       detail: formatIssueMonths(issue.months) ?? issue.description,

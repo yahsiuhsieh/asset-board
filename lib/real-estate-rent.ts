@@ -1,4 +1,5 @@
 import type { RealEstatePropertyTransaction } from "@/types/wealth";
+import { getRentalIncomeTransactionsForReviewMonth } from "@/lib/real-estate-monthly-review";
 
 export function getCurrentMonth(): string {
   const now = new Date();
@@ -11,12 +12,7 @@ export function getRentalIncomeTransactionsForMonth(
   transactions: RealEstatePropertyTransaction[] = [],
   month = getCurrentMonth()
 ): RealEstatePropertyTransaction[] {
-  return transactions.filter(
-    (transaction) =>
-      transaction.classification === "rental_income" &&
-      transaction.direction === "credit" &&
-      transaction.postedAt.slice(0, 7) === month
-  );
+  return getRentalIncomeTransactionsForReviewMonth(transactions, month);
 }
 
 export function getRentalIncomeForMonth(

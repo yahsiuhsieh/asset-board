@@ -15,17 +15,6 @@ export interface PortfolioAnnualTransactionExportRow {
   propertyAddress: string;
 }
 
-const portfolioAnnualTransactionCsvHeaders = [
-  "date",
-  "type",
-  "category",
-  "description",
-  "account",
-  "amount",
-  "property name",
-  "property address"
-] as const;
-
 function isExportableTransaction(
   transaction: RealEstatePropertyTransaction
 ): boolean {
@@ -100,40 +89,4 @@ export function getPortfolioAnnualExportRows(
         a.propertyName.localeCompare(b.propertyName) ||
         a.description.localeCompare(b.description)
     );
-}
-
-function escapeCsvField(value: string | number): string {
-  const field = String(value);
-
-  if (!/[",\r\n]/.test(field)) {
-    return field;
-  }
-
-  return `"${field.replace(/"/g, '""')}"`;
-}
-
-export function serializePortfolioAnnualTransactionsCsv(
-  rows: PortfolioAnnualTransactionExportRow[]
-): string {
-  const csvRows = [
-    portfolioAnnualTransactionCsvHeaders,
-    ...rows.map((row) => [
-      row.date,
-      row.type,
-      row.category,
-      row.description,
-      row.account,
-      row.amount.toFixed(2),
-      row.propertyName,
-      row.propertyAddress
-    ])
-  ];
-
-  return `${csvRows
-    .map((row) => row.map((field) => escapeCsvField(field)).join(","))
-    .join("\r\n")}\r\n`;
-}
-
-export function getPortfolioAnnualExportFilename(year: string): string {
-  return `wealthvibe-real-estate-${year}-transactions.csv`;
 }
