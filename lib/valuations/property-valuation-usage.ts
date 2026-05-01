@@ -75,8 +75,16 @@ function getUnavailableUsageStatus(message: string): PropertyValuationUsageStatu
 }
 
 export async function getPropertyValuationUsageStatus(): Promise<PropertyValuationUsageStatus> {
-  if (getConfiguredPropertyValuationProvider() === "mock") {
+  const provider = getConfiguredPropertyValuationProvider();
+
+  if (provider === "mock") {
     return getMockUsageStatus();
+  }
+
+  if (!provider) {
+    return getUnavailableUsageStatus(
+      "Property valuation provider is not configured. Configure RentCast before syncing property value."
+    );
   }
 
   const supabase = createServerSupabaseClient();

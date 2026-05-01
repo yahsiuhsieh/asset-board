@@ -9,6 +9,7 @@ import { getAnnualQualityIssueDisplay } from "@/lib/real-estate-annual-quality-d
 import {
   type AnnualQualityIssue,
   getBlockingAnnualQualityIssues,
+  hasHardBlockingAnnualQualityIssues,
   type PropertyAnnualQualityResult
 } from "@/lib/real-estate-annual-quality";
 
@@ -109,6 +110,7 @@ export function PortfolioAnnualExportGate({
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
   const [reviewedIssues, setReviewedIssues] = useState(false);
   const blockingIssues = getBlockingAnnualQualityIssues(annualQualityResults);
+  const hasHardBlockingIssues = hasHardBlockingAnnualQualityIssues(annualQualityResults);
   const issueResults = annualQualityResults.filter(
     (result) => result.blockingIssues.length > 0 || result.warningIssues.length > 0
   );
@@ -135,6 +137,10 @@ export function PortfolioAnnualExportGate({
   }
 
   function handleExportAnyway() {
+    if (hasHardBlockingIssues) {
+      return;
+    }
+
     if (!reviewedIssues) {
       return;
     }
@@ -235,26 +241,32 @@ export function PortfolioAnnualExportGate({
                 </div>
               ) : null}
 
-              <label
-                className="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-800"
-                htmlFor={checkboxId}
-              >
-                <input
-                  checked={reviewedIssues}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-ring"
-                  id={checkboxId}
-                  onChange={(event) => setReviewedIssues(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>I reviewed these issues and want to export anyway</span>
-              </label>
+              {hasHardBlockingIssues ? (
+                <div className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  Mock ledger transactions must be removed before this annual report can be exported.
+                </div>
+              ) : (
+                <label
+                  className="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-800"
+                  htmlFor={checkboxId}
+                >
+                  <input
+                    checked={reviewedIssues}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-ring"
+                    id={checkboxId}
+                    onChange={(event) => setReviewedIssues(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>I reviewed these issues and want to export anyway</span>
+                </label>
+              )}
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button onClick={closeIssueDialog} type="button" variant="secondary">
                   Cancel
                 </Button>
                 <Button
-                  disabled={!reviewedIssues}
+                  disabled={hasHardBlockingIssues || !reviewedIssues}
                   onClick={handleExportAnyway}
                   type="button"
                 >

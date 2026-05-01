@@ -47,13 +47,13 @@ function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function PreviewButton() {
+function PreviewButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
     <Button
       className="min-w-[11rem] border border-primary/15 shadow-sm"
-      disabled={pending}
+      disabled={disabled || pending}
       type="submit"
     >
       <Search className="h-4 w-4" />
@@ -366,6 +366,9 @@ export function RentTransactionMatchPreview({
   );
   const [hiddenMatchKeys, setHiddenMatchKeys] = useState<Set<string>>(new Set());
   const selectedMatchMonth = reviewMonth;
+  const hasActiveBankConnection = property.bankConnections.some(
+    (connection) => connection.status === "active"
+  );
 
   useEffect(() => {
     if (state.status === "success") {
@@ -429,7 +432,7 @@ export function RentTransactionMatchPreview({
       <form action={formAction} className="grid gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <input name="matchMonth" type="hidden" value={selectedMatchMonth} />
-          <PreviewButton />
+          <PreviewButton disabled={!hasActiveBankConnection} />
           <p className="text-sm font-medium text-muted-foreground">
             Searches bank credits from {RENT_TRANSACTION_SEARCH_BUFFER_DAYS} days before{" "}
             {selectedMatchMonth} starts through {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}{" "}
@@ -437,6 +440,12 @@ export function RentTransactionMatchPreview({
           </p>
         </div>
       </form>
+
+      {!hasActiveBankConnection ? (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+          No bank connection. Connect account to review transactions.
+        </div>
+      ) : null}
 
       {shouldShowPreviewMessage ? (
         <p

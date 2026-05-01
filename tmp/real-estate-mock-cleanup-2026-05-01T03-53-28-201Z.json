@@ -1,0 +1,44 @@
+{
+  "createdAt": "2026-05-01T03:53:29.028Z",
+  "data": {
+    "affectedClosedReviews": [],
+    "broadMockTextMatches": [
+      {
+        "column": "source",
+        "id": "c6b99486-310a-4929-9073-6a72e7026d7f",
+        "table": "real_estate_metric_snapshots",
+        "value": "mock"
+      },
+      {
+        "column": "note",
+        "id": "c6b99486-310a-4929-9073-6a72e7026d7f",
+        "table": "real_estate_metric_snapshots",
+        "value": "Mock property valuation sync"
+      }
+    ],
+    "impactedReviewMonths": [],
+    "mockPropertyAssets": [],
+    "mockPropertyTransactions": [],
+    "mockValuationProperties": [],
+    "mockValuationSnapshots": [
+      {
+        "id": "c6b99486-310a-4929-9073-6a72e7026d7f",
+        "asset_id": "f88caff6-0baf-47b6-b3c9-139a1caf9fd7",
+        "metric_type": "current_market_value",
+        "value": 280000,
+        "recorded_at": "2026-04-25",
+        "source": "mock",
+        "note": "Mock property valuation sync"
+      }
+    ]
+  },
+  "summary": {
+    "affectedClosedMonthlyReviews": 0,
+    "broadMockTextMatches": 2,
+    "impactedMonthlyReviews": 0,
+    "mockPropertyAssets": 0,
+    "mockPropertyTransactions": 0,
+    "mockValuationProperties": 0,
+    "mockValuationSnapshots": 1
+  }
+}

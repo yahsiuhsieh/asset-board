@@ -38,7 +38,17 @@ const usdFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0
 });
 
-export function getConfiguredPropertyValuationProvider(): ConfiguredValuationProvider {
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function createMockValuationProviderError(): never {
+  throw new PropertyValuationProviderError(
+    "Mock property valuation is disabled in production. Configure a live valuation provider."
+  );
+}
+
+export function getConfiguredPropertyValuationProvider(): ConfiguredValuationProvider | null {
   const provider = process.env.PROPERTY_VALUATION_PROVIDER?.trim().toLowerCase();
 
   if (provider === "rentcast" || provider === "provider") {
@@ -46,10 +56,14 @@ export function getConfiguredPropertyValuationProvider(): ConfiguredValuationPro
   }
 
   if (provider === "mock") {
+    if (isProductionRuntime()) {
+      return createMockValuationProviderError();
+    }
+
     return "mock";
   }
 
-  return "mock";
+  return null;
 }
 
 function getBaseValue(input: PropertyValuationInput): number {
@@ -233,5 +247,9 @@ export async function fetchPropertyValuation(
     return createMockValuation(input);
   }
 
-  return createRentCastValuation(input);
+  if (provider === "rentcast") {
+    return createRentCastValuation(input);
+  }
+
+  return createMissingRentCastApiKeyError();
 }

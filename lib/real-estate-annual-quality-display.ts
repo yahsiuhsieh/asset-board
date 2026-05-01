@@ -67,6 +67,14 @@ export function getAnnualQualityIssueDisplay(
     };
   }
 
+  if (issue.code === "mock_ledger_transactions") {
+    return {
+      detail: "Remove mock ledger rows before export",
+      meta: formatIssueCount(issue.count, "transaction", "transactions"),
+      title: issue.title
+    };
+  }
+
   if (issue.code === "unclassified_expense_transactions") {
     return {
       detail: "Review in Expense Transactions",

@@ -64,13 +64,13 @@ function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function PreviewButton() {
+function PreviewButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
     <Button
       className="min-w-[11rem] border border-primary/15 shadow-sm"
-      disabled={pending}
+      disabled={disabled || pending}
       type="submit"
     >
       <Search className="h-4 w-4" />
@@ -343,6 +343,9 @@ export function ExpenseTransactionManager({
     Set<string>
   >(new Set());
   const selectedReviewMonth = reviewMonth;
+  const hasActiveBankConnection = property.bankConnections.some(
+    (connection) => connection.status === "active"
+  );
 
   useEffect(() => {
     setHiddenPreviewTransactionKeys(new Set());
@@ -426,12 +429,18 @@ export function ExpenseTransactionManager({
       <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5">
         <div className="flex flex-wrap items-center gap-3">
           <input name="reviewMonth" type="hidden" value={selectedReviewMonth} />
-          <PreviewButton />
+          <PreviewButton disabled={!hasActiveBankConnection} />
           <p className="text-sm font-medium text-muted-foreground">
             Searches debit transactions posted in {selectedReviewMonth}.
           </p>
         </div>
       </form>
+
+      {!hasActiveBankConnection ? (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+          No bank connection. Connect account to review transactions.
+        </div>
+      ) : null}
 
       {shouldShowPreviewMessage ? (
         <p

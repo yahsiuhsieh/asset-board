@@ -206,6 +206,46 @@ test("unclassified expense transactions are blocking issues", () => {
   assert.ok(!issueCodes(result, "warning").includes("no_expenses_recorded"));
 });
 
+test("mock ledger transactions are hard blocking issues", () => {
+  const result = helpers.getPropertyAnnualQualityResult(
+    property({
+      monthlyReviews: closedReviews(["2026-01", "2026-02", "2026-03", "2026-04"]),
+      propertyTransactions: [
+        transaction({
+          postedAt: "2026-01-05",
+          provider: "mock",
+          classification: "rental_income"
+        })
+      ]
+    }),
+    "2026",
+    today
+  );
+
+  assert.ok(issueCodes(result, "blocking").includes("mock_ledger_transactions"));
+  assert.equal(
+    helpers.hasHardBlockingAnnualQualityIssues([result]),
+    true
+  );
+});
+
+test("hard blocking gate ignores normal blocking issues", () => {
+  const result = helpers.getPropertyAnnualQualityResult(
+    property({
+      monthlyReviews: closedReviews(["2026-01", "2026-02", "2026-03", "2026-04"]),
+      propertyTransactions: []
+    }),
+    "2026",
+    today
+  );
+
+  assert.deepEqual(issueCodes(result, "blocking"), ["missing_rent_months"]);
+  assert.equal(
+    helpers.hasHardBlockingAnnualQualityIssues([result]),
+    false
+  );
+});
+
 test("ignored and no-expense checks are warnings only", () => {
   const result = helpers.getPropertyAnnualQualityResult(
     property({

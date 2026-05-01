@@ -33,7 +33,23 @@ export interface BankTransactionProviderResult {
   transactions: BankTransaction[];
 }
 
-function getConfiguredBankTransactionProvider(): BankTransactionProviderName {
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function createMockBankProviderError(): never {
+  throw new Error(
+    "Mock bank transactions are disabled in production. Connect a bank account to review transactions."
+  );
+}
+
+function createMissingBankProviderError(): never {
+  throw new Error(
+    "Bank transaction provider is not configured. Connect a bank account to review transactions."
+  );
+}
+
+export function getConfiguredBankTransactionProvider(): BankTransactionProviderName | null {
   const provider = process.env.BANK_TRANSACTION_PROVIDER?.trim().toLowerCase();
 
   if (provider === "teller") {
@@ -41,10 +57,14 @@ function getConfiguredBankTransactionProvider(): BankTransactionProviderName {
   }
 
   if (provider === "mock") {
+    if (isProductionRuntime()) {
+      return createMockBankProviderError();
+    }
+
     return "mock";
   }
 
-  return "mock";
+  return null;
 }
 
 interface TellerAccount {
@@ -482,8 +502,12 @@ export async function fetchBankTransactions(
   }
 
   if (provider === "mock") {
+    if (isProductionRuntime()) {
+      return createMockBankProviderError();
+    }
+
     return fetchMockBankTransactions(query);
   }
 
-  return fetchMockBankTransactions(query);
+  return createMissingBankProviderError();
 }

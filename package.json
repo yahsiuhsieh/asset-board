@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "cleanup:real-estate-mock-data": "node scripts/cleanup-real-estate-mock-data.mjs",
     "lint": "eslint . --max-warnings=0",
     "test:real-estate-export": "node --test scripts/test-real-estate-transaction-export.mjs",
     "test:real-estate-monthly-review": "node --test scripts/test-real-estate-monthly-review.mjs",
+    "test:real-estate-provider-containment": "node --test scripts/test-real-estate-provider-containment.mjs",
     "test:real-estate-quality": "node --test scripts/test-real-estate-quality.mjs",
     "test:real-estate-statement": "node --test scripts/test-real-estate-annual-statement.mjs"
   },

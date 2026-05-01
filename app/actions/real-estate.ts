@@ -372,8 +372,12 @@ async function fetchConnectedPropertyBankTransactions({
   expectedRentAmount?: number;
 }) {
   const transactionGroups = await Promise.all(
-    connections.map((connection) =>
-      fetchBankTransactions({
+    connections.map((connection) => {
+      if (connection.provider !== "teller") {
+        throw new Error(`Unsupported bank connection provider: ${connection.provider}.`);
+      }
+
+      return fetchBankTransactions({
         startDate,
         endDate,
         expectedRentAmount,
@@ -381,13 +385,13 @@ async function fetchConnectedPropertyBankTransactions({
         tellerAccountId: connection.account_id,
         tellerAccountName: connection.account_name,
         bankConnectionId: connection.id,
-        bankProvider: connection.provider === "teller" ? "teller" : null
-      })
-    )
+        bankProvider: "teller"
+      });
+    })
   );
 
   return {
-    provider: transactionGroups.find((group) => group.provider === "teller")?.provider ?? "mock",
+    provider: transactionGroups.find((group) => group.provider === "teller")?.provider ?? "teller",
     transactions: transactionGroups.flatMap((group) => group.transactions)
   };
 }
@@ -406,11 +410,7 @@ async function fetchPropertyBankTransactions({
   const connections = await loadPropertyBankConnections(assetId);
 
   if (connections.length === 0) {
-    return fetchBankTransactions({
-      startDate,
-      endDate,
-      expectedRentAmount
-    });
+    return null;
   }
 
   return fetchConnectedPropertyBankTransactions({
@@ -645,7 +645,7 @@ export async function createRealEstateProperty(
     const { error: propertyError } = await supabase.from("real_estate_properties").insert({
       ...payload.property,
       current_market_value: 0,
-      current_market_value_source: "mock",
+      current_market_value_source: "manual",
       asset_id: asset.id
     });
 
@@ -1207,6 +1207,16 @@ export async function previewRentTransactionMatches(
       revalidatePropertyPages(assetId);
     }
 
+    if (result.skippedBankSync) {
+      return {
+        status: "success",
+        message: "No bank connection. Connect account to review transactions.",
+        provider: "",
+        matchMonth: result.matchMonth,
+        matches: []
+      };
+    }
+
     const messageParts = [
       result.autoMatchedCount > 0
         ? `${result.autoMatchedCount} rental income ${result.autoMatchedCount === 1 ? "credit was" : "credits were"} auto-recorded.`
@@ -1312,6 +1322,11 @@ export async function classifyRentCreditTransaction(
       startDate,
       endDate
     });
+
+    if (!result) {
+      return errorState("No bank connection. Connect account to review transactions.");
+    }
+
     const matchedTransaction = result.transactions.find(
       (transaction) =>
         transaction.id === transactionId &&
@@ -1379,6 +1394,16 @@ export async function previewExpenseTransactions(
       revalidatePropertyPages(assetId);
     }
 
+    if (result.skippedBankSync) {
+      return {
+        status: "success",
+        message: "No bank connection. Connect account to review transactions.",
+        provider: "",
+        reviewMonth: result.reviewMonth,
+        transactions: []
+      };
+    }
+
     return {
       status: "success",
       message:
@@ -1438,6 +1463,11 @@ export async function classifyPropertyTransaction(
       startDate,
       endDate
     });
+
+    if (!result) {
+      return errorState("No bank connection. Connect account to review transactions.");
+    }
+
     const transaction = result.transactions.find(
       (item) => item.id === transactionId && item.connectionId === connectionId
     );

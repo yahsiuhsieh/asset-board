@@ -13,6 +13,7 @@ export type AnnualQualityIssueSeverity = "blocking" | "warning";
 
 export type AnnualQualityIssueCode =
   | "missing_rent_months"
+  | "mock_ledger_transactions"
   | "open_monthly_reviews"
   | "unclassified_expense_transactions"
   | "missing_expense_category"
@@ -154,11 +155,28 @@ export function getPropertyAnnualQualityResult(
   const missingCategoryExpenses = expenses.filter(
     (transaction) => transaction.category == null
   );
+  const mockLedgerTransactions = transactions.filter(
+    (transaction) => transaction.provider === "mock"
+  );
   const issues: AnnualQualityIssue[] = [];
   const missingRentMonths =
     property.monthlyRent > 0
       ? closedExpectedReviewMonths.filter((month) => !rentalIncomeMonths.has(month))
       : [];
+
+  if (mockLedgerTransactions.length > 0) {
+    issues.push(
+      makeIssue({
+        id: `${property.id}:mock-ledger-transactions`,
+        code: "mock_ledger_transactions",
+        severity: "blocking",
+        title: "Mock ledger transactions",
+        description:
+          "Mock bank transactions are recorded in this year's ledger. Remove them before exporting the annual report.",
+        count: mockLedgerTransactions.length
+      })
+    );
+  }
 
   if (openReviewMonths.length > 0) {
     issues.push(
@@ -311,4 +329,16 @@ export function hasBlockingAnnualQualityIssues(
   results: PropertyAnnualQualityResult[]
 ): boolean {
   return getBlockingAnnualQualityIssues(results).length > 0;
+}
+
+export function isHardBlockingAnnualQualityIssue(issue: AnnualQualityIssue): boolean {
+  return issue.code === "mock_ledger_transactions";
+}
+
+export function hasHardBlockingAnnualQualityIssues(
+  results: PropertyAnnualQualityResult[]
+): boolean {
+  return getBlockingAnnualQualityIssues(results).some(({ issue }) =>
+    isHardBlockingAnnualQualityIssue(issue)
+  );
 }

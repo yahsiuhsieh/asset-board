@@ -96,7 +96,7 @@ export function PortfolioAnnualTransactionsExport({
           canExport={canExportAnnualReport}
           checkboxId="portfolio-annual-report-export-issue-review"
           dataTestId="portfolio-annual-report-export-button"
-          dialogDescription={`${annualReportYear} has blocking issues. Warnings are shown for context. Review the affected properties or export the annual report anyway for this download.`}
+          dialogDescription={`${annualReportYear} has blocking issues. Warnings are shown for context. Review the affected properties before exporting.`}
           dialogTitle="Review annual report issues"
           emptyExportMessage="This report has no properties. Export anyway will download a portfolio total row only."
           onExport={downloadAnnualReportCsv}
