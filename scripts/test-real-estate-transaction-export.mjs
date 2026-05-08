@@ -39,7 +39,7 @@ function transaction(overrides) {
     id: "transaction-id",
     assetId: "property-1",
     bankConnectionId: null,
-    provider: "teller",
+    provider: "plaid",
     providerTransactionId: "provider-transaction-id",
     accountId: "account-id",
     accountName: "Operating Checking",
@@ -76,6 +76,7 @@ test("builds annual export rows across properties", () => {
         propertyTransactions: [
           transaction({
             id: "rent-2025",
+            provider: "legacy_bank",
             postedAt: "2025-01-05",
             rentPeriodMonth: "2026-02-01",
             description: "January rent",

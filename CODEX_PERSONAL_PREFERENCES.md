@@ -8,7 +8,7 @@ This file captures my working style and product preferences so future Codex sess
 - Be direct and pragmatic. Give clear recommendations, tradeoffs, and priority order.
 - When I ask "what should we do next?", answer from a product and asset-management usefulness perspective, not only from engineering convenience.
 - If something is unnecessary for the MVP, say so clearly.
-- Avoid broad UI polish unless I explicitly ask for polish.
+- Avoid broad, unrelated UI polish unless I explicitly ask for polish. When a task touches UI, make the affected UI visually polished, consistent, and pleasant to use.
 
 ## Engineering Preferences
 
@@ -58,10 +58,11 @@ This file captures my working style and product preferences so future Codex sess
 - Be careful with limited API quotas, especially RentCast free-plan calls.
 - In development and testing, prefer mock providers or cached/stored values when possible.
 - Do not consume live API calls just to test UI behavior unless I explicitly approve it.
-- Teller is currently acceptable for bank connection work. Avoid over-investing in Plaid/Teller comparison unless it affects the next implementation choice.
+- Plaid is the preferred bank connection provider. Do not add other bank-link integrations unless explicitly requested.
 
 ## UI Preferences
 
+- Any UI design or UI implementation must consider aesthetics, not only functionality.
 - Dense, quiet, operational UI is preferred over decorative layouts.
 - Use charts when they help understand performance, but avoid redundant charts.
 - Use dropdowns/details for long transaction lists so the page stays scannable.
@@ -73,4 +74,3 @@ This file captures my working style and product preferences so future Codex sess
 - A useful next reporting feature is annual CSV export for rent and expense transactions.
 - Start with CSV before PDF or Excel.
 - Export should support tax/accounting review and include date, type, category, description, account, amount, property, and memo when available.
-

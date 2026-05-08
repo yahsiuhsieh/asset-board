@@ -16,7 +16,6 @@ import {
   ComposedChart,
   LabelList,
   Line,
-  LineChart,
   Pie,
   PieChart as RechartsPieChart,
   ReferenceLine,
@@ -108,7 +107,6 @@ const propertyValueLineConfigs = [
 
 const monthlyExpenseCategoryColors = chartColors.expenses;
 const chartMargin = { bottom: 0, left: 0, right: 12, top: 18 };
-const chartMarginWithLabels = { bottom: 0, left: 0, right: 12, top: 30 };
 const horizontalBarChartMargin = { bottom: 0, left: 4, right: 72, top: 8 };
 const chartTooltipStyle = {
   border: "1px solid #e2e8f0",
@@ -146,6 +144,10 @@ const monthlyExpenseViewOptions = [
 
 function getLineTooltipFormatter(value: unknown) {
   return currencyFormatter.format(Number(value ?? 0));
+}
+
+function getPropertyValueGradientId(dataKey: string) {
+  return `property-value-${dataKey}-area`;
 }
 
 function getChartCountLabel(count: number, unit: string) {
@@ -217,12 +219,16 @@ function ChartLegend({
 
 function ChartCard({
   countUnit = "point",
+  gradientId,
   points,
+  showZeroLine = false,
   stroke,
   title
 }: {
   countUnit?: string;
+  gradientId: string;
   points: ChartPoint[];
+  showZeroLine?: boolean;
   stroke: string;
   title: string;
 }) {
@@ -237,7 +243,13 @@ function ChartCard({
       {points.length > 0 ? (
         <div className="h-56 min-w-0">
           <ResponsiveContainer height="100%" minWidth={0} width="100%">
-            <LineChart data={points} margin={chartMargin}>
+            <AreaChart data={points} margin={chartMargin}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="5%" stopColor={stroke} stopOpacity={0.32} />
+                  <stop offset="95%" stopColor={stroke} stopOpacity={0.04} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 axisLine={false}
@@ -258,15 +270,24 @@ function ChartCard({
                 formatter={getLineTooltipFormatter}
                 labelClassName="font-semibold"
               />
-              <Line
+              {showZeroLine ? (
+                <ReferenceLine
+                  ifOverflow="extendDomain"
+                  stroke="#94a3b8"
+                  strokeDasharray="4 4"
+                  y={0}
+                />
+              ) : null}
+              <Area
                 activeDot={{ fill: stroke, r: 5 }}
                 dataKey="value"
-                dot={{ fill: stroke, r: 3, strokeWidth: 0 }}
+                dot={{ fill: "#ffffff", r: 3, stroke, strokeWidth: 2 }}
+                fill={`url(#${gradientId})`}
                 stroke={stroke}
-                strokeWidth={2}
+                strokeWidth={2.5}
                 type="monotone"
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       ) : (
@@ -296,6 +317,21 @@ function PropertyValueEquityChart({
           <div className="h-64 min-w-0">
             <ResponsiveContainer height="100%" minWidth={0} width="100%">
               <AreaChart data={points} margin={chartMargin}>
+                <defs>
+                  {propertyValueLineConfigs.map((config) => (
+                    <linearGradient
+                      id={getPropertyValueGradientId(config.dataKey)}
+                      key={config.dataKey}
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor={config.stroke} stopOpacity={0.26} />
+                      <stop offset="95%" stopColor={config.stroke} stopOpacity={0.03} />
+                    </linearGradient>
+                  ))}
+                </defs>
                 <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   axisLine={false}
@@ -329,12 +365,11 @@ function PropertyValueEquityChart({
                   <Area
                     activeDot={{ fill: config.stroke, r: 5 }}
                     dataKey={config.dataKey}
-                    dot={{ fill: config.stroke, r: 3, strokeWidth: 0 }}
-                    fill={config.stroke}
-                    fillOpacity={0.16}
+                    dot={{ fill: "#ffffff", r: 3, stroke: config.stroke, strokeWidth: 2 }}
+                    fill={`url(#${getPropertyValueGradientId(config.dataKey)})`}
                     key={config.dataKey}
                     stroke={config.stroke}
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     type="monotone"
                   />
                 ))}
@@ -445,7 +480,12 @@ function MonthlyExpenseChart({
         <div className="min-w-0">
           <div className="h-64 min-w-0">
             <ResponsiveContainer height="100%" minWidth={0} width="100%">
-              <ComposedChart data={points} margin={chartMarginWithLabels}>
+              <ComposedChart
+                barCategoryGap="34%"
+                barGap={2}
+                data={points}
+                margin={chartMargin}
+              >
                 <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   axisLine={false}
@@ -475,6 +515,7 @@ function MonthlyExpenseChart({
                   <Bar
                     dataKey={category}
                     fill={monthlyExpenseCategoryColors[category]}
+                    fillOpacity={0.88}
                     key={category}
                     maxBarSize={42}
                     stackId="expenses"
@@ -496,8 +537,8 @@ function MonthlyExpenseChart({
                 >
                   <LabelList
                     dataKey="total"
-                    fill={chartColors.expenseTotal}
-                    fontSize={12}
+                    fill="#475569"
+                    fontSize={11}
                     fontWeight={700}
                     formatter={getLineTooltipFormatter}
                     position="top"
@@ -707,6 +748,7 @@ export function PropertyHistoryCharts({
       />
       <ChartCard
         countUnit="month"
+        gradientId="monthly-rent-area"
         points={monthlyRentPoints}
         stroke={chartColors.rent}
         title={snapshotMetricLabels.monthly_rent}
@@ -717,7 +759,9 @@ export function PropertyHistoryCharts({
       />
       <ChartCard
         countUnit="month"
+        gradientId="monthly-net-cash-flow-area"
         points={monthlyNetCashFlowPoints}
+        showZeroLine={monthlyNetCashFlowPoints.some((point) => point.value < 0)}
         stroke={chartColors.cashFlow}
         title="Monthly Net Cash Flow"
       />

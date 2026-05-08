@@ -32,6 +32,9 @@ import type {
   RealEstatePropertyTransaction
 } from "@/types/wealth";
 
+const removeTransactionConfirmation =
+  "Remove only deletes this ledger record. If this bank transaction still exists, it may return during Find Transactions or Close Month. Use Ignore to exclude normal bank transactions.";
+
 const initialPreviewState: ExpenseTransactionPreviewState = {
   status: "idle",
   message: "",
@@ -175,6 +178,11 @@ function ExpenseTransactionActions({
     <div className="grid w-full min-w-0 gap-2 justify-items-start lg:w-auto lg:justify-items-end">
       <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
         <form action={expenseAction} className="contents">
+          <input
+            name="recordedTransactionId"
+            type="hidden"
+            value={transaction.recordedTransactionId ?? ""}
+          />
           <input name="transactionId" type="hidden" value={transaction.id} />
           <input name="connectionId" type="hidden" value={transaction.connectionId} />
           <input name="reviewMonth" type="hidden" value={reviewMonth} />
@@ -193,6 +201,11 @@ function ExpenseTransactionActions({
           <RecordExpenseButton />
         </form>
         <form action={ignoreAction}>
+          <input
+            name="recordedTransactionId"
+            type="hidden"
+            value={transaction.recordedTransactionId ?? ""}
+          />
           <input name="transactionId" type="hidden" value={transaction.id} />
           <input name="connectionId" type="hidden" value={transaction.connectionId} />
           <input name="reviewMonth" type="hidden" value={reviewMonth} />
@@ -223,7 +236,7 @@ function ClassifiedTransactionList({
 }) {
   if (transactions.length === 0) {
     return (
-      <div className="rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
+      <div className="flex min-h-[4.5rem] items-center rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
         No classified expense transactions for this month.
       </div>
     );
@@ -256,6 +269,11 @@ function ClassifiedTransactionList({
             <form
               action={deletePropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
+              onSubmit={(event) => {
+                if (!window.confirm(removeTransactionConfirmation)) {
+                  event.preventDefault();
+                }
+              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
@@ -310,6 +328,11 @@ function IgnoredTransactionList({
             <form
               action={deletePropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
+              onSubmit={(event) => {
+                if (!window.confirm(removeTransactionConfirmation)) {
+                  event.preventDefault();
+                }
+              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
@@ -350,6 +373,31 @@ export function ExpenseTransactionManager({
   useEffect(() => {
     setHiddenPreviewTransactionKeys(new Set());
   }, [selectedReviewMonth]);
+
+  useEffect(() => {
+    if (state.status !== "success" || state.reviewMonth !== selectedReviewMonth) {
+      return;
+    }
+
+    const returnedTransactionKeys = new Set(state.transactions.map(getPreviewTransactionKey));
+
+    if (returnedTransactionKeys.size === 0) {
+      return;
+    }
+
+    setHiddenPreviewTransactionKeys((currentKeys) => {
+      let changed = false;
+      const nextKeys = new Set(currentKeys);
+
+      returnedTransactionKeys.forEach((transactionKey) => {
+        if (nextKeys.delete(transactionKey)) {
+          changed = true;
+        }
+      });
+
+      return changed ? nextKeys : currentKeys;
+    });
+  }, [selectedReviewMonth, state.reviewMonth, state.status, state.transactions]);
 
   const handleClassified = useCallback((transactionKey: string) => {
     setHiddenPreviewTransactionKeys((currentKeys) => {
@@ -427,11 +475,16 @@ export function ExpenseTransactionManager({
       </div>
 
       <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
           <input name="reviewMonth" type="hidden" value={selectedReviewMonth} />
           <PreviewButton disabled={!hasActiveBankConnection} />
-          <p className="text-sm font-medium text-muted-foreground">
-            Searches debit transactions posted in {selectedReviewMonth}.
+          <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
+            Expense search:{" "}
+            <strong className="font-semibold text-slate-700">posted debits</strong>{" "}
+            ·{" "}
+            <strong className="font-semibold text-slate-700">
+              {selectedReviewMonth}
+            </strong>.
           </p>
         </div>
       </form>

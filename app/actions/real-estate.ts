@@ -5,13 +5,21 @@ import { revalidatePath } from "next/cache";
 
 import { normalizePropertyAddress } from "@/lib/addresses";
 import {
+  createPlaidBankLinkToken,
+  createPlaidBankUpdateLinkToken,
+  exchangePlaidPublicToken,
   fetchBankTransactions,
-  getTellerConnectionAccounts,
+  getPlaidConnectionAccounts,
+  getPlaidItemHealth,
+  PlaidItemDisconnectedError,
+  removePlaidItem,
   type BankTransaction,
-  type BankTransactionProviderName
+  type BankTransactionProviderName,
+  type PlaidConnectionAccount
 } from "@/lib/banking/transaction-provider";
 import { getRealEstateAssetDetail } from "@/lib/real-estate";
 import { snapshotMetricLabels } from "@/lib/real-estate-history";
+import { getRealEstateTransactionFingerprint } from "@/lib/real-estate-transaction-dedupe";
 import {
   getMonthlyReviewAssessment,
   RENT_TRANSACTION_SEARCH_BUFFER_DAYS
@@ -38,6 +46,7 @@ const PROPERTY_PHOTO_BUCKET = "property-photos";
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MIN_RENT_CREDIT_REVIEW_AMOUNT = 10;
+const MANUAL_PLAID_SYNC_DAYS = 60;
 
 export interface RealEstateActionState {
   status: "idle" | "success" | "error";
@@ -80,6 +89,10 @@ export interface ExpenseTransactionPreviewState extends RealEstateActionState {
   provider: string;
   reviewMonth: string;
   transactions: ExpenseTransactionPreview[];
+}
+
+export interface PlaidLinkTokenState extends RealEstateActionState {
+  linkToken: string | null;
 }
 
 const successState = (message: string): RealEstateActionState => ({
@@ -228,6 +241,16 @@ function getBufferedMonthRange(
   };
 }
 
+function getRecentDateRange(days: number): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10)
+  };
+}
+
 function isReviewableRentCredit(transaction: BankTransaction): boolean {
   return (
     transaction.direction === "credit" &&
@@ -293,7 +316,18 @@ interface PropertyBankConnectionRow {
   access_token: string;
   account_id: string;
   account_name: string;
+  account_type: string | null;
+  account_subtype: string | null;
+  institution_name: string | null;
+  institution_id: string | null;
+  last_four: string | null;
+  provider_item_id: string | null;
   status: string;
+  last_synced_at: string | null;
+}
+
+interface PropertyBankConnectionDetailRow extends PropertyBankConnectionRow {
+  asset_id: string;
 }
 
 interface PropertyTransactionClassificationRow {
@@ -305,6 +339,12 @@ interface PropertyTransactionClassificationRow {
   category: RealEstateExpenseCategory | null;
   rent_period_month: string | null;
   note: string | null;
+  posted_at?: string;
+  description?: string;
+  memo?: string | null;
+  amount?: string | number;
+  direction?: "credit" | "debit";
+  account_name?: string;
 }
 
 async function loadPropertyValuationInput(assetId: string): Promise<PropertyValuationRow> {
@@ -348,7 +388,9 @@ async function loadPropertyBankConnections(
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from("real_estate_bank_connections")
-    .select("id, provider, access_token, account_id, account_name, status")
+    .select(
+      "id, provider, access_token, account_id, account_name, account_type, account_subtype, institution_name, institution_id, last_four, provider_item_id, status, last_synced_at"
+    )
     .eq("asset_id", assetId)
     .eq("status", "active")
     .order("account_name", { ascending: true });
@@ -358,6 +400,193 @@ async function loadPropertyBankConnections(
   }
 
   return (data ?? []) as PropertyBankConnectionRow[];
+}
+
+async function loadPropertyBankConnection({
+  assetId,
+  connectionId
+}: {
+  assetId: string;
+  connectionId: string;
+}): Promise<PropertyBankConnectionDetailRow | null> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_bank_connections")
+    .select(
+      "id, asset_id, provider, access_token, account_id, account_name, account_type, account_subtype, institution_name, institution_id, last_four, provider_item_id, status, last_synced_at"
+    )
+    .eq("id", connectionId)
+    .eq("asset_id", assetId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null;
+    }
+
+    throw new Error(`Could not load bank connection: ${error.message}`);
+  }
+
+  return data as PropertyBankConnectionDetailRow;
+}
+
+async function hasRemainingPlaidItemConnections(
+  connection: PropertyBankConnectionDetailRow
+): Promise<boolean> {
+  const supabase = createServerSupabaseClient();
+  let query = supabase
+    .from("real_estate_bank_connections")
+    .select("id", { count: "exact", head: true })
+    .eq("provider", "plaid")
+    .eq("status", "active")
+    .neq("id", connection.id);
+
+  if (connection.provider_item_id) {
+    query = query.eq("provider_item_id", connection.provider_item_id);
+  } else {
+    query = query.eq("access_token", connection.access_token);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    throw new Error(`Could not check Plaid item usage: ${error.message}`);
+  }
+
+  return (count ?? 0) > 0;
+}
+
+async function loadPropertyPlaidBankConnections(
+  assetId: string
+): Promise<PropertyBankConnectionDetailRow[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_bank_connections")
+    .select(
+      "id, asset_id, provider, access_token, account_id, account_name, account_type, account_subtype, institution_name, institution_id, last_four, provider_item_id, status, last_synced_at"
+    )
+    .eq("asset_id", assetId)
+    .eq("provider", "plaid")
+    .order("account_name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Could not load Plaid bank connections: ${error.message}`);
+  }
+
+  return (data ?? []) as PropertyBankConnectionDetailRow[];
+}
+
+function getPlaidItemGroupKey(connection: PropertyBankConnectionDetailRow): string {
+  return connection.provider_item_id || connection.access_token;
+}
+
+function normalizeBankConnectionFingerprintText(value: string | null | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getPlaidAccountFingerprint(
+  account: Pick<
+    PlaidConnectionAccount,
+    | "accountName"
+    | "accountSubtype"
+    | "accountType"
+    | "institutionId"
+    | "institutionName"
+    | "lastFour"
+  >
+): string {
+  return [
+    normalizeBankConnectionFingerprintText(account.institutionId),
+    normalizeBankConnectionFingerprintText(account.institutionName),
+    normalizeBankConnectionFingerprintText(account.accountType),
+    normalizeBankConnectionFingerprintText(account.accountSubtype),
+    normalizeBankConnectionFingerprintText(account.lastFour),
+    normalizeBankConnectionFingerprintText(account.accountName)
+  ].join("|");
+}
+
+function getPlaidConnectionFingerprint(
+  connection: Pick<
+    PropertyBankConnectionDetailRow,
+    | "account_name"
+    | "account_subtype"
+    | "account_type"
+    | "institution_id"
+    | "institution_name"
+    | "last_four"
+  >
+): string {
+  return [
+    normalizeBankConnectionFingerprintText(connection.institution_id),
+    normalizeBankConnectionFingerprintText(connection.institution_name),
+    normalizeBankConnectionFingerprintText(connection.account_type),
+    normalizeBankConnectionFingerprintText(connection.account_subtype),
+    normalizeBankConnectionFingerprintText(connection.last_four),
+    normalizeBankConnectionFingerprintText(connection.account_name)
+  ].join("|");
+}
+
+function groupPlaidConnectionsByItem(
+  connections: PropertyBankConnectionDetailRow[]
+): PropertyBankConnectionDetailRow[][] {
+  const groups = new Map<string, PropertyBankConnectionDetailRow[]>();
+
+  connections.forEach((connection) => {
+    const key = getPlaidItemGroupKey(connection);
+    const group = groups.get(key) ?? [];
+
+    group.push(connection);
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values());
+}
+
+async function updatePlaidConnectionGroup({
+  connection,
+  lastSyncedAt,
+  status,
+  updatedAt
+}: {
+  connection: PropertyBankConnectionDetailRow;
+  lastSyncedAt?: string;
+  status: "active" | "disconnected";
+  updatedAt: string;
+}) {
+  const supabase = createServerSupabaseClient();
+  const updatePayload: {
+    last_synced_at?: string;
+    status: "active" | "disconnected";
+    updated_at: string;
+  } = {
+    status,
+    updated_at: updatedAt
+  };
+
+  if (lastSyncedAt) {
+    updatePayload.last_synced_at = lastSyncedAt;
+  }
+
+  let query = supabase
+    .from("real_estate_bank_connections")
+    .update(updatePayload)
+    .eq("asset_id", connection.asset_id)
+    .eq("provider", "plaid");
+
+  if (connection.provider_item_id) {
+    query = query.eq("provider_item_id", connection.provider_item_id);
+  } else {
+    query = query.eq("access_token", connection.access_token);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(`Could not update Plaid connection status: ${error.message}`);
+  }
 }
 
 async function fetchConnectedPropertyBankTransactions({
@@ -373,7 +602,7 @@ async function fetchConnectedPropertyBankTransactions({
 }) {
   const transactionGroups = await Promise.all(
     connections.map((connection) => {
-      if (connection.provider !== "teller") {
+      if (connection.provider !== "plaid") {
         throw new Error(`Unsupported bank connection provider: ${connection.provider}.`);
       }
 
@@ -381,17 +610,17 @@ async function fetchConnectedPropertyBankTransactions({
         startDate,
         endDate,
         expectedRentAmount,
-        tellerAccessToken: connection.access_token,
-        tellerAccountId: connection.account_id,
-        tellerAccountName: connection.account_name,
+        plaidAccessToken: connection.access_token,
+        plaidAccountId: connection.account_id,
+        plaidAccountName: connection.account_name,
         bankConnectionId: connection.id,
-        bankProvider: "teller"
+        bankProvider: "plaid"
       });
     })
   );
 
   return {
-    provider: transactionGroups.find((group) => group.provider === "teller")?.provider ?? "teller",
+    provider: transactionGroups.find((group) => group.provider === "plaid")?.provider ?? "plaid",
     transactions: transactionGroups.flatMap((group) => group.transactions)
   };
 }
@@ -491,6 +720,12 @@ async function loadPropertyTransactionClassifications({
       bank_connection_id,
       provider_transaction_id,
       account_id,
+      account_name,
+      posted_at,
+      description,
+      memo,
+      amount,
+      direction,
       classification,
       category,
       rent_period_month,
@@ -517,6 +752,40 @@ async function loadPropertyTransactionClassifications({
       row
     ])
   );
+}
+
+function getLedgerTransactionFingerprint(
+  row: PropertyTransactionClassificationRow
+): string | null {
+  if (
+    row.account_name == null ||
+    row.amount == null ||
+    row.description == null ||
+    row.direction == null ||
+    row.posted_at == null
+  ) {
+    return null;
+  }
+
+  return getRealEstateTransactionFingerprint({
+    accountName: row.account_name,
+    amount: Number(row.amount),
+    description: row.description,
+    direction: row.direction,
+    memo: row.memo ?? null,
+    postedAt: row.posted_at
+  });
+}
+
+function getBankTransactionFingerprint(transaction: BankTransaction): string {
+  return getRealEstateTransactionFingerprint({
+    accountName: transaction.accountName,
+    amount: transaction.amount,
+    description: transaction.description,
+    direction: transaction.direction,
+    memo: transaction.memo,
+    postedAt: transaction.postedAt
+  });
 }
 
 function getLedgerBankConnectionId(transaction: BankTransaction): string | null {
@@ -563,6 +832,138 @@ function buildPropertyTransactionLedgerRow({
     rent_period_month: rentPeriodMonth,
     note,
     updated_at: updatedAt
+  };
+}
+
+function isReviewableManualSyncTransaction(transaction: BankTransaction): boolean {
+  return transaction.direction === "debit" || isReviewableRentCredit(transaction);
+}
+
+function getManualSyncTransactionNote(transaction: BankTransaction): string {
+  return transaction.direction === "debit"
+    ? "Needs expense review."
+    : "Needs rent review.";
+}
+
+async function syncRecentPlaidTransactions({
+  assetId,
+  connections,
+  endDate,
+  startDate,
+  syncedAt
+}: {
+  assetId: string;
+  connections: PropertyBankConnectionDetailRow[];
+  endDate: string;
+  startDate: string;
+  syncedAt: string;
+}): Promise<{
+  disconnectedItemKeys: string[];
+  fetchedCount: number;
+  newLedgerRows: number;
+}> {
+  const disconnectedItemKeys = new Set<string>();
+  const transactionGroups = await Promise.all(
+    connections.map(async (connection) => {
+      try {
+        return await fetchBankTransactions({
+          bankConnectionId: connection.id,
+          bankProvider: "plaid",
+          endDate,
+          plaidAccessToken: connection.access_token,
+          plaidAccountId: connection.account_id,
+          plaidAccountName: connection.account_name,
+          startDate
+        });
+      } catch (error) {
+        if (error instanceof PlaidItemDisconnectedError) {
+          await updatePlaidConnectionGroup({
+            connection,
+            status: "disconnected",
+            updatedAt: syncedAt
+          });
+          disconnectedItemKeys.add(getPlaidItemGroupKey(connection));
+
+          return null;
+        }
+
+        throw error;
+      }
+    })
+  );
+  const transactions = transactionGroups.flatMap((group) => group?.transactions ?? []);
+  const reviewableTransactions = transactions.filter(isReviewableManualSyncTransaction);
+
+  if (reviewableTransactions.length === 0) {
+    return {
+      disconnectedItemKeys: Array.from(disconnectedItemKeys),
+      fetchedCount: transactions.length,
+      newLedgerRows: 0
+    };
+  }
+
+  const classifications = await loadPropertyTransactionClassifications({
+    assetId,
+    endDate,
+    startDate
+  });
+  const existingFingerprints = new Set(
+    Array.from(classifications.values())
+      .map(getLedgerTransactionFingerprint)
+      .filter((fingerprint): fingerprint is string => Boolean(fingerprint))
+  );
+  const newTransactions: BankTransaction[] = [];
+
+  reviewableTransactions.forEach((transaction) => {
+    if (getBankTransactionClassification(classifications, transaction)) {
+      return;
+    }
+
+    const fingerprint = getBankTransactionFingerprint(transaction);
+
+    if (existingFingerprints.has(fingerprint)) {
+      return;
+    }
+
+    existingFingerprints.add(fingerprint);
+    newTransactions.push(transaction);
+  });
+
+  if (newTransactions.length === 0) {
+    return {
+      disconnectedItemKeys: Array.from(disconnectedItemKeys),
+      fetchedCount: transactions.length,
+      newLedgerRows: 0
+    };
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { error } = await supabase.from("real_estate_property_transactions").upsert(
+    newTransactions.map((transaction) =>
+      buildPropertyTransactionLedgerRow({
+        assetId,
+        category: null,
+        classification: null,
+        note: getManualSyncTransactionNote(transaction),
+        provider: "plaid",
+        rentPeriodMonth: null,
+        transaction,
+        updatedAt: syncedAt
+      })
+    ),
+    {
+      onConflict: "asset_id,provider,account_id,provider_transaction_id"
+    }
+  );
+
+  if (error) {
+    throw new Error(`Could not save synced Plaid transactions: ${error.message}`);
+  }
+
+  return {
+    disconnectedItemKeys: Array.from(disconnectedItemKeys),
+    fetchedCount: transactions.length,
+    newLedgerRows: newTransactions.length
   };
 }
 
@@ -763,90 +1164,171 @@ export async function updatePropertyLocation(
   }
 }
 
-export async function updateRentMatchingSettings(
-  assetId: string,
-  _previousState: RealEstateActionState,
-  formData: FormData
-): Promise<RealEstateActionState> {
-  void _previousState;
-
+export async function createPlaidLinkToken(assetId: string): Promise<PlaidLinkTokenState> {
   try {
-    const rentMatchTolerance = readMoney(formData, "rentMatchTolerance");
-    const now = new Date().toISOString();
-    const supabase = createServerSupabaseClient();
+    const property = await getRealEstateAssetDetail(assetId);
 
-    const { data, error } = await supabase
-      .from("real_estate_properties")
-      .update({
-        rent_match_tolerance: rentMatchTolerance,
-        updated_at: now
-      })
-      .eq("asset_id", assetId)
-      .select("asset_id")
-      .single();
-
-    if (error) {
-      return errorState(`Could not update rent matching settings: ${error.message}`);
+    if (!property) {
+      return {
+        status: "error",
+        message: "Could not create Plaid Link token: property was not found.",
+        linkToken: null
+      };
     }
 
-    if (!data) {
-      return errorState(
-        "Could not update rent matching settings: no matching property was found."
-      );
-    }
-
-    revalidatePropertyPages(assetId);
-    return successState("Rent matching settings updated.");
+    return {
+      status: "success",
+      message: "",
+      linkToken: await createPlaidBankLinkToken(assetId)
+    };
   } catch (error) {
-    return errorState(
-      error instanceof Error ? error.message : "Could not update rent matching settings."
-    );
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Could not create Plaid Link token.",
+      linkToken: null
+    };
   }
 }
 
-export async function connectTellerBank(
+export async function createPlaidReconnectLinkToken(
   assetId: string,
-  accessToken: string
+  connectionId: string
+): Promise<PlaidLinkTokenState> {
+  try {
+    const connection = await loadPropertyBankConnection({ assetId, connectionId });
+
+    if (!connection) {
+      return {
+        status: "error",
+        message: "Could not reconnect bank account: no matching account was found.",
+        linkToken: null
+      };
+    }
+
+    if (connection.provider !== "plaid") {
+      return {
+        status: "error",
+        message: "Only Plaid bank accounts can be reconnected.",
+        linkToken: null
+      };
+    }
+
+    if (connection.status === "active") {
+      return {
+        status: "error",
+        message: "This bank account is already connected.",
+        linkToken: null
+      };
+    }
+
+    return {
+      status: "success",
+      message: "",
+      linkToken: await createPlaidBankUpdateLinkToken({
+        accessToken: connection.access_token,
+        assetId
+      })
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof Error ? error.message : "Could not create Plaid reconnect token.",
+      linkToken: null
+    };
+  }
+}
+
+export async function connectPlaidBank(
+  assetId: string,
+  publicToken: string,
+  selectedAccountIds: string[] = []
 ): Promise<RealEstateActionState> {
   try {
-    const token = accessToken.trim();
+    const token = publicToken.trim();
 
     if (!token) {
-      return errorState("Teller access token is missing.");
+      return errorState("Plaid public token is missing.");
     }
 
-    const accounts = await getTellerConnectionAccounts(token);
+    const exchangedToken = await exchangePlaidPublicToken(token);
+    const accounts = await getPlaidConnectionAccounts({
+      accessToken: exchangedToken.accessToken,
+      itemId: exchangedToken.itemId,
+      selectedAccountIds
+    });
     const now = new Date().toISOString();
     const supabase = createServerSupabaseClient();
-    const rows = accounts.map((account) => ({
-      asset_id: assetId,
-      provider: "teller",
-      access_token: token,
-      enrollment_id: account.enrollmentId,
-      account_id: account.accountId,
-      account_name: account.accountName,
-      account_type: account.accountType,
-      account_subtype: account.accountSubtype,
-      institution_name: account.institutionName,
-      institution_id: account.institutionId,
-      last_four: account.lastFour,
-      status: "active",
-      connected_at: now,
-      updated_at: now
-    }));
-    const { data, error } = await supabase
-      .from("real_estate_bank_connections")
-      .upsert(rows, {
-        onConflict: "asset_id,provider,account_id"
-      })
-      .select("id, account_name");
+    const existingConnections = await loadPropertyPlaidBankConnections(assetId);
+    const claimedExistingConnectionIds = new Set<string>();
+    const inserts: Array<Record<string, string | null>> = [];
+    const updatedConnections: Array<{ id: string; account_name: string }> = [];
 
-    if (error) {
-      return errorState(`Could not save Teller connection: ${error.message}`);
+    for (const account of accounts) {
+      const accountFingerprint = getPlaidAccountFingerprint(account);
+      const existingConnection = existingConnections.find(
+        (connection) =>
+          !claimedExistingConnectionIds.has(connection.id) &&
+          getPlaidConnectionFingerprint(connection) === accountFingerprint
+      );
+      const row = {
+        asset_id: assetId,
+        provider: "plaid",
+        access_token: exchangedToken.accessToken,
+        account_id: account.accountId,
+        account_name: account.accountName,
+        account_type: account.accountType,
+        account_subtype: account.accountSubtype,
+        institution_name: account.institutionName,
+        institution_id: account.institutionId,
+        last_four: account.lastFour,
+        provider_item_id: account.providerItemId,
+        status: "active",
+        connected_at: now,
+        updated_at: now
+      };
+
+      if (existingConnection) {
+        claimedExistingConnectionIds.add(existingConnection.id);
+        const { data, error } = await supabase
+          .from("real_estate_bank_connections")
+          .update(row)
+          .eq("id", existingConnection.id)
+          .eq("asset_id", assetId)
+          .select("id, account_name")
+          .single();
+
+        if (error) {
+          return errorState(`Could not save Plaid connection: ${error.message}`);
+        }
+
+        updatedConnections.push(data as { id: string; account_name: string });
+      } else {
+        inserts.push(row);
+      }
     }
 
-    if (!data || data.length === 0) {
-      return errorState("Could not save Teller connection: no bank accounts were found.");
+    let insertedConnections: Array<{ id: string; account_name: string }> = [];
+
+    if (inserts.length > 0) {
+      const { data, error } = await supabase
+        .from("real_estate_bank_connections")
+        .upsert(inserts, {
+          onConflict: "asset_id,provider,account_id"
+        })
+        .select("id, account_name");
+
+      if (error) {
+        return errorState(`Could not save Plaid connection: ${error.message}`);
+      }
+
+      insertedConnections = (data ?? []) as Array<{ id: string; account_name: string }>;
+    }
+
+    const data = [...updatedConnections, ...insertedConnections];
+
+    if (data.length === 0) {
+      return errorState("Could not save Plaid connection: no bank accounts were found.");
     }
 
     revalidatePropertyPages(assetId);
@@ -855,6 +1337,142 @@ export async function connectTellerBank(
     );
   } catch (error) {
     return errorState(error instanceof Error ? error.message : "Could not connect bank.");
+  }
+}
+
+export async function completePlaidReconnect(
+  assetId: string,
+  connectionId: string
+): Promise<RealEstateActionState> {
+  try {
+    const connection = await loadPropertyBankConnection({ assetId, connectionId });
+
+    if (!connection) {
+      return errorState("Could not reconnect bank account: no matching account was found.");
+    }
+
+    if (connection.provider !== "plaid") {
+      return errorState("Only Plaid bank accounts can be reconnected.");
+    }
+
+    const supabase = createServerSupabaseClient();
+    const updatePayload = {
+      status: "active",
+      updated_at: new Date().toISOString()
+    };
+    const query = supabase
+      .from("real_estate_bank_connections")
+      .update(updatePayload)
+      .eq("provider", "plaid");
+
+    const { error } = connection.provider_item_id
+      ? await query.eq("provider_item_id", connection.provider_item_id)
+      : await query.eq("access_token", connection.access_token);
+
+    if (error) {
+      return errorState(`Could not save reconnected account: ${error.message}`);
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState("Bank account reconnected.");
+  } catch (error) {
+    return errorState(error instanceof Error ? error.message : "Could not reconnect bank.");
+  }
+}
+
+export async function checkAndSyncPlaidBankConnections(
+  assetId: string,
+  _previousState: RealEstateActionState,
+  _formData: FormData
+): Promise<RealEstateActionState> {
+  void _previousState;
+  void _formData;
+
+  try {
+    const connections = await loadPropertyPlaidBankConnections(assetId);
+
+    if (connections.length === 0) {
+      return successState("No bank accounts to check.");
+    }
+
+    const checkedAt = new Date().toISOString();
+    const activeConnections: PropertyBankConnectionDetailRow[] = [];
+    let disconnectedCount = 0;
+
+    for (const group of groupPlaidConnectionsByItem(connections)) {
+      const primaryConnection = group[0];
+      const health = await getPlaidItemHealth(primaryConnection.access_token);
+
+      if (health.status === "disconnected") {
+        await updatePlaidConnectionGroup({
+          connection: primaryConnection,
+          status: "disconnected",
+          updatedAt: checkedAt
+        });
+        disconnectedCount += group.length;
+        continue;
+      }
+
+      await updatePlaidConnectionGroup({
+        connection: primaryConnection,
+        status: "active",
+        updatedAt: checkedAt
+      });
+      activeConnections.push(...group);
+    }
+
+    let fetchedCount = 0;
+    let newLedgerRows = 0;
+
+    if (activeConnections.length > 0) {
+      const { startDate, endDate } = getRecentDateRange(MANUAL_PLAID_SYNC_DAYS);
+      const syncResult = await syncRecentPlaidTransactions({
+        assetId,
+        connections: activeConnections,
+        endDate,
+        startDate,
+        syncedAt: checkedAt
+      });
+
+      fetchedCount = syncResult.fetchedCount;
+      newLedgerRows = syncResult.newLedgerRows;
+      const disconnectedItemKeys = new Set(syncResult.disconnectedItemKeys);
+      const syncedActiveConnections = activeConnections.filter(
+        (connection) => !disconnectedItemKeys.has(getPlaidItemGroupKey(connection))
+      );
+      disconnectedCount += groupPlaidConnectionsByItem(activeConnections)
+        .filter((group) => disconnectedItemKeys.has(getPlaidItemGroupKey(group[0])))
+        .reduce((count, group) => count + group.length, 0);
+
+      await Promise.all(
+        groupPlaidConnectionsByItem(syncedActiveConnections).map((group) =>
+          updatePlaidConnectionGroup({
+            connection: group[0],
+            lastSyncedAt: checkedAt,
+            status: "active",
+            updatedAt: checkedAt
+          })
+        )
+      );
+    }
+
+    revalidatePropertyPages(assetId);
+    return successState(
+      [
+        `${connections.length} bank ${connections.length === 1 ? "account" : "accounts"} checked.`,
+        `${newLedgerRows} new review ${newLedgerRows === 1 ? "transaction" : "transactions"} saved.`,
+        `${fetchedCount} posted ${fetchedCount === 1 ? "transaction" : "transactions"} scanned from the last ${MANUAL_PLAID_SYNC_DAYS} days.`,
+        disconnectedCount > 0
+          ? `${disconnectedCount} ${disconnectedCount === 1 ? "account needs" : "accounts need"} reconnect.`
+          : ""
+      ]
+        .filter(Boolean)
+        .join(" ")
+    );
+  } catch (error) {
+    return errorState(
+      error instanceof Error ? error.message : "Could not check and sync bank accounts."
+    );
   }
 }
 
@@ -870,6 +1488,20 @@ export async function removeBankConnection(
 
     if (!connectionId) {
       return errorState("Choose a bank connection to remove.");
+    }
+
+    const connection = await loadPropertyBankConnection({ assetId, connectionId });
+
+    if (!connection) {
+      return errorState("Could not remove bank connection: no matching account was found.");
+    }
+
+    if (connection.provider === "plaid") {
+      const hasRemainingConnections = await hasRemainingPlaidItemConnections(connection);
+
+      if (!hasRemainingConnections) {
+        await removePlaidItem(connection.access_token);
+      }
     }
 
     const supabase = createServerSupabaseClient();
@@ -1448,13 +2080,48 @@ export async function classifyPropertyTransaction(
   try {
     const transactionId = readText(formData, "transactionId");
     const connectionId = readText(formData, "connectionId");
+    const recordedTransactionId = readText(formData, "recordedTransactionId");
     const reviewMonth = readMonthStart(formData, "reviewMonth");
     const classification = readTransactionClassification(formData);
     const category = classification === "expense" ? readExpenseCategory(formData) : null;
     const note = readText(formData, "note") || null;
 
-    if (!transactionId || !connectionId) {
+    if (!recordedTransactionId && (!transactionId || !connectionId)) {
       return errorState("Choose a transaction to classify.");
+    }
+
+    if (recordedTransactionId) {
+      const now = new Date().toISOString();
+      const supabase = createServerSupabaseClient();
+      const { data, error } = await supabase
+        .from("real_estate_property_transactions")
+        .update({
+          category,
+          classification,
+          note:
+            note ??
+            (classification === "expense"
+              ? "Marked as expense."
+              : "Marked as ignored."),
+          updated_at: now
+        })
+        .eq("id", recordedTransactionId)
+        .eq("asset_id", assetId)
+        .eq("direction", "debit")
+        .select("id");
+
+      if (error) {
+        return errorState(`Could not save transaction: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        return errorState("That expense transaction could not be found.");
+      }
+
+      revalidatePropertyPages(assetId);
+      return successState(
+        classification === "expense" ? "Expense recorded." : "Transaction ignored."
+      );
     }
 
     const { startDate, endDate } = getMonthRange(reviewMonth);

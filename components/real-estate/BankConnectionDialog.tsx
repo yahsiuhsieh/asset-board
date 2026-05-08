@@ -5,15 +5,11 @@ import { Landmark, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { RealEstateAssetDetail } from "@/types/wealth";
-import { TellerConnectionManager } from "./TellerConnectionManager";
+import { PlaidConnectionManager } from "./PlaidConnectionManager";
 
 export function BankConnectionDialog({
-  applicationId,
-  environment,
   property
 }: {
-  applicationId: string;
-  environment: string;
   property: RealEstateAssetDetail;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -79,11 +75,7 @@ export function BankConnectionDialog({
               </Button>
             </div>
             <div className="p-5">
-              <TellerConnectionManager
-                applicationId={applicationId}
-                environment={environment}
-                property={property}
-              />
+              <PlaidConnectionManager property={property} />
             </div>
           </div>
         </div>

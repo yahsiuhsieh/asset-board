@@ -1,7 +1,15 @@
-import { readFile } from "fs/promises";
-import { request as httpsRequest } from "https";
+import {
+  Configuration,
+  CountryCode,
+  PlaidApi,
+  PlaidEnvironments,
+  Products,
+  type AccountBase,
+  type LinkTokenCreateRequest,
+  type Transaction
+} from "plaid";
 
-export type BankTransactionProviderName = "mock" | "teller";
+export type BankTransactionProviderName = "mock" | "plaid";
 export type BankTransactionDirection = "credit" | "debit";
 
 export interface BankTransaction {
@@ -21,9 +29,9 @@ export interface BankTransactionQuery {
   startDate: string;
   endDate: string;
   expectedRentAmount?: number;
-  tellerAccessToken?: string | null;
-  tellerAccountId?: string | null;
-  tellerAccountName?: string | null;
+  plaidAccessToken?: string | null;
+  plaidAccountId?: string | null;
+  plaidAccountName?: string | null;
   bankConnectionId?: string | null;
   bankProvider?: BankTransactionProviderName | null;
 }
@@ -31,6 +39,75 @@ export interface BankTransactionQuery {
 export interface BankTransactionProviderResult {
   provider: BankTransactionProviderName;
   transactions: BankTransaction[];
+}
+
+export interface PlaidConnectionAccount {
+  accountId: string;
+  accountName: string;
+  accountType: string | null;
+  accountSubtype: string | null;
+  institutionId: string | null;
+  institutionName: string | null;
+  lastFour: string | null;
+  providerItemId: string;
+}
+
+export interface PlaidConnectionAccountLike {
+  account_id: string;
+  mask?: string | null;
+  name: string;
+  official_name?: string | null;
+  subtype?: string | null;
+  type?: string | null;
+}
+
+export interface PlaidConnectionItemLike {
+  institution_id?: string | null;
+  institution_name?: string | null;
+  item_id: string;
+}
+
+export interface PlaidTransactionLike {
+  account_id: string;
+  amount: number;
+  date: string;
+  merchant_name?: string | null;
+  name: string;
+  original_description?: string | null;
+  pending?: boolean | null;
+  transaction_id: string;
+}
+
+export interface PlaidItemHealth {
+  errorCode: string | null;
+  errorMessage: string | null;
+  status: "active" | "disconnected";
+}
+
+const DEFAULT_PLAID_TRANSACTIONS_DAYS_REQUESTED = 365;
+const PLAID_TRANSACTION_PAGE_SIZE = 500;
+const PLAID_DISCONNECTED_ITEM_ERROR_CODES = new Set([
+  "ACCESS_NOT_GRANTED",
+  "INSUFFICIENT_CREDENTIALS",
+  "INVALID_CREDENTIALS",
+  "INVALID_MFA",
+  "ITEM_LOCKED",
+  "ITEM_LOGIN_REQUIRED",
+  "ITEM_NOT_FOUND",
+  "PASSWORD_RESET_REQUIRED",
+  "USER_ACCOUNT_REVOKED",
+  "USER_PERMISSION_REVOKED",
+  "USER_SETUP_REQUIRED"
+]);
+
+export class PlaidItemDisconnectedError extends Error {
+  errorCode: string;
+
+  constructor(errorCode: string, message: string) {
+    super(message);
+    this.name = "PlaidItemDisconnectedError";
+    this.errorCode = errorCode;
+  }
 }
 
 function isProductionRuntime(): boolean {
@@ -49,11 +126,15 @@ function createMissingBankProviderError(): never {
   );
 }
 
+function createPlaidConfigError(message: string): never {
+  throw new Error(`Plaid is not configured. ${message}`);
+}
+
 export function getConfiguredBankTransactionProvider(): BankTransactionProviderName | null {
   const provider = process.env.BANK_TRANSACTION_PROVIDER?.trim().toLowerCase();
 
-  if (provider === "teller") {
-    return "teller";
+  if (provider === "plaid") {
+    return "plaid";
   }
 
   if (provider === "mock") {
@@ -67,70 +148,164 @@ export function getConfiguredBankTransactionProvider(): BankTransactionProviderN
   return null;
 }
 
-interface TellerAccount {
-  id: string;
-  enrollment_id: string;
-  name: string;
-  currency?: string;
-  last_four?: string | null;
-  status: string;
-  type: string;
-  subtype: string;
-  links?: {
-    transactions?: string;
-  };
-  institution?: {
-    id?: string;
-    name?: string;
-  };
+function getPlaidRequiredEnv(name: string): string {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    return createPlaidConfigError(`Set ${name}.`);
+  }
+
+  return value;
 }
 
-interface TellerTransaction {
-  id: string;
-  account_id: string;
-  amount: string;
-  date: string;
-  description: string;
-  status: string;
-  details?: {
-    category?: string | null;
-    counterparty?: {
-      name?: string | null;
-    };
-  };
+function getPlaidEnvironmentBasePath(): string {
+  const environment = process.env.PLAID_ENV?.trim().toLowerCase() || "sandbox";
+
+  if (environment === "sandbox") {
+    return PlaidEnvironments.sandbox;
+  }
+
+  if (environment === "production") {
+    return PlaidEnvironments.production;
+  }
+
+  return createPlaidConfigError("PLAID_ENV must be sandbox or production.");
 }
 
-interface TellerRequestConfig {
-  accessToken: string;
-  certPath?: string;
-  privateKeyPath?: string;
+function createPlaidClient(): PlaidApi {
+  const clientId = getPlaidRequiredEnv("PLAID_CLIENT_ID");
+  const secret = getPlaidRequiredEnv("PLAID_SECRET");
+
+  return new PlaidApi(
+    new Configuration({
+      basePath: getPlaidEnvironmentBasePath(),
+      baseOptions: {
+        headers: {
+          "PLAID-CLIENT-ID": clientId,
+          "PLAID-SECRET": secret
+        }
+      }
+    })
+  );
 }
 
-function getTellerAccessToken(query: BankTransactionQuery): string {
-  const accessToken = query.tellerAccessToken?.trim() || process.env.TELLER_ACCESS_TOKEN?.trim();
+function getPlaidCountryCodes(): CountryCode[] {
+  const rawValue = process.env.PLAID_COUNTRY_CODES?.trim() || "US";
+  const supportedCodes = new Set(Object.values(CountryCode));
+  const codes = rawValue
+    .split(",")
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (codes.length === 0) {
+    return createPlaidConfigError("PLAID_COUNTRY_CODES must include at least one country code.");
+  }
+
+  return codes.map((code) => {
+    if (!supportedCodes.has(code as CountryCode)) {
+      return createPlaidConfigError(`Unsupported PLAID_COUNTRY_CODES value: ${code}.`);
+    }
+
+    return code as CountryCode;
+  });
+}
+
+function getPlaidRedirectUri(): string {
+  return getPlaidRequiredEnv("PLAID_REDIRECT_URI");
+}
+
+function getPlaidTransactionsDaysRequested(): number {
+  const rawValue = process.env.PLAID_TRANSACTIONS_DAYS_REQUESTED?.trim();
+
+  if (!rawValue) {
+    return DEFAULT_PLAID_TRANSACTIONS_DAYS_REQUESTED;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value < 30) {
+    return createPlaidConfigError("PLAID_TRANSACTIONS_DAYS_REQUESTED must be an integer of 30 or greater.");
+  }
+
+  return value;
+}
+
+function getPlaidAccessToken(query: BankTransactionQuery): string {
+  const accessToken = query.plaidAccessToken?.trim();
 
   if (!accessToken) {
-    throw new Error(
-      "Teller access token is missing. Connect a bank account or set TELLER_ACCESS_TOKEN for local testing."
-    );
+    throw new Error("Plaid access token is missing. Connect a bank account before reviewing transactions.");
   }
 
   return accessToken;
 }
 
-function getTellerAccountId(query: BankTransactionQuery): string | null {
-  return query.tellerAccountId?.trim() || process.env.TELLER_ACCOUNT_ID?.trim() || null;
+function getPlaidAccountId(query: BankTransactionQuery): string {
+  const accountId = query.plaidAccountId?.trim();
+
+  if (!accountId) {
+    throw new Error("Plaid account id is missing. Choose a connected account before reviewing transactions.");
+  }
+
+  return accountId;
 }
 
-function getTellerApiBaseUrl(): string {
-  return process.env.TELLER_API_BASE_URL?.trim() || "https://api.teller.io";
+function getPlaidApiErrorDetails(error: unknown): {
+  errorCode?: string;
+  errorMessage?: string;
+  errorType?: string;
+  status?: number;
+} {
+  if (error && typeof error === "object" && "response" in error) {
+    const response = (error as { response?: { data?: unknown; status?: number } }).response;
+    const data = response?.data;
+
+    if (data && typeof data === "object") {
+      const plaidError = data as {
+        error_code?: string;
+        error_message?: string;
+        error_type?: string;
+      };
+      return {
+        errorCode: plaidError.error_code,
+        errorMessage: plaidError.error_message,
+        errorType: plaidError.error_type,
+        status: response?.status
+      };
+    }
+
+    return {
+      status: response?.status
+    };
+  }
+
+  return {};
 }
 
-function getTellerAuthHeaders(accessToken: string): Record<string, string> {
-  return {
-    Authorization: `Basic ${Buffer.from(`${accessToken}:`).toString("base64")}`,
-    Accept: "application/json"
-  };
+function getPlaidApiErrorMessage(error: unknown, fallback: string): string {
+  const plaidError = getPlaidApiErrorDetails(error);
+
+  if (plaidError.errorCode || plaidError.errorMessage || plaidError.errorType) {
+    const details = [
+      plaidError.errorType,
+      plaidError.errorCode,
+      plaidError.errorMessage
+    ].filter(Boolean);
+
+    if (details.length > 0) {
+      return `Plaid API error: ${details.join(" - ")}`;
+    }
+  }
+
+  if (plaidError.status) {
+    return `Plaid API error (${plaidError.status}).`;
+  }
+
+  return fallback;
+}
+
+export function isPlaidDisconnectedItemErrorCode(errorCode: string | null | undefined): boolean {
+  return Boolean(errorCode && PLAID_DISCONNECTED_ITEM_ERROR_CODES.has(errorCode));
 }
 
 function normalizeDescriptionPart(value: string): string {
@@ -178,244 +353,314 @@ function descriptionStartsWithTitle(description: string, title: string): boolean
   return !nextCharacter || /\s|[^\w]/.test(nextCharacter);
 }
 
-function getTellerTitle(transaction: TellerTransaction): string {
-  const counterparty = transaction.details?.counterparty?.name?.trim();
+function getPlaidAccountDisplayName(account: AccountBase, institutionName?: string | null): string {
+  const accountName = account.official_name?.trim() || account.name.trim();
 
-  return counterparty || transaction.description;
+  return uniqueDescriptionParts([institutionName, accountName]).join(" ") || "Connected account";
 }
 
-function getSearchableTellerDescription(transaction: TellerTransaction): string {
-  const title = getTellerTitle(transaction);
-  const description = transaction.description.trim();
+function getSearchablePlaidDescription(transaction: PlaidTransactionLike, title: string): string {
+  const rawDescription = transaction.original_description?.trim() || transaction.name.trim();
 
-  if (description && descriptionStartsWithTitle(description, title)) {
-    return description;
+  if (rawDescription && descriptionStartsWithTitle(rawDescription, title)) {
+    return rawDescription;
   }
 
-  return uniqueDescriptionParts([title, description]).join(" ");
+  return uniqueDescriptionParts([title, rawDescription]).join(" ") || title;
 }
 
-function getTellerDirection(transaction: TellerTransaction, amount: number): BankTransactionDirection {
-  if (transaction.details?.category === "income") {
-    return "credit";
-  }
-
-  return amount >= 0 ? "credit" : "debit";
-}
-
-async function tellerFetchWithMtls<T>(
-  url: URL,
-  config: Required<TellerRequestConfig>
-): Promise<T> {
-  const [cert, key] = await Promise.all([
-    readFile(config.certPath),
-    readFile(config.privateKeyPath)
-  ]);
-
-  return new Promise<T>((resolve, reject) => {
-    const request = httpsRequest(
-      url,
-      {
-        method: "GET",
-        cert,
-        key,
-        headers: getTellerAuthHeaders(config.accessToken)
-      },
-      (response) => {
-        const chunks: Buffer[] = [];
-
-        response.on("data", (chunk: Buffer) => {
-          chunks.push(chunk);
-        });
-
-        response.on("end", () => {
-          const body = Buffer.concat(chunks).toString("utf8");
-
-          if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
-            reject(new Error(`Teller API error (${response.statusCode ?? "unknown"}): ${body}`));
-            return;
-          }
-
-          try {
-            resolve(JSON.parse(body) as T);
-          } catch {
-            reject(new Error("Teller API returned invalid JSON."));
-          }
-        });
-      }
-    );
-
-    request.on("error", reject);
-    request.end();
-  });
-}
-
-async function tellerFetch<T>(path: string, config: TellerRequestConfig): Promise<T> {
-  const url = new URL(path, getTellerApiBaseUrl());
-  const hasCertificate = Boolean(config.certPath && config.privateKeyPath);
-
-  if (hasCertificate) {
-    return tellerFetchWithMtls(url, {
-      accessToken: config.accessToken,
-      certPath: config.certPath as string,
-      privateKeyPath: config.privateKeyPath as string
-    });
-  }
-
-  const response = await fetch(url, {
-    headers: getTellerAuthHeaders(config.accessToken),
-    cache: "no-store"
-  });
-  const body = await response.text();
-
-  if (!response.ok) {
-    const certHint =
-      response.status === 401
-        ? " If this is development or production Teller data, set TELLER_CERT_PATH and TELLER_PRIVATE_KEY_PATH."
-        : "";
-
-    throw new Error(`Teller API error (${response.status}): ${body}${certHint}`);
-  }
-
-  return JSON.parse(body) as T;
-}
-
-async function fetchTellerAccounts(config: TellerRequestConfig): Promise<TellerAccount[]> {
-  return tellerFetch<TellerAccount[]>("/accounts", config);
-}
-
-function getSupportedTellerAccounts(
-  accounts: TellerAccount[],
-  accountId: string | null
-): TellerAccount[] {
-  const openAccounts = accounts.filter(
-    (account) =>
-      account.status === "open" &&
-      Boolean(account.links?.transactions) &&
-      (!accountId || account.id === accountId)
-  );
-
-  if (accountId && openAccounts.length === 0) {
-    throw new Error("Selected Teller account was not found or does not support transactions.");
-  }
-
-  return openAccounts;
-}
-
-function buildTellerTransactionPath(
-  accountId: string,
-  query: BankTransactionQuery
-): string {
-  const params = new URLSearchParams({
-    start_date: query.startDate,
-    end_date: query.endDate
-  });
-
-  return `/accounts/${accountId}/transactions?${params.toString()}`;
-}
-
-async function fetchTellerBankTransactions(
-  query: BankTransactionQuery
-): Promise<BankTransactionProviderResult> {
-  const config = {
-    accessToken: getTellerAccessToken(query),
-    certPath: process.env.TELLER_CERT_PATH?.trim(),
-    privateKeyPath: process.env.TELLER_PRIVATE_KEY_PATH?.trim()
-  };
-  const accounts = getSupportedTellerAccounts(
-    await fetchTellerAccounts(config),
-    getTellerAccountId(query)
-  );
-  const transactionGroups = await Promise.all(
-    accounts.map(async (account) => {
-      const transactions = await tellerFetch<TellerTransaction[]>(
-        buildTellerTransactionPath(account.id, query),
-        config
-      );
-
-      return transactions.map((transaction) => {
-        const signedAmount = Number(transaction.amount);
-        const direction = getTellerDirection(transaction, signedAmount);
-
-        return {
-          id: transaction.id,
-          connectionId: query.bankConnectionId?.trim() || account.id,
-          postedAt: transaction.date,
-          title: getTellerTitle(transaction),
-          memo: transaction.description,
-          description: getSearchableTellerDescription(transaction),
-          amount: Math.abs(signedAmount),
-          direction,
-          accountId: account.id,
-          accountName:
-            query.tellerAccountName?.trim() ||
-            `${account.institution?.name ?? "Teller"} ${account.name}`.trim()
-        };
-      });
-    })
-  );
-
-  return {
-    provider: "teller",
-    transactions: transactionGroups.flat()
-  };
-}
-
-export async function getTellerConnectionAccount(accessToken: string): Promise<{
-  accountId: string;
+export function mapPlaidTransactionToBankTransaction({
+  accountName,
+  connectionId,
+  transaction
+}: {
   accountName: string;
-}> {
-  const accounts = await getTellerConnectionAccounts(accessToken);
-  const account =
-    accounts.find((item) => item.accountType === "depository" && item.accountSubtype === "checking") ??
-    accounts.find((item) => item.accountType === "depository") ??
-    accounts[0];
-
-  if (!account) {
-    throw new Error("No Teller account with transaction access was found.");
+  connectionId: string;
+  transaction: PlaidTransactionLike;
+}): BankTransaction | null {
+  if (transaction.pending) {
+    return null;
   }
 
+  const title = transaction.merchant_name?.trim() || transaction.name.trim() || "Plaid transaction";
+  const memo = transaction.original_description?.trim() || transaction.name.trim() || title;
+
   return {
-    accountId: account.accountId,
-    accountName: account.accountName
+    id: transaction.transaction_id,
+    connectionId,
+    postedAt: transaction.date,
+    title,
+    memo,
+    description: getSearchablePlaidDescription(transaction, title),
+    amount: Math.abs(transaction.amount),
+    direction: transaction.amount < 0 ? "credit" : "debit",
+    accountId: transaction.account_id,
+    accountName
   };
 }
 
-export async function getTellerConnectionAccounts(accessToken: string): Promise<
-  Array<{
-    accountId: string;
-    accountName: string;
-    accountType: string | null;
-    accountSubtype: string | null;
-    enrollmentId: string | null;
-    institutionId: string | null;
-    institutionName: string | null;
-    lastFour: string | null;
-  }>
-> {
-  const accounts = getSupportedTellerAccounts(
-    await fetchTellerAccounts({
-      accessToken,
-      certPath: process.env.TELLER_CERT_PATH?.trim(),
-      privateKeyPath: process.env.TELLER_PRIVATE_KEY_PATH?.trim()
-    }),
-    null
-  );
+export async function createPlaidBankLinkToken(assetId: string): Promise<string> {
+  const plaidClient = createPlaidClient();
+  const request: LinkTokenCreateRequest = {
+    client_name: "WealthVibe",
+    country_codes: getPlaidCountryCodes(),
+    language: "en",
+    products: [Products.Transactions],
+    redirect_uri: getPlaidRedirectUri(),
+    transactions: {
+      days_requested: getPlaidTransactionsDaysRequested()
+    },
+    user: {
+      client_user_id: `wealthvibe-property-${assetId}`
+    }
+  };
 
-  if (accounts.length === 0) {
-    throw new Error("No Teller account with transaction access was found.");
+  try {
+    const response = await plaidClient.linkTokenCreate(request);
+
+    return response.data.link_token;
+  } catch (error) {
+    throw new Error(getPlaidApiErrorMessage(error, "Could not create Plaid Link token."));
+  }
+}
+
+export async function createPlaidBankUpdateLinkToken({
+  accessToken,
+  assetId
+}: {
+  accessToken: string;
+  assetId: string;
+}): Promise<string> {
+  const token = accessToken.trim();
+
+  if (!token) {
+    throw new Error("Plaid access token is missing. Reconnect the bank account.");
   }
 
-  return accounts.map((account) => ({
-    accountId: account.id,
-    accountName: `${account.institution?.name ?? "Teller"} ${account.name}`.trim(),
+  const plaidClient = createPlaidClient();
+  const request: LinkTokenCreateRequest = {
+    access_token: token,
+    client_name: "WealthVibe",
+    country_codes: getPlaidCountryCodes(),
+    language: "en",
+    redirect_uri: getPlaidRedirectUri(),
+    update: {
+      reauthorization_enabled: true
+    },
+    user: {
+      client_user_id: `wealthvibe-property-${assetId}`
+    }
+  };
+
+  try {
+    const response = await plaidClient.linkTokenCreate(request);
+
+    return response.data.link_token;
+  } catch (error) {
+    throw new Error(getPlaidApiErrorMessage(error, "Could not create Plaid reconnect token."));
+  }
+}
+
+export async function exchangePlaidPublicToken(publicToken: string): Promise<{
+  accessToken: string;
+  itemId: string;
+}> {
+  const token = publicToken.trim();
+
+  if (!token) {
+    throw new Error("Plaid public token is missing.");
+  }
+
+  try {
+    const response = await createPlaidClient().itemPublicTokenExchange({
+      public_token: token
+    });
+
+    return {
+      accessToken: response.data.access_token,
+      itemId: response.data.item_id
+    };
+  } catch (error) {
+    throw new Error(getPlaidApiErrorMessage(error, "Could not exchange Plaid public token."));
+  }
+}
+
+export async function removePlaidItem(accessToken: string): Promise<void> {
+  const token = accessToken.trim();
+
+  if (!token) {
+    throw new Error("Plaid access token is missing. Could not remove Plaid Item.");
+  }
+
+  try {
+    await createPlaidClient().itemRemove({
+      access_token: token
+    });
+  } catch (error) {
+    throw new Error(getPlaidApiErrorMessage(error, "Could not remove Plaid Item."));
+  }
+}
+
+export async function getPlaidItemHealth(accessToken: string): Promise<PlaidItemHealth> {
+  const token = accessToken.trim();
+
+  if (!token) {
+    throw new Error("Plaid access token is missing. Could not check Plaid Item.");
+  }
+
+  try {
+    const response = await createPlaidClient().itemGet({
+      access_token: token
+    });
+    const itemError = response.data.item.error;
+    const errorCode = itemError?.error_code ?? null;
+    const errorMessage = itemError?.error_message ?? null;
+
+    return {
+      errorCode,
+      errorMessage,
+      status: isPlaidDisconnectedItemErrorCode(errorCode) ? "disconnected" : "active"
+    };
+  } catch (error) {
+    const details = getPlaidApiErrorDetails(error);
+
+    if (isPlaidDisconnectedItemErrorCode(details.errorCode)) {
+      return {
+        errorCode: details.errorCode ?? null,
+        errorMessage: details.errorMessage ?? null,
+        status: "disconnected"
+      };
+    }
+
+    throw new Error(getPlaidApiErrorMessage(error, "Could not check Plaid Item."));
+  }
+}
+
+export async function getPlaidConnectionAccounts({
+  accessToken,
+  itemId,
+  selectedAccountIds
+}: {
+  accessToken: string;
+  itemId: string;
+  selectedAccountIds?: string[];
+}): Promise<PlaidConnectionAccount[]> {
+  const selectedIds = new Set((selectedAccountIds ?? []).map((id) => id.trim()).filter(Boolean));
+
+  try {
+    const response = await createPlaidClient().accountsGet({
+      access_token: accessToken
+    });
+
+    return mapPlaidConnectionAccounts({
+      accounts: response.data.accounts,
+      item: {
+        institution_id: response.data.item.institution_id,
+        institution_name: response.data.item.institution_name,
+        item_id: response.data.item.item_id || itemId
+      },
+      selectedAccountIds: Array.from(selectedIds)
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("No Plaid accounts")) {
+      throw error;
+    }
+
+    throw new Error(getPlaidApiErrorMessage(error, "Could not load Plaid accounts."));
+  }
+}
+
+export function mapPlaidConnectionAccounts({
+  accounts,
+  item,
+  selectedAccountIds
+}: {
+  accounts: PlaidConnectionAccountLike[];
+  item: PlaidConnectionItemLike;
+  selectedAccountIds?: string[];
+}): PlaidConnectionAccount[] {
+  const selectedIds = new Set((selectedAccountIds ?? []).map((id) => id.trim()).filter(Boolean));
+  const selectedAccounts = accounts.filter(
+    (account) => selectedIds.size === 0 || selectedIds.has(account.account_id)
+  );
+
+  if (selectedAccounts.length === 0) {
+    throw new Error("No Plaid accounts with transaction access were selected.");
+  }
+
+  return selectedAccounts.map((account) => ({
+    accountId: account.account_id,
+    accountName: getPlaidAccountDisplayName(account as AccountBase, item.institution_name),
     accountType: account.type || null,
     accountSubtype: account.subtype || null,
-    enrollmentId: account.enrollment_id || null,
-    institutionId: account.institution?.id || null,
-    institutionName: account.institution?.name || null,
-    lastFour: account.last_four || null
+    institutionId: item.institution_id || null,
+    institutionName: item.institution_name || null,
+    lastFour: account.mask || null,
+    providerItemId: item.item_id
   }));
+}
+
+async function fetchPlaidBankTransactions(
+  query: BankTransactionQuery
+): Promise<BankTransactionProviderResult> {
+  const plaidClient = createPlaidClient();
+  const accessToken = getPlaidAccessToken(query);
+  const accountId = getPlaidAccountId(query);
+  const transactions: Transaction[] = [];
+  let accountName = query.plaidAccountName?.trim() || "";
+  let totalTransactions = 0;
+  let offset = 0;
+
+  try {
+    do {
+      const response = await plaidClient.transactionsGet({
+        access_token: accessToken,
+        end_date: query.endDate,
+        options: {
+          account_ids: [accountId],
+          count: PLAID_TRANSACTION_PAGE_SIZE,
+          include_original_description: true,
+          offset
+        },
+        start_date: query.startDate
+      });
+
+      if (!accountName) {
+        const account = response.data.accounts.find((item) => item.account_id === accountId);
+        accountName = account
+          ? getPlaidAccountDisplayName(account, response.data.item.institution_name)
+          : "Connected Plaid account";
+      }
+
+      transactions.push(...response.data.transactions);
+      totalTransactions = response.data.total_transactions;
+      offset += response.data.transactions.length;
+    } while (offset < totalTransactions && totalTransactions > 0);
+  } catch (error) {
+    const details = getPlaidApiErrorDetails(error);
+
+    if (isPlaidDisconnectedItemErrorCode(details.errorCode)) {
+      throw new PlaidItemDisconnectedError(
+        details.errorCode ?? "ITEM_LOGIN_REQUIRED",
+        getPlaidApiErrorMessage(error, "Plaid Item requires reconnect.")
+      );
+    }
+
+    throw new Error(getPlaidApiErrorMessage(error, "Could not fetch Plaid transactions."));
+  }
+
+  return {
+    provider: "plaid",
+    transactions: transactions.flatMap((transaction) => {
+      const mappedTransaction = mapPlaidTransactionToBankTransaction({
+        accountName: accountName || "Connected Plaid account",
+        connectionId: query.bankConnectionId?.trim() || accountId,
+        transaction
+      });
+
+      return mappedTransaction ? [mappedTransaction] : [];
+    })
+  };
 }
 
 function getMonthPrefix(date: string): string {
@@ -495,10 +740,12 @@ async function fetchMockBankTransactions(
 export async function fetchBankTransactions(
   query: BankTransactionQuery
 ): Promise<BankTransactionProviderResult> {
-  const provider = query.bankProvider ?? getConfiguredBankTransactionProvider();
+  const provider = (query.bankProvider ?? getConfiguredBankTransactionProvider()) as
+    | string
+    | null;
 
-  if (provider === "teller") {
-    return fetchTellerBankTransactions(query);
+  if (provider === "plaid") {
+    return fetchPlaidBankTransactions(query);
   }
 
   if (provider === "mock") {

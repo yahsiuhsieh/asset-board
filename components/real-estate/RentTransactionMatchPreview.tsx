@@ -24,6 +24,9 @@ import type {
   RealEstatePropertyTransaction
 } from "@/types/wealth";
 
+const removeTransactionConfirmation =
+  "Remove only deletes this ledger record. If this bank transaction still exists, it may return during Find Transactions or Close Month. Use Ignore to exclude normal bank transactions.";
+
 const initialState: RentTransactionMatchState = {
   status: "idle",
   message: "",
@@ -247,7 +250,7 @@ function ClassifiedRentTransactionList({
 }) {
   if (transactions.length === 0) {
     return (
-      <div className="rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
+      <div className="flex min-h-[4.5rem] items-center rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
         No classified rent income transactions for this month.
       </div>
     );
@@ -280,6 +283,11 @@ function ClassifiedRentTransactionList({
             <form
               action={deletePropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
+              onSubmit={(event) => {
+                if (!window.confirm(removeTransactionConfirmation)) {
+                  event.preventDefault();
+                }
+              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
@@ -334,6 +342,11 @@ function IgnoredRentTransactionList({
             <form
               action={deletePropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
+              onSubmit={(event) => {
+                if (!window.confirm(removeTransactionConfirmation)) {
+                  event.preventDefault();
+                }
+              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
@@ -428,15 +441,22 @@ export function RentTransactionMatchPreview({
     state.message && (!state.matchMonth || state.matchMonth === selectedMatchMonth);
 
   return (
-    <div className="grid gap-4 border-t border-slate-100 pt-5">
+    <div className="grid gap-5 border-t border-slate-100 pt-5">
       <form action={formAction} className="grid gap-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
           <input name="matchMonth" type="hidden" value={selectedMatchMonth} />
           <PreviewButton disabled={!hasActiveBankConnection} />
-          <p className="text-sm font-medium text-muted-foreground">
-            Searches bank credits from {RENT_TRANSACTION_SEARCH_BUFFER_DAYS} days before{" "}
-            {selectedMatchMonth} starts through {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}{" "}
-            days after it ends.
+          <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
+            Rent auto-match:{" "}
+            <strong className="font-semibold text-slate-700">
+              {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}-day
+            </strong>{" "}
+            window ·{" "}
+            <strong className="font-semibold text-slate-700">{selectedMatchMonth}</strong>{" "}
+            ·{" "}
+            <strong className="font-semibold text-slate-700">
+              ±{formatCurrency(property.rentMatchTolerance)}
+            </strong>.
           </p>
         </div>
       </form>

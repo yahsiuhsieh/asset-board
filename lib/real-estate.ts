@@ -52,8 +52,8 @@ interface RealEstatePropertyRow {
 interface RealEstateBankConnectionRow {
   id: string;
   asset_id: string;
-  provider: "teller";
-  enrollment_id: string | null;
+  provider: "plaid";
+  provider_item_id: string | null;
   account_id: string;
   account_name: string;
   account_type: string | null;
@@ -89,7 +89,7 @@ interface RealEstatePropertyTransactionRow {
   id: string;
   asset_id: string;
   bank_connection_id: string | null;
-  provider: "mock" | "teller";
+  provider: "mock" | "plaid" | "legacy_bank";
   provider_transaction_id: string;
   account_id: string;
   account_name: string;
@@ -173,7 +173,7 @@ function mapBankConnection(row: RealEstateBankConnectionRow): RealEstateBankConn
     id: row.id,
     assetId: row.asset_id,
     provider: row.provider,
-    enrollmentId: row.enrollment_id,
+    providerItemId: row.provider_item_id,
     accountId: row.account_id,
     accountName: row.account_name,
     accountType: row.account_type,
@@ -321,7 +321,7 @@ async function getBankConnectionRows(
       id,
       asset_id,
       provider,
-      enrollment_id,
+      provider_item_id,
       account_id,
       account_name,
       account_type,

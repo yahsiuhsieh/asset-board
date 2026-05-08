@@ -69,7 +69,7 @@ function transaction(overrides) {
     id: "transaction-id",
     assetId: "property-1",
     bankConnectionId: null,
-    provider: "teller",
+    provider: "plaid",
     providerTransactionId: "provider-transaction-id",
     accountId: "account-id",
     accountName: "Operating Checking",

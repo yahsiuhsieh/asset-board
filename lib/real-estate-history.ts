@@ -182,9 +182,11 @@ function getLatestMetricValueByDate(
 
 export function getEquitySeriesWithFallback({
   currentMarketValue,
+  currentDate = getTodayDate(),
   remainingMortgageBalance,
   snapshots
 }: {
+  currentDate?: string;
   currentMarketValue: number;
   remainingMortgageBalance: number;
   snapshots: RealEstateMetricSnapshot[];
@@ -200,15 +202,18 @@ export function getEquitySeriesWithFallback({
         .map((snapshot) => snapshot.recordedAt)
     )
   ).sort();
-  const chartDates = dates.length > 0 ? dates : [getTodayDate()];
+  const chartDates = Array.from(new Set([...dates, currentDate])).sort();
 
   return chartDates.map((date) => {
-    const value =
-      getLatestMetricValueByDate(snapshots, "current_market_value", date) ??
-      currentMarketValue;
-    const mortgage =
-      getLatestMetricValueByDate(snapshots, "remaining_mortgage_balance", date) ??
-      remainingMortgageBalance;
+    const isCurrentDate = date === currentDate;
+    const value = isCurrentDate
+      ? currentMarketValue
+      : getLatestMetricValueByDate(snapshots, "current_market_value", date) ??
+        currentMarketValue;
+    const mortgage = isCurrentDate
+      ? remainingMortgageBalance
+      : getLatestMetricValueByDate(snapshots, "remaining_mortgage_balance", date) ??
+        remainingMortgageBalance;
 
     return {
       date,
@@ -218,10 +223,12 @@ export function getEquitySeriesWithFallback({
 }
 
 export function getPropertyValueEquitySeries({
+  currentDate = getTodayDate(),
   currentMarketValue,
   remainingMortgageBalance,
   snapshots
 }: {
+  currentDate?: string;
   currentMarketValue: number;
   remainingMortgageBalance: number;
   snapshots: RealEstateMetricSnapshot[];
@@ -237,15 +244,18 @@ export function getPropertyValueEquitySeries({
         .map((snapshot) => snapshot.recordedAt)
     )
   ).sort();
-  const chartDates = dates.length > 0 ? dates : [getTodayDate()];
+  const chartDates = Array.from(new Set([...dates, currentDate])).sort();
 
   return chartDates.map((date) => {
-    const value =
-      getLatestMetricValueByDate(snapshots, "current_market_value", date) ??
-      currentMarketValue;
-    const mortgage =
-      getLatestMetricValueByDate(snapshots, "remaining_mortgage_balance", date) ??
-      remainingMortgageBalance;
+    const isCurrentDate = date === currentDate;
+    const value = isCurrentDate
+      ? currentMarketValue
+      : getLatestMetricValueByDate(snapshots, "current_market_value", date) ??
+        currentMarketValue;
+    const mortgage = isCurrentDate
+      ? remainingMortgageBalance
+      : getLatestMetricValueByDate(snapshots, "remaining_mortgage_balance", date) ??
+        remainingMortgageBalance;
 
     return {
       date,

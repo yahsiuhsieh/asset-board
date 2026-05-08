@@ -152,20 +152,6 @@ function DetailRow({
   );
 }
 
-function getTellerEnvironment(): string {
-  const environment = process.env.TELLER_ENVIRONMENT?.trim().toLowerCase();
-
-  if (
-    environment === "sandbox" ||
-    environment === "development" ||
-    environment === "production"
-  ) {
-    return environment;
-  }
-
-  return "sandbox";
-}
-
 export function PropertyDetailPage({
   annualQualityResult,
   annualReportYear,
@@ -183,8 +169,6 @@ export function PropertyDetailPage({
   const expenseRatio = calculateExpenseRatio(property);
   const equity = calculatePropertyEquity(property);
   const externalMapUrl = getExternalMapUrl(property.address);
-  const tellerApplicationId = process.env.TELLER_APPLICATION_ID?.trim() ?? "";
-  const tellerEnvironment = getTellerEnvironment();
 
   return (
     <div className="grid gap-5">
@@ -231,11 +215,7 @@ export function PropertyDetailPage({
                 <h2 className="text-2xl font-semibold tracking-tight">{property.name}</h2>
                 <EditPropertyDialog property={property} />
                 <PropertyInfoPopover property={property} />
-                <BankConnectionDialog
-                  applicationId={tellerApplicationId}
-                  environment={tellerEnvironment}
-                  property={property}
-                />
+                <BankConnectionDialog property={property} />
               </div>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <a

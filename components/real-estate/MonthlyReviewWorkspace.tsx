@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import type { RealEstateAssetDetail } from "@/types/wealth";
 import { ExpenseTransactionManager } from "./ExpenseTransactionManager";
 import { RentCollectionManager } from "./RentCollectionManager";
-import { RentMatchingSettingsForm } from "./RentMatchingSettingsForm";
 import { RentTransactionMatchPreview } from "./RentTransactionMatchPreview";
 
 const initialActionState: RealEstateActionState = {
@@ -327,17 +326,16 @@ export function MonthlyReviewWorkspace({
       <CardContent>
         <div className="grid gap-6">
           <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-            <div className="grid gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
+            <div className="grid content-start gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
               <h3 className="text-sm font-semibold text-slate-900">Rent Collection</h3>
               <RentCollectionManager property={property} reviewMonth={reviewMonth} />
-              <RentMatchingSettingsForm property={property} />
               <RentTransactionMatchPreview
                 property={property}
                 reviewMonth={reviewMonth}
               />
             </div>
 
-            <div className="grid gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
+            <div className="grid content-start gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
               <h3 className="text-sm font-semibold text-slate-900">
                 Expense Transactions
               </h3>

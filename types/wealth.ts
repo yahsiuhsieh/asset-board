@@ -56,8 +56,8 @@ export interface RealEstateAsset extends BaseAsset {
 export interface RealEstateBankConnection {
   id: string;
   assetId: string;
-  provider: "teller";
-  enrollmentId: string | null;
+  provider: "plaid";
+  providerItemId: string | null;
   accountId: string;
   accountName: string;
   accountType: string | null;
@@ -92,7 +92,7 @@ export interface RealEstatePropertyTransaction {
   id: string;
   assetId: string;
   bankConnectionId: string | null;
-  provider: "mock" | "teller";
+  provider: "mock" | "plaid" | "legacy_bank";
   providerTransactionId: string;
   accountId: string;
   accountName: string;
