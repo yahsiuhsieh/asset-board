@@ -232,6 +232,10 @@ export function PlaidConnectionManager({
   const [state, setState] = useState<RealEstateActionState>(idleState);
   const connectedAccounts = property.bankConnections;
   const isConnected = connectedAccounts.length > 0;
+  const disconnectedAccountCount = connectedAccounts.filter(
+    (connection) => connection.status !== "active"
+  ).length;
+  const hasDisconnectedAccounts = disconnectedAccountCount > 0;
   const isDisabled = !isScriptReady || isConnecting;
 
   useEffect(() => {
@@ -448,9 +452,11 @@ export function PlaidConnectionManager({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            {isConnected
-              ? "Connected accounts are used for rent deposits and property expenses."
-              : "Connect the accounts that receive rent deposits or pay property expenses."}
+            {hasDisconnectedAccounts
+              ? `${disconnectedAccountCount} ${disconnectedAccountCount === 1 ? "account needs" : "accounts need"} reconnect before new accounts are added.`
+              : isConnected
+                ? "Connected accounts are used for rent deposits and property expenses."
+                : "Connect the accounts that receive rent deposits or pay property expenses."}
           </p>
         </div>
         <div className="grid grid-flow-col auto-cols-max items-center gap-2 justify-start sm:justify-end">
@@ -461,12 +467,24 @@ export function PlaidConnectionManager({
               propertyId={property.id}
             />
           ) : null}
-          <Button disabled={isDisabled} onClick={openPlaidLink} type="button">
+          <Button
+            disabled={isDisabled}
+            onClick={openPlaidLink}
+            type="button"
+            variant={isConnected ? "secondary" : "default"}
+          >
             <Landmark className="h-4 w-4" />
             {isConnecting ? "Connecting" : isConnected ? "Add Accounts" : "Connect Accounts"}
           </Button>
         </div>
       </div>
+
+      {hasDisconnectedAccounts ? (
+        <div className="flex max-w-2xl items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>Use Reconnect to repair an existing bank link. Add Accounts creates a new link.</p>
+        </div>
+      ) : null}
 
       {syncState.message ? (
         <p
@@ -504,12 +522,11 @@ export function PlaidConnectionManager({
                 </div>
                 {connection.status !== "active" ? (
                   <Button
-                    className="w-fit"
+                    className="w-fit shadow-sm"
                     disabled={isDisabled}
                     onClick={() => void openPlaidReconnect(connection)}
                     size="sm"
                     type="button"
-                    variant="ghost"
                   >
                     <RefreshCw
                       className={cn(
