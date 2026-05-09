@@ -10,7 +10,8 @@ import type {
   RealEstatePhoto,
   RealEstatePropertyTransaction,
   RealEstateRentalStatus,
-  RealEstateSource
+  RealEstateSource,
+  RealEstateTransactionRule
 } from "@/types/wealth";
 
 const PROPERTY_PHOTO_BUCKET = "property-photos";
@@ -88,6 +89,7 @@ interface RealEstateMetricSnapshotRow {
 interface RealEstatePropertyTransactionRow {
   id: string;
   asset_id: string;
+  raw_bank_transaction_id: string | null;
   bank_connection_id: string | null;
   provider: "mock" | "plaid" | "legacy_bank";
   provider_transaction_id: string;
@@ -95,6 +97,7 @@ interface RealEstatePropertyTransactionRow {
   account_name: string;
   posted_at: string;
   description: string;
+  original_description: string | null;
   memo: string | null;
   amount: string | number;
   direction: "credit" | "debit";
@@ -102,6 +105,19 @@ interface RealEstatePropertyTransactionRow {
   category: RealEstateExpenseCategory | null;
   rent_period_month: string | null;
   note: string | null;
+}
+
+interface RealEstateTransactionRuleRow {
+  id: string;
+  asset_id: string | null;
+  name: string;
+  contains_text: string;
+  target_amount: string | number;
+  set_transaction_name: string | null;
+  category: RealEstateExpenseCategory;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface RealEstateMonthlyReviewRow {
@@ -205,6 +221,7 @@ function mapPropertyTransaction(
   return {
     id: row.id,
     assetId: row.asset_id,
+    rawBankTransactionId: row.raw_bank_transaction_id,
     bankConnectionId: row.bank_connection_id,
     provider: row.provider,
     providerTransactionId: row.provider_transaction_id,
@@ -212,6 +229,7 @@ function mapPropertyTransaction(
     accountName: row.account_name,
     postedAt: row.posted_at,
     description: row.description,
+    originalDescription: row.original_description,
     memo: row.memo,
     amount: toNumber(row.amount),
     direction: row.direction,
@@ -219,6 +237,21 @@ function mapPropertyTransaction(
     category: row.category,
     rentPeriodMonth: row.rent_period_month,
     note: row.note
+  };
+}
+
+function mapTransactionRule(row: RealEstateTransactionRuleRow): RealEstateTransactionRule {
+  return {
+    id: row.id,
+    assetId: row.asset_id,
+    name: row.name,
+    containsText: row.contains_text,
+    targetAmount: toNumber(row.target_amount),
+    setTransactionName: row.set_transaction_name,
+    category: row.category,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
 }
 
@@ -396,6 +429,7 @@ async function getPropertyTransactionRows(
       `
       id,
       asset_id,
+      raw_bank_transaction_id,
       bank_connection_id,
       provider,
       provider_transaction_id,
@@ -403,6 +437,7 @@ async function getPropertyTransactionRows(
       account_name,
       posted_at,
       description,
+      original_description,
       memo,
       amount,
       direction,
@@ -452,6 +487,33 @@ async function getMonthlyReviewRows(
   }
 
   return (data ?? []) as RealEstateMonthlyReviewRow[];
+}
+
+async function getTransactionRuleRows(): Promise<RealEstateTransactionRuleRow[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_transaction_rules")
+    .select(
+      `
+      id,
+      asset_id,
+      name,
+      contains_text,
+      target_amount,
+      set_transaction_name,
+      category,
+      is_active,
+      created_at,
+      updated_at
+    `
+    )
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load transaction rules: ${error.message}`);
+  }
+
+  return (data ?? []) as RealEstateTransactionRuleRow[];
 }
 
 export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
@@ -530,4 +592,22 @@ export async function getRealEstateAssetDetail(
     photos,
     snapshots
   };
+}
+
+export async function getRealEstateTransactionRules(): Promise<
+  RealEstateTransactionRule[]
+> {
+  const rows = await getTransactionRuleRows();
+
+  return rows.map(mapTransactionRule);
+}
+
+export async function getActiveRealEstateTransactionRules(
+  assetId?: string
+): Promise<RealEstateTransactionRule[]> {
+  const rules = await getRealEstateTransactionRules();
+
+  return rules.filter(
+    (rule) => rule.isActive && (!assetId || !rule.assetId || rule.assetId === assetId)
+  );
 }

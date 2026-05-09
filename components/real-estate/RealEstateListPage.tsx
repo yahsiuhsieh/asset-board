@@ -27,6 +27,7 @@ import type { RealEstateAssetDetail } from "@/types/wealth";
 import { PortfolioAnnualTransactionsExport } from "./PortfolioAnnualTransactionsExport";
 import { PropertyImage } from "./PropertyImage";
 import { PropertyMap } from "./PropertyMap";
+import { RealEstatePortfolioNav } from "./RealEstatePortfolioNav";
 
 interface RealEstateListPageProps {
   properties: RealEstateAssetDetail[];
@@ -158,6 +159,8 @@ export function RealEstateListPage({
           />
         </div>
       </section>
+
+      <RealEstatePortfolioNav active="portfolio" />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricTile

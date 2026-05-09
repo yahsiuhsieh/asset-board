@@ -577,6 +577,55 @@ test("serializes annual report CSV with escaping across sections", () => {
   );
 });
 
+test("annual report preserves transaction cents in summaries and appendix", () => {
+  const statement = helpers.getPortfolioAnnualStatement(
+    [
+      property({
+        name: "Duplex A",
+        address: "100 Main St",
+        propertyTransactions: [
+          transaction({
+            amount: 1200.75,
+            direction: "credit",
+            classification: "rental_income"
+          }),
+          transaction({
+            amount: 82.88,
+            direction: "debit",
+            classification: "expense",
+            category: "utilities"
+          })
+        ]
+      })
+    ],
+    "2026",
+    [],
+    today
+  );
+  const csv = helpers.serializePortfolioAnnualReportCsv(statement, [
+    {
+      date: "2026-05-05",
+      type: "expense",
+      category: "utilities",
+      description: "Utility bill",
+      account: "Chase Checking",
+      amount: 82.88,
+      propertyName: "Duplex A",
+      propertyAddress: "100 Main St"
+    }
+  ]);
+
+  assert.equal(statement.propertyRows[0].rentCollected, 1200.75);
+  assert.equal(statement.propertyRows[0].utilities, 82.88);
+  assert.equal(statement.propertyRows[0].noi, 1117.87);
+  assert.ok(csv.includes("total,1200.75,0.00,0.00,0.00,0.00,82.88"));
+  assert.ok(
+    csv.includes(
+      "\r\n2026-05-05,expense,utilities,Utility bill,Chase Checking,82.88,Duplex A,100 Main St"
+    )
+  );
+});
+
 test("uses the portfolio annual report filename", () => {
   assert.equal(
     helpers.getPortfolioAnnualReportFilename("2026"),

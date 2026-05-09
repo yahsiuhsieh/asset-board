@@ -4,7 +4,8 @@ import { getCurrentMonth, getRentalIncomeForMonth } from "@/lib/real-estate-rent
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 0
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
 });
 
 function formatCurrency(value: number): string {

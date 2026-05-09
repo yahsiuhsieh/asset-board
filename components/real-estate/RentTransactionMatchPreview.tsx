@@ -3,15 +3,15 @@
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, ChevronDown, Search, Trash2 } from "lucide-react";
+import { Ban, CheckCircle2, ChevronDown, RotateCcw, Search } from "lucide-react";
 
 import {
   classifyRentCreditTransaction,
-  deletePropertyTransaction,
   previewRentTransactionMatches,
   type RealEstateActionState,
   type RentTransactionMatch,
-  type RentTransactionMatchState
+  type RentTransactionMatchState,
+  unclassifyPropertyTransaction
 } from "@/app/actions/real-estate";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,9 +23,10 @@ import type {
   RealEstateAssetDetail,
   RealEstatePropertyTransaction
 } from "@/types/wealth";
-
-const removeTransactionConfirmation =
-  "Remove only deletes this ledger record. If this bank transaction still exists, it may return during Find Transactions or Close Month. Use Ignore to exclude normal bank transactions.";
+import {
+  CLOSED_REVIEW_ACTION_MESSAGE,
+  ClosedReviewActionHint
+} from "./ClosedReviewActionHint";
 
 const initialState: RentTransactionMatchState = {
   status: "idle",
@@ -43,17 +44,23 @@ const applyInitialState: RealEstateActionState = {
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 0
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
 });
 
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function PreviewButton({ disabled }: { disabled: boolean }) {
+function PreviewButton({
+  disabled,
+  disabledReason
+}: {
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
   const { pending } = useFormStatus();
-
-  return (
+  const button = (
     <Button
       className="min-w-[11rem] border border-primary/15 shadow-sm"
       disabled={disabled || pending}
@@ -63,36 +70,66 @@ function PreviewButton({ disabled }: { disabled: boolean }) {
       {pending ? "Finding" : "Find Rent Income"}
     </Button>
   );
-}
-
-function MarkRentalIncomeButton() {
-  const { pending } = useFormStatus();
 
   return (
-    <Button disabled={pending} size="sm" type="submit">
+    <ClosedReviewActionHint disabled={Boolean(disabledReason)} message={disabledReason ?? ""}>
+      {button}
+    </ClosedReviewActionHint>
+  );
+}
+
+function MarkRentalIncomeButton({
+  disabled,
+  disabledReason
+}: {
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
+  const { pending } = useFormStatus();
+  const button = (
+    <Button disabled={disabled || pending} size="sm" type="submit">
       <CheckCircle2 className="h-4 w-4" />
       {pending ? "Saving" : "Mark Rental Income"}
     </Button>
   );
-}
-
-function NotRentalIncomeButton() {
-  const { pending } = useFormStatus();
 
   return (
-    <Button disabled={pending} size="sm" type="submit" variant="secondary">
+    <ClosedReviewActionHint disabled={Boolean(disabledReason)} message={disabledReason ?? ""}>
+      {button}
+    </ClosedReviewActionHint>
+  );
+}
+
+function NotRentalIncomeButton({
+  disabled,
+  disabledReason
+}: {
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
+  const { pending } = useFormStatus();
+  const button = (
+    <Button disabled={disabled || pending} size="sm" type="submit" variant="secondary">
       <Ban className="h-4 w-4" />
       {pending ? "Saving" : "Not Rental Income"}
     </Button>
   );
+
+  return (
+    <ClosedReviewActionHint disabled={Boolean(disabledReason)} message={disabledReason ?? ""}>
+      {button}
+    </ClosedReviewActionHint>
+  );
 }
 
 function RentMatchAction({
+  isReviewClosed,
   match,
   matchMonth,
   onClassified,
   propertyId
 }: {
+  isReviewClosed: boolean;
   match: RentTransactionMatch;
   matchMonth: string;
   onClassified: (matchKey: string) => void;
@@ -109,6 +146,7 @@ function RentMatchAction({
   );
   const state = rentalIncomeState.message ? rentalIncomeState : ignoredState;
   const matchKey = getRentMatchKey(match);
+  const disabledReason = isReviewClosed ? CLOSED_REVIEW_ACTION_MESSAGE : null;
 
   useEffect(() => {
     if (rentalIncomeState.status === "success" || ignoredState.status === "success") {
@@ -154,6 +192,11 @@ function RentMatchAction({
           <input name="transactionId" type="hidden" value={match.id} />
           <input name="connectionId" type="hidden" value={match.connectionId} />
           <input
+            name="rawBankTransactionId"
+            type="hidden"
+            value={match.rawBankTransactionId ?? ""}
+          />
+          <input
             name="recordedTransactionId"
             type="hidden"
             value={match.recordedTransactionId ?? ""}
@@ -162,27 +205,46 @@ function RentMatchAction({
           <input name="classification" type="hidden" value="rental_income" />
           <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
             Apply to
-            <input
-              className="h-8 w-32 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-              defaultValue={match.rentPeriodMonth ?? matchMonth}
-              name="rentPeriodMonth"
-              required
-              type="month"
-            />
+            <ClosedReviewActionHint disabled={isReviewClosed}>
+              <input
+                className="h-8 w-32 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                defaultValue={match.rentPeriodMonth ?? matchMonth}
+                disabled={isReviewClosed}
+                name="rentPeriodMonth"
+                required
+                type="month"
+              />
+            </ClosedReviewActionHint>
           </label>
-          <MarkRentalIncomeButton />
+          <MarkRentalIncomeButton
+            disabled={isReviewClosed}
+            disabledReason={disabledReason}
+          />
         </form>
         <form action={ignoredAction}>
           <input name="transactionId" type="hidden" value={match.id} />
           <input name="connectionId" type="hidden" value={match.connectionId} />
+          <input
+            name="rawBankTransactionId"
+            type="hidden"
+            value={match.rawBankTransactionId ?? ""}
+          />
           <input
             name="recordedTransactionId"
             type="hidden"
             value={match.recordedTransactionId ?? ""}
           />
           <input name="matchMonth" type="hidden" value={matchMonth} />
+          <input
+            name="rentPeriodMonth"
+            type="hidden"
+            value={match.rentPeriodMonth ?? matchMonth}
+          />
           <input name="classification" type="hidden" value="ignored" />
-          <NotRentalIncomeButton />
+          <NotRentalIncomeButton
+            disabled={isReviewClosed}
+            disabledReason={disabledReason}
+          />
         </form>
       </div>
       {state.message ? (
@@ -206,6 +268,10 @@ function getStoredTransactionConnectionId(
 }
 
 function getRentMatchKey(match: RentTransactionMatch): string {
+  if (match.rawBankTransactionId) {
+    return `raw:${match.rawBankTransactionId}`;
+  }
+
   return `${match.connectionId}:${match.id}`;
 }
 
@@ -224,6 +290,7 @@ function getStoredPendingRentMatch(
   return {
     id: transaction.providerTransactionId,
     connectionId: getStoredTransactionConnectionId(transaction),
+    rawBankTransactionId: transaction.rawBankTransactionId,
     postedAt: transaction.postedAt,
     title: transaction.description,
     memo: transaction.memo ?? "",
@@ -243,9 +310,11 @@ function getStoredPendingRentMatch(
 
 function ClassifiedRentTransactionList({
   assetId,
+  isReviewClosed,
   transactions
 }: {
   assetId: string;
+  isReviewClosed: boolean;
   transactions: RealEstatePropertyTransaction[];
 }) {
   if (transactions.length === 0) {
@@ -281,23 +350,21 @@ function ClassifiedRentTransactionList({
               {formatCurrency(transaction.amount)}
             </p>
             <form
-              action={deletePropertyTransaction}
+              action={unclassifyPropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
-              onSubmit={(event) => {
-                if (!window.confirm(removeTransactionConfirmation)) {
-                  event.preventDefault();
-                }
-              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
-              <button
-                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
-                type="submit"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove
-              </button>
+              <ClosedReviewActionHint disabled={isReviewClosed}>
+                <button
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                  disabled={isReviewClosed}
+                  type="submit"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Unclassify
+                </button>
+              </ClosedReviewActionHint>
             </form>
           </div>
         ))}
@@ -308,9 +375,11 @@ function ClassifiedRentTransactionList({
 
 function IgnoredRentTransactionList({
   assetId,
+  isReviewClosed,
   transactions
 }: {
   assetId: string;
+  isReviewClosed: boolean;
   transactions: RealEstatePropertyTransaction[];
 }) {
   if (transactions.length === 0) {
@@ -340,23 +409,21 @@ function IgnoredRentTransactionList({
               {formatCurrency(transaction.amount)}
             </p>
             <form
-              action={deletePropertyTransaction}
+              action={unclassifyPropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
-              onSubmit={(event) => {
-                if (!window.confirm(removeTransactionConfirmation)) {
-                  event.preventDefault();
-                }
-              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
-              <button
-                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
-                type="submit"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove
-              </button>
+              <ClosedReviewActionHint disabled={isReviewClosed}>
+                <button
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                  disabled={isReviewClosed}
+                  type="submit"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Review Again
+                </button>
+              </ClosedReviewActionHint>
             </form>
           </div>
         ))}
@@ -366,9 +433,11 @@ function IgnoredRentTransactionList({
 }
 
 export function RentTransactionMatchPreview({
+  isReviewClosed,
   property,
   reviewMonth
 }: {
+  isReviewClosed: boolean;
   property: RealEstateAssetDetail;
   reviewMonth: string;
 }) {
@@ -422,8 +491,9 @@ export function RentTransactionMatchPreview({
   ].filter(
     (match, index, matches) =>
       !hiddenMatchKeys.has(getRentMatchKey(match)) &&
-      matches.findIndex((candidate) => getRentMatchKey(candidate) === getRentMatchKey(match)) ===
-        index
+      matches.findIndex(
+        (candidate) => getRentMatchKey(candidate) === getRentMatchKey(match)
+      ) === index
   );
   const classifiedReviewMonthTransactions = property.propertyTransactions.filter(
     (transaction) =>
@@ -445,7 +515,10 @@ export function RentTransactionMatchPreview({
       <form action={formAction} className="grid gap-4">
         <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
           <input name="matchMonth" type="hidden" value={selectedMatchMonth} />
-          <PreviewButton disabled={!hasActiveBankConnection} />
+          <PreviewButton
+            disabled={!hasActiveBankConnection || isReviewClosed}
+            disabledReason={isReviewClosed ? CLOSED_REVIEW_ACTION_MESSAGE : null}
+          />
           <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
             Rent auto-match:{" "}
             <strong className="font-semibold text-slate-700">
@@ -464,6 +537,12 @@ export function RentTransactionMatchPreview({
       {!hasActiveBankConnection ? (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
           No bank connection. Connect account to review transactions.
+        </div>
+      ) : null}
+
+      {isReviewClosed ? (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+          Reopen this monthly review before changing rent transactions.
         </div>
       ) : null}
 
@@ -505,6 +584,7 @@ export function RentTransactionMatchPreview({
                 </div>
                 <p className="font-semibold">{formatCurrency(match.amount)}</p>
                 <RentMatchAction
+                  isReviewClosed={isReviewClosed}
                   match={match}
                   matchMonth={selectedMatchMonth}
                   onClassified={handleClassified}
@@ -519,10 +599,12 @@ export function RentTransactionMatchPreview({
       <div className="grid gap-3 border-t border-slate-100 pt-5">
         <ClassifiedRentTransactionList
           assetId={property.id}
+          isReviewClosed={isReviewClosed}
           transactions={classifiedReviewMonthTransactions}
         />
         <IgnoredRentTransactionList
           assetId={property.id}
+          isReviewClosed={isReviewClosed}
           transactions={ignoredReviewMonthTransactions}
         />
       </div>

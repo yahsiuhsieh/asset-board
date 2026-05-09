@@ -88,9 +88,23 @@ export type RealEstateExpenseCategory =
   | "utilities"
   | "other";
 
+export interface RealEstateTransactionRule {
+  id: string;
+  assetId: string | null;
+  name: string;
+  containsText: string;
+  targetAmount: number;
+  setTransactionName: string | null;
+  category: RealEstateExpenseCategory;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RealEstatePropertyTransaction {
   id: string;
   assetId: string;
+  rawBankTransactionId: string | null;
   bankConnectionId: string | null;
   provider: "mock" | "plaid" | "legacy_bank";
   providerTransactionId: string;
@@ -98,6 +112,7 @@ export interface RealEstatePropertyTransaction {
   accountName: string;
   postedAt: string;
   description: string;
+  originalDescription: string | null;
   memo: string | null;
   amount: number;
   direction: RealEstateBankTransactionDirection;

@@ -7,14 +7,14 @@ import {
   Ban,
   CheckCircle2,
   ChevronDown,
-  Search,
-  Trash2
+  RotateCcw,
+  Search
 } from "lucide-react";
 
 import {
   classifyPropertyTransaction,
-  deletePropertyTransaction,
   previewExpenseTransactions,
+  unclassifyPropertyTransaction,
   type ExpenseTransactionPreview,
   type ExpenseTransactionPreviewState,
   type RealEstateActionState
@@ -31,9 +31,10 @@ import type {
   RealEstateExpenseCategory,
   RealEstatePropertyTransaction
 } from "@/types/wealth";
-
-const removeTransactionConfirmation =
-  "Remove only deletes this ledger record. If this bank transaction still exists, it may return during Find Transactions or Close Month. Use Ignore to exclude normal bank transactions.";
+import {
+  CLOSED_REVIEW_ACTION_MESSAGE,
+  ClosedReviewActionHint
+} from "./ClosedReviewActionHint";
 
 const initialPreviewState: ExpenseTransactionPreviewState = {
   status: "idle",
@@ -60,17 +61,23 @@ const categoryOptions: RealEstateExpenseCategory[] = [
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 0
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
 });
 
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function PreviewButton({ disabled }: { disabled: boolean }) {
+function PreviewButton({
+  disabled,
+  disabledReason
+}: {
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
   const { pending } = useFormStatus();
-
-  return (
+  const button = (
     <Button
       className="min-w-[11rem] border border-primary/15 shadow-sm"
       disabled={disabled || pending}
@@ -80,31 +87,63 @@ function PreviewButton({ disabled }: { disabled: boolean }) {
       {pending ? "Finding" : "Find Transactions"}
     </Button>
   );
-}
-
-function RecordExpenseButton() {
-  const { pending } = useFormStatus();
 
   return (
-    <Button disabled={pending} size="sm" type="submit">
+    <ClosedReviewActionHint disabled={Boolean(disabledReason)} message={disabledReason ?? ""}>
+      {button}
+    </ClosedReviewActionHint>
+  );
+}
+
+function RecordExpenseButton({
+  disabled,
+  disabledReason
+}: {
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
+  const { pending } = useFormStatus();
+  const button = (
+    <Button disabled={disabled || pending} size="sm" type="submit">
       <CheckCircle2 className="h-4 w-4" />
       {pending ? "Recording" : "Record Expense"}
     </Button>
   );
-}
-
-function IgnoreButton() {
-  const { pending } = useFormStatus();
 
   return (
-    <Button disabled={pending} size="sm" type="submit" variant="secondary">
+    <ClosedReviewActionHint disabled={Boolean(disabledReason)} message={disabledReason ?? ""}>
+      {button}
+    </ClosedReviewActionHint>
+  );
+}
+
+function IgnoreButton({
+  disabled,
+  disabledReason
+}: {
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
+  const { pending } = useFormStatus();
+  const button = (
+    <Button disabled={disabled || pending} size="sm" type="submit" variant="secondary">
       <Ban className="h-4 w-4" />
       {pending ? "Ignoring" : "Ignore"}
     </Button>
   );
+
+  return (
+    <ClosedReviewActionHint disabled={Boolean(disabledReason)} message={disabledReason ?? ""}>
+      {button}
+    </ClosedReviewActionHint>
+  );
 }
 
 function getPreviewTransactionKey(transaction: ExpenseTransactionPreview): string {
+  if (transaction.rawBankTransactionId) {
+    return `raw:${transaction.rawBankTransactionId}`;
+  }
+
   return `${transaction.connectionId}:${transaction.id}`;
 }
 
@@ -120,6 +159,7 @@ function getStoredPendingExpensePreview(
   return {
     id: transaction.providerTransactionId,
     connectionId: getStoredTransactionConnectionId(transaction),
+    rawBankTransactionId: transaction.rawBankTransactionId,
     postedAt: transaction.postedAt,
     description: transaction.description,
     amount: transaction.amount,
@@ -130,14 +170,18 @@ function getStoredPendingExpensePreview(
 }
 
 function ExpenseTransactionActions({
+  isReviewClosed,
   onClassified,
   propertyId,
+  propertyOptions,
   reviewMonth,
   transaction,
   transactionKey
 }: {
+  isReviewClosed: boolean;
   onClassified: (transactionKey: string) => void;
   propertyId: string;
+  propertyOptions: Array<Pick<RealEstateAssetDetail, "address" | "id" | "name">>;
   reviewMonth: string;
   transaction: ExpenseTransactionPreview;
   transactionKey: string;
@@ -152,6 +196,7 @@ function ExpenseTransactionActions({
     initialActionState
   );
   const state = expenseState.message ? expenseState : ignoreState;
+  const disabledReason = isReviewClosed ? CLOSED_REVIEW_ACTION_MESSAGE : null;
 
   useEffect(() => {
     if (expenseState.status === "success" || ignoreState.status === "success") {
@@ -185,20 +230,45 @@ function ExpenseTransactionActions({
           />
           <input name="transactionId" type="hidden" value={transaction.id} />
           <input name="connectionId" type="hidden" value={transaction.connectionId} />
+          <input
+            name="rawBankTransactionId"
+            type="hidden"
+            value={transaction.rawBankTransactionId ?? ""}
+          />
           <input name="reviewMonth" type="hidden" value={reviewMonth} />
           <input name="classification" type="hidden" value="expense" />
-          <select
-            className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-            defaultValue="other"
-            name="category"
-          >
-            {categoryOptions.map((category) => (
-              <option key={category} value={category}>
-                {expenseCategoryLabels[category]}
-              </option>
-            ))}
-          </select>
-          <RecordExpenseButton />
+          <ClosedReviewActionHint disabled={isReviewClosed}>
+            <select
+              className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={propertyId}
+              disabled={isReviewClosed}
+              name="targetAssetId"
+            >
+              {propertyOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </ClosedReviewActionHint>
+          <ClosedReviewActionHint disabled={isReviewClosed}>
+            <select
+              className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue="other"
+              disabled={isReviewClosed}
+              name="category"
+            >
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {expenseCategoryLabels[category]}
+                </option>
+              ))}
+            </select>
+          </ClosedReviewActionHint>
+          <RecordExpenseButton
+            disabled={isReviewClosed}
+            disabledReason={disabledReason}
+          />
         </form>
         <form action={ignoreAction}>
           <input
@@ -208,9 +278,14 @@ function ExpenseTransactionActions({
           />
           <input name="transactionId" type="hidden" value={transaction.id} />
           <input name="connectionId" type="hidden" value={transaction.connectionId} />
+          <input
+            name="rawBankTransactionId"
+            type="hidden"
+            value={transaction.rawBankTransactionId ?? ""}
+          />
           <input name="reviewMonth" type="hidden" value={reviewMonth} />
           <input name="classification" type="hidden" value="ignored" />
-          <IgnoreButton />
+          <IgnoreButton disabled={isReviewClosed} disabledReason={disabledReason} />
         </form>
       </div>
       {state.message ? (
@@ -229,9 +304,11 @@ function ExpenseTransactionActions({
 
 function ClassifiedTransactionList({
   assetId,
+  isReviewClosed,
   transactions
 }: {
   assetId: string;
+  isReviewClosed: boolean;
   transactions: RealEstatePropertyTransaction[];
 }) {
   if (transactions.length === 0) {
@@ -257,7 +334,7 @@ function ClassifiedTransactionList({
             <div className="min-w-0">
               <p className="break-words font-semibold">{transaction.description}</p>
               <p className="mt-1 font-medium text-muted-foreground">
-                {transaction.accountName} · {transaction.postedAt}
+                Paid from {transaction.accountName} · {transaction.postedAt}
               </p>
               <p className="mt-1 text-muted-foreground">
                 {transaction.category ? expenseCategoryLabels[transaction.category] : "Expense"}
@@ -267,23 +344,21 @@ function ClassifiedTransactionList({
               {formatCurrency(transaction.amount)}
             </p>
             <form
-              action={deletePropertyTransaction}
+              action={unclassifyPropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
-              onSubmit={(event) => {
-                if (!window.confirm(removeTransactionConfirmation)) {
-                  event.preventDefault();
-                }
-              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
-              <button
-                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
-                type="submit"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove
-              </button>
+              <ClosedReviewActionHint disabled={isReviewClosed}>
+                <button
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                  disabled={isReviewClosed}
+                  type="submit"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Unclassify
+                </button>
+              </ClosedReviewActionHint>
             </form>
           </div>
         ))}
@@ -294,9 +369,11 @@ function ClassifiedTransactionList({
 
 function IgnoredTransactionList({
   assetId,
+  isReviewClosed,
   transactions
 }: {
   assetId: string;
+  isReviewClosed: boolean;
   transactions: RealEstatePropertyTransaction[];
 }) {
   if (transactions.length === 0) {
@@ -318,7 +395,7 @@ function IgnoredTransactionList({
             <div className="min-w-0">
               <p className="break-words font-semibold">{transaction.description}</p>
               <p className="mt-1 font-medium text-muted-foreground">
-                {transaction.accountName} · {transaction.postedAt}
+                Paid from {transaction.accountName} · {transaction.postedAt}
               </p>
               <p className="mt-1 text-muted-foreground">Ignored</p>
             </div>
@@ -326,23 +403,21 @@ function IgnoredTransactionList({
               {formatCurrency(transaction.amount)}
             </p>
             <form
-              action={deletePropertyTransaction}
+              action={unclassifyPropertyTransaction}
               className="md:col-start-3 md:justify-self-end"
-              onSubmit={(event) => {
-                if (!window.confirm(removeTransactionConfirmation)) {
-                  event.preventDefault();
-                }
-              }}
             >
               <input name="assetId" type="hidden" value={assetId} />
               <input name="transactionId" type="hidden" value={transaction.id} />
-              <button
-                className="inline-flex items-center gap-2 text-sm font-semibold text-red-600"
-                type="submit"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove
-              </button>
+              <ClosedReviewActionHint disabled={isReviewClosed}>
+                <button
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                  disabled={isReviewClosed}
+                  type="submit"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Review Again
+                </button>
+              </ClosedReviewActionHint>
             </form>
           </div>
         ))}
@@ -352,10 +427,14 @@ function IgnoredTransactionList({
 }
 
 export function ExpenseTransactionManager({
+  isReviewClosed,
   property,
+  propertyOptions,
   reviewMonth
 }: {
+  isReviewClosed: boolean;
   property: RealEstateAssetDetail;
+  propertyOptions: Array<Pick<RealEstateAssetDetail, "address" | "id" | "name">>;
   reviewMonth: string;
 }) {
   const [state, formAction] = useActionState(
@@ -477,7 +556,10 @@ export function ExpenseTransactionManager({
       <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5">
         <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
           <input name="reviewMonth" type="hidden" value={selectedReviewMonth} />
-          <PreviewButton disabled={!hasActiveBankConnection} />
+          <PreviewButton
+            disabled={!hasActiveBankConnection || isReviewClosed}
+            disabledReason={isReviewClosed ? CLOSED_REVIEW_ACTION_MESSAGE : null}
+          />
           <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
             Expense search:{" "}
             <strong className="font-semibold text-slate-700">posted debits</strong>{" "}
@@ -492,6 +574,12 @@ export function ExpenseTransactionManager({
       {!hasActiveBankConnection ? (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
           No bank connection. Connect account to review transactions.
+        </div>
+      ) : null}
+
+      {isReviewClosed ? (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+          Reopen this monthly review before changing expense transactions.
         </div>
       ) : null}
 
@@ -526,15 +614,17 @@ export function ExpenseTransactionManager({
                   <div className="min-w-0">
                     <p className="break-words font-semibold">{transaction.description}</p>
                     <p className="mt-1 font-medium text-muted-foreground">
-                      {transaction.accountName} · {transaction.postedAt}
+                      Paid from {transaction.accountName} · {transaction.postedAt}
                     </p>
                   </div>
                   <p className="font-semibold lg:justify-self-end">
                     {formatCurrency(transaction.amount)}
                   </p>
                   <ExpenseTransactionActions
+                    isReviewClosed={isReviewClosed}
                     onClassified={handleClassified}
                     propertyId={property.id}
+                    propertyOptions={propertyOptions}
                     reviewMonth={selectedReviewMonth}
                     transaction={transaction}
                     transactionKey={transactionKey}
@@ -549,10 +639,12 @@ export function ExpenseTransactionManager({
       <div className="grid gap-3 border-t border-slate-100 pt-5">
         <ClassifiedTransactionList
           assetId={property.id}
+          isReviewClosed={isReviewClosed}
           transactions={classifiedReviewMonthTransactions}
         />
         <IgnoredTransactionList
           assetId={property.id}
+          isReviewClosed={isReviewClosed}
           transactions={ignoredReviewMonthTransactions}
         />
       </div>

@@ -32,7 +32,8 @@ const initialActionState: RealEstateActionState = {
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 0
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
 });
 
 function formatCurrency(value: number): string {
@@ -289,9 +290,11 @@ function ReviewMonthSelector({
 }
 
 export function MonthlyReviewWorkspace({
-  property
+  property,
+  propertyOptions
 }: {
   property: RealEstateAssetDetail;
+  propertyOptions: Array<Pick<RealEstateAssetDetail, "address" | "id" | "name">>;
 }) {
   const router = useRouter();
   const [reviewMonth, setReviewMonth] = useState(getCurrentMonth());
@@ -307,6 +310,7 @@ export function MonthlyReviewWorkspace({
     () => getMonthlyReviewAssessment(property, reviewMonth),
     [property, reviewMonth]
   );
+  const isReviewClosed = assessment.status === "closed";
 
   useEffect(() => {
     if (closeState.status !== "idle" || reopenState.status === "success") {
@@ -330,6 +334,7 @@ export function MonthlyReviewWorkspace({
               <h3 className="text-sm font-semibold text-slate-900">Rent Collection</h3>
               <RentCollectionManager property={property} reviewMonth={reviewMonth} />
               <RentTransactionMatchPreview
+                isReviewClosed={isReviewClosed}
                 property={property}
                 reviewMonth={reviewMonth}
               />
@@ -339,7 +344,12 @@ export function MonthlyReviewWorkspace({
               <h3 className="text-sm font-semibold text-slate-900">
                 Expense Transactions
               </h3>
-              <ExpenseTransactionManager property={property} reviewMonth={reviewMonth} />
+              <ExpenseTransactionManager
+                isReviewClosed={isReviewClosed}
+                property={property}
+                propertyOptions={propertyOptions}
+                reviewMonth={reviewMonth}
+              />
             </div>
           </div>
 

@@ -18,12 +18,14 @@ import {
   Line,
   Pie,
   PieChart as RechartsPieChart,
+  Rectangle,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis
 } from "recharts";
+import type { BarShapeProps } from "recharts";
 
 import { cn } from "@/lib/utils";
 import {
@@ -108,6 +110,8 @@ const propertyValueLineConfigs = [
 const monthlyExpenseCategoryColors = chartColors.expenses;
 const chartMargin = { bottom: 0, left: 0, right: 12, top: 18 };
 const horizontalBarChartMargin = { bottom: 0, left: 4, right: 72, top: 8 };
+const roundedStackBarRadius: [number, number, number, number] = [7, 7, 0, 0];
+const roundedHorizontalBarRadius = 8;
 const chartTooltipStyle = {
   border: "1px solid #e2e8f0",
   borderRadius: 8,
@@ -191,6 +195,32 @@ function getMonthlyExpenseBreakdown(
     }))
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
+}
+
+function getTopMonthlyExpenseCategory(
+  point: MonthlyExpenseCategoryPoint
+): RealEstateExpenseCategory | null {
+  for (let index = monthlyExpenseCategoryKeys.length - 1; index >= 0; index -= 1) {
+    const category = monthlyExpenseCategoryKeys[index];
+
+    if (point[category] > 0) {
+      return category;
+    }
+  }
+
+  return null;
+}
+
+function MonthlyExpenseStackBarShape({
+  category,
+  ...props
+}: BarShapeProps & { category: RealEstateExpenseCategory }) {
+  const radius =
+    getTopMonthlyExpenseCategory(props.payload) === category
+      ? roundedStackBarRadius
+      : 0;
+
+  return <Rectangle {...props} radius={radius} />;
 }
 
 function ChartLegend({
@@ -518,6 +548,12 @@ function MonthlyExpenseChart({
                     fillOpacity={0.88}
                     key={category}
                     maxBarSize={42}
+                    shape={(barProps) => (
+                      <MonthlyExpenseStackBarShape
+                        {...barProps}
+                        category={category}
+                      />
+                    )}
                     stackId="expenses"
                   />
                 ))}
@@ -691,7 +727,12 @@ function MonthlyExpenseChart({
                 ]}
                 labelClassName="font-semibold"
               />
-              <Bar dataKey="value" maxBarSize={22} name="Expenses" radius={[0, 5, 5, 0]}>
+              <Bar
+                dataKey="value"
+                maxBarSize={22}
+                name="Expenses"
+                radius={roundedHorizontalBarRadius}
+              >
                 {selectedMonthBreakdown.map((item) => (
                   <Cell fill={item.color} key={item.category} />
                 ))}

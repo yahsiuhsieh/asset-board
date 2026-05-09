@@ -15,6 +15,8 @@ export type BankTransactionDirection = "credit" | "debit";
 export interface BankTransaction {
   id: string;
   connectionId: string;
+  providerItemId?: string | null;
+  rawBankTransactionId?: string | null;
   postedAt: string;
   title: string;
   memo: string;
@@ -32,6 +34,7 @@ export interface BankTransactionQuery {
   plaidAccessToken?: string | null;
   plaidAccountId?: string | null;
   plaidAccountName?: string | null;
+  plaidProviderItemId?: string | null;
   bankConnectionId?: string | null;
   bankProvider?: BankTransactionProviderName | null;
 }
@@ -372,10 +375,12 @@ function getSearchablePlaidDescription(transaction: PlaidTransactionLike, title:
 export function mapPlaidTransactionToBankTransaction({
   accountName,
   connectionId,
+  providerItemId,
   transaction
 }: {
   accountName: string;
   connectionId: string;
+  providerItemId?: string | null;
   transaction: PlaidTransactionLike;
 }): BankTransaction | null {
   if (transaction.pending) {
@@ -388,6 +393,7 @@ export function mapPlaidTransactionToBankTransaction({
   return {
     id: transaction.transaction_id,
     connectionId,
+    providerItemId: providerItemId ?? null,
     postedAt: transaction.date,
     title,
     memo,
@@ -655,6 +661,7 @@ async function fetchPlaidBankTransactions(
       const mappedTransaction = mapPlaidTransactionToBankTransaction({
         accountName: accountName || "Connected Plaid account",
         connectionId: query.bankConnectionId?.trim() || accountId,
+        providerItemId: query.plaidProviderItemId?.trim() || null,
         transaction
       });
 
@@ -695,7 +702,8 @@ async function fetchMockBankTransactions(
         amount: rentAmount,
         direction: "credit",
         accountId: "mock-operating-checking",
-        accountName: "Operating Checking"
+        accountName: "Operating Checking",
+        providerItemId: null
       },
       {
         id: "mock-partial-rent",
@@ -707,7 +715,8 @@ async function fetchMockBankTransactions(
         amount: Math.round(rentAmount / 2),
         direction: "credit",
         accountId: "mock-operating-checking",
-        accountName: "Operating Checking"
+        accountName: "Operating Checking",
+        providerItemId: null
       },
       {
         id: "mock-security-deposit",
@@ -719,7 +728,8 @@ async function fetchMockBankTransactions(
         amount: rentAmount,
         direction: "credit",
         accountId: "mock-operating-checking",
-        accountName: "Operating Checking"
+        accountName: "Operating Checking",
+        providerItemId: null
       },
       {
         id: "mock-repair-expense",
@@ -731,7 +741,8 @@ async function fetchMockBankTransactions(
         amount: 180,
         direction: "debit",
         accountId: "mock-operating-checking",
-        accountName: "Operating Checking"
+        accountName: "Operating Checking",
+        providerItemId: null
       }
     ]
   };

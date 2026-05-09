@@ -429,3 +429,85 @@ test("expense sync creates pending review only for untracked debits", () => {
   assert.equal(byId.get("classified-expense").shouldCreatePendingReview, false);
   assert.equal(byId.get("classified-expense").shouldShowAsUnclassified, false);
 });
+
+test("expense sync auto-records matching transaction rules", () => {
+  const decisions = syncHelpers.getMonthlyExpenseDebitSyncDecisions({
+    getClassification: () => null,
+    getRuleMatch: (transaction) =>
+      transaction.id === "sunstrong-utility"
+        ? {
+            id: "rule-id",
+            name: "Sunstrong utilities",
+            category: "utilities",
+            transactionName: "Sunstrong Utilities"
+          }
+        : null,
+    transactions: [
+      bankTransaction({
+        id: "sunstrong-utility",
+        description: "SUNSTRONG FIN ACCT PAYMT",
+        direction: "debit",
+        amount: 82.88
+      })
+    ]
+  });
+
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].shouldAutoRecordExpense, true);
+  assert.equal(decisions[0].ruleMatch.category, "utilities");
+  assert.equal(decisions[0].ruleMatch.transactionName, "Sunstrong Utilities");
+  assert.equal(decisions[0].shouldCreatePendingReview, false);
+  assert.equal(decisions[0].shouldShowAsUnclassified, false);
+});
+
+test("expense sync does not overwrite already classified transactions with rules", () => {
+  let ruleLookupCount = 0;
+  const decisions = syncHelpers.getMonthlyExpenseDebitSyncDecisions({
+    getClassification: () =>
+      syncClassification({
+        id: "classified-ledger-id",
+        classification: "ignored"
+      }),
+    getRuleMatch: () => {
+      ruleLookupCount += 1;
+      return {
+        id: "rule-id",
+        name: "Sunstrong utilities",
+        category: "utilities",
+        transactionName: null
+      };
+    },
+    transactions: [
+      bankTransaction({
+        id: "already-reviewed",
+        direction: "debit",
+        amount: 82.88
+      })
+    ]
+  });
+
+  assert.equal(decisions[0].shouldAutoRecordExpense, false);
+  assert.equal(decisions[0].ruleMatch, null);
+  assert.equal(decisions[0].classification.classification, "ignored");
+  assert.equal(ruleLookupCount, 0);
+});
+
+test("expense sync leaves unmatched debit transactions pending", () => {
+  const decisions = syncHelpers.getMonthlyExpenseDebitSyncDecisions({
+    getClassification: () => null,
+    getRuleMatch: () => null,
+    transactions: [
+      bankTransaction({
+        id: "unmatched-expense",
+        direction: "debit",
+        amount: 25
+      })
+    ]
+  });
+
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].shouldAutoRecordExpense, false);
+  assert.equal(decisions[0].ruleMatch, null);
+  assert.equal(decisions[0].shouldCreatePendingReview, true);
+  assert.equal(decisions[0].shouldShowAsUnclassified, true);
+});

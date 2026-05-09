@@ -48,6 +48,7 @@ interface PropertyDetailPageProps {
   annualReportYear: string;
   annualReportYears: string[];
   property: RealEstateAssetDetail;
+  propertyOptions: Array<Pick<RealEstateAssetDetail, "address" | "id" | "name">>;
   valuationUsage: PropertyValuationUsageStatus;
 }
 
@@ -157,6 +158,7 @@ export function PropertyDetailPage({
   annualReportYear,
   annualReportYears,
   property,
+  propertyOptions,
   valuationUsage
 }: PropertyDetailPageProps) {
   const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
@@ -285,7 +287,10 @@ export function PropertyDetailPage({
       </section>
 
       <section>
-        <MonthlyReviewWorkspace property={property} />
+        <MonthlyReviewWorkspace
+          property={property}
+          propertyOptions={propertyOptions}
+        />
       </section>
 
       <section>

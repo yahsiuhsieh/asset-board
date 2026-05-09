@@ -1,3 +1,5 @@
+import type { RealEstateExpenseCategory } from "@/types/wealth";
+
 export type MonthlySyncTransactionDirection = "credit" | "debit";
 export type MonthlySyncTransactionClassification =
   | "rental_income"
@@ -14,6 +16,7 @@ export interface MonthlySyncBankTransaction {
   id: string;
   memo: string;
   postedAt: string;
+  rawBankTransactionId?: string | null;
   title: string;
 }
 
@@ -21,6 +24,13 @@ export interface MonthlySyncClassification {
   classification: MonthlySyncTransactionClassification | null;
   id: string;
   rent_period_month: string | null;
+}
+
+export interface MonthlyExpenseRuleMatch {
+  category: RealEstateExpenseCategory;
+  id: string;
+  name: string;
+  transactionName: string | null;
 }
 
 export interface MonthlyRentCreditSyncDecision {
@@ -34,6 +44,8 @@ export interface MonthlyRentCreditSyncDecision {
 
 export interface MonthlyExpenseDebitSyncDecision {
   classification: MonthlySyncClassification | null;
+  ruleMatch: MonthlyExpenseRuleMatch | null;
+  shouldAutoRecordExpense: boolean;
   shouldCreatePendingReview: boolean;
   shouldShowAsUnclassified: boolean;
   transaction: MonthlySyncBankTransaction;
@@ -108,11 +120,15 @@ export function getMonthlyRentCreditSyncDecisions({
 
 export function getMonthlyExpenseDebitSyncDecisions({
   getClassification,
+  getRuleMatch,
   transactions
 }: {
   getClassification: (
     transaction: MonthlySyncBankTransaction
   ) => MonthlySyncClassification | null | undefined;
+  getRuleMatch?: (
+    transaction: MonthlySyncBankTransaction
+  ) => MonthlyExpenseRuleMatch | null | undefined;
   transactions: MonthlySyncBankTransaction[];
 }): MonthlyExpenseDebitSyncDecision[] {
   return transactions
@@ -120,11 +136,15 @@ export function getMonthlyExpenseDebitSyncDecisions({
     .sort((a, b) => b.postedAt.localeCompare(a.postedAt))
     .map((transaction) => {
       const classification = getClassification(transaction) ?? null;
+      const hasClassification = Boolean(classification?.classification);
+      const ruleMatch = !hasClassification ? getRuleMatch?.(transaction) ?? null : null;
 
       return {
         classification,
-        shouldCreatePendingReview: !classification,
-        shouldShowAsUnclassified: !classification?.classification,
+        ruleMatch,
+        shouldAutoRecordExpense: Boolean(ruleMatch),
+        shouldCreatePendingReview: !classification && !ruleMatch,
+        shouldShowAsUnclassified: !classification?.classification && !ruleMatch,
         transaction
       };
     });

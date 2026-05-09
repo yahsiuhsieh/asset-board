@@ -10,7 +10,14 @@ import {
   type FormEvent
 } from "react";
 import { useFormStatus } from "react-dom";
-import { CircleAlert, CheckCircle2, Landmark, RefreshCw, Trash2 } from "lucide-react";
+import {
+  CircleAlert,
+  CheckCircle2,
+  Landmark,
+  Link2,
+  RefreshCw,
+  Trash2
+} from "lucide-react";
 
 import {
   checkAndSyncPlaidBankConnections,
@@ -18,7 +25,10 @@ import {
   connectPlaidBank,
   createPlaidLinkToken,
   createPlaidReconnectLinkToken,
+  linkExistingPlaidBankConnection,
+  listLinkablePlaidBankConnections,
   removeBankConnection,
+  type LinkablePlaidBankConnectionsState,
   type RealEstateActionState
 } from "@/app/actions/real-estate";
 import { Button } from "@/components/ui/button";
@@ -39,6 +49,12 @@ const idleState: RealEstateActionState = {
   message: ""
 };
 
+const emptyLinkableConnectionsState: LinkablePlaidBankConnectionsState = {
+  status: "idle",
+  message: "",
+  connections: []
+};
+
 function formatLastFour(lastFour: string | null): string {
   return lastFour ? `•••• ${lastFour}` : "Last 4 unavailable";
 }
@@ -52,6 +68,10 @@ function formatConnectionTimestamp(value: string | null): string {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function formatLinkedPropertyCount(count: number): string {
+  return `${count} ${count === 1 ? "property" : "properties"}`;
 }
 
 function ConnectionStatusBadge({
@@ -228,6 +248,13 @@ export function PlaidConnectionManager({
   const [reconnectingConnectionId, setReconnectingConnectionId] = useState<string | null>(
     null
   );
+  const [isExistingAccountPanelOpen, setIsExistingAccountPanelOpen] = useState(false);
+  const [isLoadingExistingAccounts, setIsLoadingExistingAccounts] = useState(false);
+  const [linkingExistingConnectionId, setLinkingExistingConnectionId] = useState<
+    string | null
+  >(null);
+  const [existingAccountState, setExistingAccountState] =
+    useState<LinkablePlaidBankConnectionsState>(emptyLinkableConnectionsState);
   const [syncState, setSyncState] = useState<RealEstateActionState>(idleState);
   const [state, setState] = useState<RealEstateActionState>(idleState);
   const connectedAccounts = property.bankConnections;
@@ -236,7 +263,9 @@ export function PlaidConnectionManager({
     (connection) => connection.status !== "active"
   ).length;
   const hasDisconnectedAccounts = disconnectedAccountCount > 0;
-  const isDisabled = !isScriptReady || isConnecting;
+  const isBankActionPending =
+    isConnecting || isLoadingExistingAccounts || Boolean(linkingExistingConnectionId);
+  const isDisabled = !isScriptReady || isBankActionPending;
 
   useEffect(() => {
     if (window.Plaid) {
@@ -247,6 +276,61 @@ export function PlaidConnectionManager({
   const handleSyncResult = useCallback((result: RealEstateActionState) => {
     setSyncState(result);
   }, []);
+
+  async function openExistingAccountPanel() {
+    if (isExistingAccountPanelOpen) {
+      setIsExistingAccountPanelOpen(false);
+      return;
+    }
+
+    setIsExistingAccountPanelOpen(true);
+    setIsLoadingExistingAccounts(true);
+    setExistingAccountState(emptyLinkableConnectionsState);
+    setState(idleState);
+
+    try {
+      const result = await listLinkablePlaidBankConnections(property.id);
+
+      setExistingAccountState(result);
+    } catch (error) {
+      setExistingAccountState({
+        status: "error",
+        message:
+          error instanceof Error ? error.message : "Could not load existing bank accounts.",
+        connections: []
+      });
+    } finally {
+      setIsLoadingExistingAccounts(false);
+    }
+  }
+
+  async function linkExistingAccount(sourceConnectionId: string) {
+    setLinkingExistingConnectionId(sourceConnectionId);
+    setState({
+      status: "idle",
+      message: "Linking existing bank account..."
+    });
+
+    try {
+      const result = await linkExistingPlaidBankConnection(property.id, sourceConnectionId);
+
+      setState(result);
+
+      if (result.status === "success") {
+        setIsExistingAccountPanelOpen(false);
+        setExistingAccountState(emptyLinkableConnectionsState);
+        router.refresh();
+      }
+    } catch (error) {
+      setState({
+        status: "error",
+        message:
+          error instanceof Error ? error.message : "Could not link existing bank account."
+      });
+    } finally {
+      setLinkingExistingConnectionId(null);
+    }
+  }
 
   async function openPlaidLink() {
     if (!window.Plaid) {
@@ -455,18 +539,36 @@ export function PlaidConnectionManager({
             {hasDisconnectedAccounts
               ? `${disconnectedAccountCount} ${disconnectedAccountCount === 1 ? "account needs" : "accounts need"} reconnect before new accounts are added.`
               : isConnected
-                ? "Connected accounts are used for rent deposits and property expenses."
+                ? "Check & Sync refreshes connection health and raw bank transactions. Closed monthly reviews are not changed unless reopened."
                 : "Connect the accounts that receive rent deposits or pay property expenses."}
           </p>
         </div>
         <div className="grid grid-flow-col auto-cols-max items-center gap-2 justify-start sm:justify-end">
           {isConnected ? (
             <CheckAndSyncForm
-              disabled={isConnecting}
+              disabled={isBankActionPending}
               onResult={handleSyncResult}
               propertyId={property.id}
             />
           ) : null}
+          <Button
+            disabled={isBankActionPending}
+            onClick={() => void openExistingAccountPanel()}
+            type="button"
+            variant="secondary"
+          >
+            <Link2
+              className={cn(
+                "h-4 w-4",
+                isLoadingExistingAccounts ? "animate-pulse" : ""
+              )}
+            />
+            {isLoadingExistingAccounts
+              ? "Loading"
+              : isExistingAccountPanelOpen
+                ? "Hide Existing"
+                : "Use Existing"}
+          </Button>
           <Button
             disabled={isDisabled}
             onClick={openPlaidLink}
@@ -483,6 +585,82 @@ export function PlaidConnectionManager({
         <div className="flex max-w-2xl items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <p>Use Reconnect to repair an existing bank link. Add Accounts creates a new link.</p>
+        </div>
+      ) : null}
+
+      {isExistingAccountPanelOpen ? (
+        <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+              <Link2 className="h-3.5 w-3.5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">Link existing bank account</p>
+              <p className="text-xs text-muted-foreground">
+                Reuse a bank account already connected in WealthVibe without creating a new
+                Plaid Item.
+              </p>
+            </div>
+          </div>
+
+          {isLoadingExistingAccounts ? (
+            <p className="text-xs font-semibold text-muted-foreground">
+              Loading existing bank accounts...
+            </p>
+          ) : null}
+
+          {!isLoadingExistingAccounts && existingAccountState.connections.length === 0 ? (
+            <p
+              className={cn(
+                "rounded-md border px-3 py-2 text-xs font-semibold",
+                existingAccountState.status === "error"
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-slate-200 bg-slate-50 text-muted-foreground"
+              )}
+            >
+              {existingAccountState.message || "No existing bank accounts are available."}
+            </p>
+          ) : null}
+
+          {!isLoadingExistingAccounts && existingAccountState.connections.length > 0 ? (
+            <div className="grid gap-2">
+              {existingAccountState.connections.map((connection) => {
+                const isLinking = linkingExistingConnectionId === connection.sourceConnectionId;
+                const accountMeta = [
+                  connection.institutionName ?? "Connected account",
+                  formatLastFour(connection.lastFour),
+                  connection.accountSubtype ?? connection.accountType
+                ].filter(Boolean);
+
+                return (
+                  <div
+                    className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    key={connection.sourceConnectionId}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{connection.accountName}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {accountMeta.join(" · ")}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        Used by {formatLinkedPropertyCount(connection.linkedPropertyCount)}.
+                      </p>
+                    </div>
+                    <Button
+                      className="w-fit shadow-sm"
+                      disabled={Boolean(linkingExistingConnectionId)}
+                      onClick={() => void linkExistingAccount(connection.sourceConnectionId)}
+                      size="sm"
+                      type="button"
+                    >
+                      <Link2 className={cn("h-4 w-4", isLinking ? "animate-pulse" : "")} />
+                      {isLinking ? "Linking" : "Link"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

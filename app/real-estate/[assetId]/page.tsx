@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PropertyDetailPage } from "@/components/real-estate/PropertyDetailPage";
-import { getRealEstateAssetDetail } from "@/lib/real-estate";
+import { getRealEstateAssetDetail, getRealEstateAssets } from "@/lib/real-estate";
 import {
   getDefaultPortfolioAnnualReportYear,
   getPortfolioAnnualReportYears,
@@ -33,8 +33,9 @@ export default async function RealEstatePropertyPage({
   searchParams
 }: PageProps) {
   const { assetId } = await params;
-  const [property, valuationUsage, resolvedSearchParams] = await Promise.all([
+  const [property, propertyOptions, valuationUsage, resolvedSearchParams] = await Promise.all([
     getRealEstateAssetDetail(assetId),
+    getRealEstateAssets(),
     getPropertyValuationUsageStatus(),
     searchParams
   ]);
@@ -59,6 +60,11 @@ export default async function RealEstatePropertyPage({
       annualReportYear={annualReportYear}
       annualReportYears={annualReportYears}
       property={property}
+      propertyOptions={propertyOptions.map((option) => ({
+        address: option.address,
+        id: option.id,
+        name: option.name
+      }))}
       valuationUsage={valuationUsage}
     />
   );

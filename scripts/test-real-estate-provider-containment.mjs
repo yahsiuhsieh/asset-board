@@ -260,6 +260,92 @@ test("Plaid account mapper keeps only selected accounts", async () => {
   assert.equal(accounts[0].institutionName, "Plaid Bank");
 });
 
+test("linkable Plaid bank connections reuse existing items without exposing tokens", async () => {
+  const module = await loadTsModule("../lib/real-estate-bank-connections.ts");
+  const baseConnection = {
+    provider: "plaid",
+    access_token: "access-item-1",
+    account_id: "checking",
+    account_name: "Primary Checking",
+    account_type: "depository",
+    account_subtype: "checking",
+    institution_name: "Chase",
+    institution_id: "ins_56",
+    last_four: "1234",
+    provider_item_id: "item-1",
+    status: "active"
+  };
+  const options = module.exports.getLinkablePlaidBankConnectionOptions({
+    targetAssetId: "property-3",
+    connections: [
+      {
+        ...baseConnection,
+        id: "source-a",
+        asset_id: "property-1"
+      },
+      {
+        ...baseConnection,
+        id: "source-b",
+        asset_id: "property-2"
+      },
+      {
+        ...baseConnection,
+        id: "disconnected-source",
+        asset_id: "property-4",
+        account_id: "savings",
+        status: "disconnected"
+      }
+    ]
+  });
+
+  assert.equal(options.length, 1);
+  assert.equal(options[0].sourceConnectionId, "source-a");
+  assert.equal(options[0].accountName, "Primary Checking");
+  assert.equal(options[0].linkedPropertyCount, 2);
+  assert.equal(Object.hasOwn(options[0], "access_token"), false);
+});
+
+test("linkable Plaid bank connections exclude accounts already linked to target property", async () => {
+  const module = await loadTsModule("../lib/real-estate-bank-connections.ts");
+  const options = module.exports.getLinkablePlaidBankConnectionOptions({
+    targetAssetId: "property-2",
+    connections: [
+      {
+        id: "source",
+        asset_id: "property-1",
+        provider: "plaid",
+        access_token: "access-item-1",
+        account_id: "checking",
+        account_name: "Primary Checking",
+        account_type: "depository",
+        account_subtype: "checking",
+        institution_name: "Chase",
+        institution_id: "ins_56",
+        last_four: "1234",
+        provider_item_id: "item-1",
+        status: "active"
+      },
+      {
+        id: "target",
+        asset_id: "property-2",
+        provider: "plaid",
+        access_token: "access-item-1",
+        account_id: "checking",
+        account_name: "Primary Checking",
+        account_type: "depository",
+        account_subtype: "checking",
+        institution_name: "Chase",
+        institution_id: "ins_56",
+        last_four: "1234",
+        provider_item_id: "item-1",
+        status: "active"
+      }
+    ]
+  });
+
+  assert.equal(options.length, 0);
+});
+
 test("real estate transaction fingerprint catches Plaid reconnect duplicates", async () => {
   const module = await loadTsModule("../lib/real-estate-transaction-dedupe.ts");
   const originalTransaction = {
