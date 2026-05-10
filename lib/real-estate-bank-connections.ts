@@ -26,15 +26,91 @@ export interface LinkablePlaidBankConnectionOption {
   linkedPropertyCount: number;
 }
 
+export interface PlaidAccountSyncConnection {
+  access_token: string;
+  account_id: string;
+  last_synced_at: string | null;
+  provider_item_id: string | null;
+  raw_transactions_synced_end_date: string | null;
+  raw_transactions_synced_start_date: string | null;
+  status: string;
+}
+
+export function getPlaidItemConnectionKey(
+  connection: Pick<ReusablePlaidBankConnectionRow, "access_token" | "provider_item_id">
+): string {
+  return connection.provider_item_id || connection.access_token;
+}
+
+export function getPlaidAccountConnectionKey(
+  connection: Pick<
+    ReusablePlaidBankConnectionRow,
+    "access_token" | "account_id" | "provider_item_id"
+  >
+): string {
+  return `${getPlaidItemConnectionKey(connection)}:${connection.account_id}`;
+}
+
 export function getReusablePlaidConnectionKey(
   connection: Pick<
     ReusablePlaidBankConnectionRow,
     "access_token" | "account_id" | "provider_item_id"
   >
 ): string {
-  const itemKey = connection.provider_item_id || connection.access_token;
+  return getPlaidAccountConnectionKey(connection);
+}
 
-  return `${itemKey}:${connection.account_id}`;
+export function getUniquePlaidAccountConnections<
+  TConnection extends Pick<
+    ReusablePlaidBankConnectionRow,
+    "access_token" | "account_id" | "provider_item_id"
+  >
+>(connections: TConnection[]): TConnection[] {
+  const connectionsByAccountKey = new Map<string, TConnection>();
+
+  connections.forEach((connection) => {
+    const key = getPlaidAccountConnectionKey(connection);
+
+    if (!connectionsByAccountKey.has(key)) {
+      connectionsByAccountKey.set(key, connection);
+    }
+  });
+
+  return Array.from(connectionsByAccountKey.values());
+}
+
+export function hasRecentPlaidAccountRawSync({
+  connection,
+  cooldownMs,
+  endDate,
+  now,
+  startDate
+}: {
+  connection: PlaidAccountSyncConnection;
+  cooldownMs: number;
+  endDate: string;
+  now: Date;
+  startDate: string;
+}): boolean {
+  if (connection.status !== "active" || !connection.last_synced_at) {
+    return false;
+  }
+
+  const lastSyncedAt = new Date(connection.last_synced_at);
+
+  if (
+    !Number.isFinite(lastSyncedAt.getTime()) ||
+    now.getTime() - lastSyncedAt.getTime() > cooldownMs
+  ) {
+    return false;
+  }
+
+  return (
+    Boolean(connection.raw_transactions_synced_start_date) &&
+    Boolean(connection.raw_transactions_synced_end_date) &&
+    connection.raw_transactions_synced_start_date! <= startDate &&
+    connection.raw_transactions_synced_end_date! >= endDate
+  );
 }
 
 export function getLinkablePlaidBankConnectionOptions({

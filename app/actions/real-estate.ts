@@ -34,8 +34,12 @@ import {
   getMonthlyRentCreditSyncDecisions
 } from "@/lib/real-estate-monthly-transaction-sync";
 import {
+  getPlaidAccountConnectionKey,
+  getPlaidItemConnectionKey,
   getLinkablePlaidBankConnectionOptions,
   getReusablePlaidConnectionKey,
+  getUniquePlaidAccountConnections,
+  hasRecentPlaidAccountRawSync,
   type LinkablePlaidBankConnectionOption,
   type ReusablePlaidBankConnectionRow
 } from "@/lib/real-estate-bank-connections";
@@ -58,6 +62,7 @@ const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MIN_RENT_CREDIT_REVIEW_AMOUNT = 10;
 const MANUAL_PLAID_SYNC_DAYS = 60;
+const MANUAL_PLAID_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 const RAW_BANK_TRANSACTION_STALE_MS = 12 * 60 * 60 * 1000;
 
 export interface RealEstateActionState {
@@ -656,7 +661,7 @@ async function loadReusablePlaidBankConnection(
 function getPlaidItemGroupKey(
   connection: Pick<PropertyBankConnectionRow, "access_token" | "provider_item_id">
 ): string {
-  return connection.provider_item_id || connection.access_token;
+  return getPlaidItemConnectionKey(connection);
 }
 
 function normalizeBankConnectionFingerprintText(value: string | null | undefined): string {
@@ -740,6 +745,9 @@ async function updatePlaidConnectionGroup({
   updatedAt: string;
 }) {
   const supabase = createServerSupabaseClient();
+  const shouldScopeSyncMetadataToAccount = Boolean(
+    lastSyncedAt || syncedStartDate || syncedEndDate
+  );
   const updatePayload: {
     last_synced_at?: string;
     raw_transactions_synced_end_date?: string;
@@ -772,6 +780,10 @@ async function updatePlaidConnectionGroup({
     query = query.eq("provider_item_id", connection.provider_item_id);
   } else {
     query = query.eq("access_token", connection.access_token);
+  }
+
+  if (shouldScopeSyncMetadataToAccount) {
+    query = query.eq("account_id", connection.account_id);
   }
 
   const { error } = await query;
@@ -1013,8 +1025,9 @@ async function syncPlaidRawBankTransactionsForConnections({
   fetchedCount: number;
 }> {
   const disconnectedItemKeys = new Set<string>();
+  const connectionsToFetch = getUniquePlaidAccountConnections(connections);
   const connectionTransactions = await Promise.all(
-    connections.map(async (connection) => {
+    connectionsToFetch.map(async (connection) => {
       try {
         const result = await fetchLiveConnectedPropertyBankTransactions({
           connections: [connection],
@@ -2233,11 +2246,32 @@ export async function checkAndSyncPlaidBankConnections(
     }
 
     const checkedAt = new Date().toISOString();
+    const checkedAtDate = new Date(checkedAt);
+    const { startDate, endDate } = getRecentDateRange(MANUAL_PLAID_SYNC_DAYS);
     const activeConnections: PropertyBankConnectionDetailRow[] = [];
+    const skippedSharedAccountKeys = new Set<string>();
     let disconnectedCount = 0;
 
     for (const group of groupPlaidConnectionsByItem(connections)) {
       const primaryConnection = group[0];
+      const uniqueAccountConnections = getUniquePlaidAccountConnections(group);
+      const allAccountsRecentlySynced = uniqueAccountConnections.every((connection) =>
+        hasRecentPlaidAccountRawSync({
+          connection,
+          cooldownMs: MANUAL_PLAID_SYNC_COOLDOWN_MS,
+          endDate,
+          now: checkedAtDate,
+          startDate
+        })
+      );
+
+      if (allAccountsRecentlySynced) {
+        uniqueAccountConnections.forEach((connection) => {
+          skippedSharedAccountKeys.add(getPlaidAccountConnectionKey(connection));
+        });
+        continue;
+      }
+
       const health = await getPlaidItemHealth(primaryConnection.access_token);
 
       if (health.status === "disconnected") {
@@ -2255,14 +2289,28 @@ export async function checkAndSyncPlaidBankConnections(
         status: "active",
         updatedAt: checkedAt
       });
-      activeConnections.push(...group);
+      uniqueAccountConnections.forEach((connection) => {
+        if (
+          hasRecentPlaidAccountRawSync({
+            connection,
+            cooldownMs: MANUAL_PLAID_SYNC_COOLDOWN_MS,
+            endDate,
+            now: checkedAtDate,
+            startDate
+          })
+        ) {
+          skippedSharedAccountKeys.add(getPlaidAccountConnectionKey(connection));
+          return;
+        }
+
+        activeConnections.push(connection);
+      });
     }
 
     let fetchedCount = 0;
     let syncedRawTransactions = 0;
 
     if (activeConnections.length > 0) {
-      const { startDate, endDate } = getRecentDateRange(MANUAL_PLAID_SYNC_DAYS);
       const syncResult = await syncRecentPlaidTransactions({
         assetId,
         connections: activeConnections,
@@ -2280,17 +2328,9 @@ export async function checkAndSyncPlaidBankConnections(
       disconnectedCount += groupPlaidConnectionsByItem(activeConnections)
         .filter((group) => disconnectedItemKeys.has(getPlaidItemGroupKey(group[0])))
         .reduce((count, group) => count + group.length, 0);
-
-      await Promise.all(
-        groupPlaidConnectionsByItem(syncedActiveConnections).map((group) =>
-          updatePlaidConnectionGroup({
-            connection: group[0],
-            lastSyncedAt: checkedAt,
-            status: "active",
-            updatedAt: checkedAt
-          })
-        )
-      );
+      syncedActiveConnections.forEach((connection) => {
+        skippedSharedAccountKeys.delete(getPlaidAccountConnectionKey(connection));
+      });
     }
 
     revalidatePropertyPages(assetId);
@@ -2299,6 +2339,9 @@ export async function checkAndSyncPlaidBankConnections(
         `${connections.length} bank ${connections.length === 1 ? "account" : "accounts"} checked.`,
         `${syncedRawTransactions} raw ${syncedRawTransactions === 1 ? "transaction" : "transactions"} synced.`,
         `${fetchedCount} posted ${fetchedCount === 1 ? "transaction" : "transactions"} scanned from the last ${MANUAL_PLAID_SYNC_DAYS} days.`,
+        skippedSharedAccountKeys.size > 0
+          ? `${skippedSharedAccountKeys.size} shared ${skippedSharedAccountKeys.size === 1 ? "account used" : "accounts used"} recent raw sync.`
+          : "",
         "Closed monthly reviews were not changed.",
         disconnectedCount > 0
           ? `${disconnectedCount} ${disconnectedCount === 1 ? "account needs" : "accounts need"} reconnect.`

@@ -346,6 +346,80 @@ test("linkable Plaid bank connections exclude accounts already linked to target 
   assert.equal(options.length, 0);
 });
 
+test("recent Plaid raw sync requires active status, coverage, and cooldown", async () => {
+  const module = await loadTsModule("../lib/real-estate-bank-connections.ts");
+  const now = new Date("2026-05-10T12:00:00.000Z");
+  const baseConnection = {
+    access_token: "access-token",
+    account_id: "checking",
+    last_synced_at: "2026-05-10T11:57:00.000Z",
+    provider_item_id: "item-id",
+    raw_transactions_synced_end_date: "2026-05-10",
+    raw_transactions_synced_start_date: "2026-03-11",
+    status: "active"
+  };
+  const isRecent = (overrides = {}) =>
+    module.exports.hasRecentPlaidAccountRawSync({
+      connection: {
+        ...baseConnection,
+        ...overrides
+      },
+      cooldownMs: 5 * 60 * 1000,
+      endDate: "2026-05-10",
+      now,
+      startDate: "2026-03-11"
+    });
+
+  assert.equal(isRecent(), true);
+  assert.equal(
+    isRecent({
+      last_synced_at: "2026-05-10T11:54:59.000Z"
+    }),
+    false
+  );
+  assert.equal(
+    isRecent({
+      raw_transactions_synced_start_date: "2026-03-12"
+    }),
+    false
+  );
+  assert.equal(
+    isRecent({
+      status: "disconnected"
+    }),
+    false
+  );
+});
+
+test("unique Plaid account connections dedupe only the same item account pair", async () => {
+  const module = await loadTsModule("../lib/real-estate-bank-connections.ts");
+  const connections = [
+    {
+      access_token: "access-token",
+      account_id: "checking",
+      provider_item_id: "item-id"
+    },
+    {
+      access_token: "access-token",
+      account_id: "checking",
+      provider_item_id: "item-id"
+    },
+    {
+      access_token: "access-token",
+      account_id: "savings",
+      provider_item_id: "item-id"
+    }
+  ];
+
+  const uniqueConnections = module.exports.getUniquePlaidAccountConnections(connections);
+
+  assert.equal(uniqueConnections.length, 2);
+  assert.equal(
+    JSON.stringify(uniqueConnections.map(module.exports.getPlaidAccountConnectionKey)),
+    JSON.stringify(["item-id:checking", "item-id:savings"])
+  );
+});
+
 test("real estate transaction fingerprint catches Plaid reconnect duplicates", async () => {
   const module = await loadTsModule("../lib/real-estate-transaction-dedupe.ts");
   const originalTransaction = {
