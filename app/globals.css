@@ -16,10 +16,58 @@
   --border: 220 15% 88%;
   --input: 220 15% 88%;
   --ring: 252 83% 58%;
+  --shadow-soft: 0 12px 32px rgba(50, 50, 93, 0.08);
+  --chart-value: 24 94% 47%;
+  --chart-mortgage: 215 16% 47%;
+  --chart-equity: 160 84% 39%;
+  --chart-rent: 221 83% 53%;
+  --chart-cash-flow: 175 84% 32%;
+  --chart-expense-total: 215 25% 27%;
+  --chart-expense-average: 262 83% 58%;
+  --chart-expense-taxes: 221 83% 53%;
+  --chart-expense-insurance: 199 89% 48%;
+  --chart-expense-maintenance: 160 84% 39%;
+  --chart-expense-hoa: 32 95% 44%;
+  --chart-expense-utilities: 346 77% 49%;
+  --chart-expense-other: 215 16% 47%;
+}
+
+.dark {
+  --background: 222 37% 8%;
+  --foreground: 214 30% 91%;
+  --card: 222 32% 12%;
+  --card-foreground: 214 30% 91%;
+  --primary: 188 92% 43%;
+  --primary-foreground: 222 47% 7%;
+  --secondary: 221 28% 17%;
+  --secondary-foreground: 214 30% 91%;
+  --muted: 221 25% 16%;
+  --muted-foreground: 215 17% 66%;
+  --border: 221 23% 22%;
+  --input: 221 23% 22%;
+  --ring: 188 92% 43%;
+  --shadow-soft: 0 18px 44px rgba(0, 0, 0, 0.34);
+  --chart-value: 35 92% 62%;
+  --chart-mortgage: 215 20% 68%;
+  --chart-equity: 158 68% 52%;
+  --chart-rent: 188 86% 53%;
+  --chart-cash-flow: 174 76% 48%;
+  --chart-expense-total: 210 32% 82%;
+  --chart-expense-average: 258 90% 76%;
+  --chart-expense-taxes: 188 86% 53%;
+  --chart-expense-insurance: 199 89% 62%;
+  --chart-expense-maintenance: 158 68% 52%;
+  --chart-expense-hoa: 42 93% 58%;
+  --chart-expense-utilities: 343 82% 67%;
+  --chart-expense-other: 215 20% 68%;
 }
 
 * {
   border-color: hsl(var(--border));
+}
+
+html {
+  background: hsl(var(--background));
 }
 
 body {
@@ -29,4 +77,11 @@ body {
     hsl(var(--background));
   color: hsl(var(--foreground));
   font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.1), transparent 22rem),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.72), transparent 22rem),
+    hsl(var(--background));
 }

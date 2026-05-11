@@ -40,7 +40,7 @@ export function SnapshotForm({ assetId }: { assetId: string }) {
         <label className="grid gap-2 text-sm font-semibold">
           Metric
           <select
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
             name="metricType"
           >
             {snapshotMetricOptions.map((option) => (
@@ -53,7 +53,7 @@ export function SnapshotForm({ assetId }: { assetId: string }) {
         <label className="grid gap-2 text-sm font-semibold">
           Date
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
             defaultValue={new Date().toISOString().slice(0, 10)}
             name="recordedAt"
             required
@@ -63,7 +63,7 @@ export function SnapshotForm({ assetId }: { assetId: string }) {
         <label className="grid gap-2 text-sm font-semibold">
           Value
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             inputMode="decimal"
             min="0"
             name="value"
@@ -78,7 +78,7 @@ export function SnapshotForm({ assetId }: { assetId: string }) {
         <label className="grid gap-2 text-sm font-semibold">
           Note
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             name="note"
             placeholder="Optional"
           />
@@ -89,7 +89,7 @@ export function SnapshotForm({ assetId }: { assetId: string }) {
         <p
           className={cn(
             "text-sm font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}

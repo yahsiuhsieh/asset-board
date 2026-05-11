@@ -73,8 +73,8 @@ function getRentalStatusLabel(status: RealEstateAssetDetail["rentalStatus"]): st
 
 function getRentalStatusClassName(status: RealEstateAssetDetail["rentalStatus"]): string {
   return status === "vacant"
-    ? "border-amber-200 bg-amber-50 text-amber-700"
-    : "border-emerald-200 bg-emerald-50 text-emerald-700";
+    ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300";
 }
 
 function MetricTile({
@@ -89,20 +89,20 @@ function MetricTile({
   tone?: "neutral" | "positive" | "negative";
 }) {
   return (
-    <Card className="border-slate-200 bg-white">
+    <Card className="border-border bg-card">
       <CardContent className="flex min-h-[8rem] flex-col justify-between p-5">
         <div className="flex items-start justify-between gap-4">
           <p className="text-sm font-semibold text-muted-foreground">{title}</p>
-          <div className="rounded-md border border-indigo-100 bg-indigo-50 p-2.5 text-primary">
+          <div className="rounded-md border border-primary/15 bg-primary/10 p-2.5 text-primary">
             <Icon className="h-5 w-5" />
           </div>
         </div>
         <p
           className={
             tone === "positive"
-              ? "text-3xl font-semibold tracking-tight text-emerald-600"
+              ? "text-3xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400"
               : tone === "negative"
-                ? "text-3xl font-semibold tracking-tight text-red-600"
+                ? "text-3xl font-semibold tracking-tight text-red-600 dark:text-red-400"
                 : "text-3xl font-semibold tracking-tight"
           }
         >
@@ -138,7 +138,7 @@ export function RealEstateListPage({
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-soft md:p-8">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
           Real Estate
         </p>
@@ -183,7 +183,7 @@ export function RealEstateListPage({
       </section>
 
       <section>
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <ReceiptText className="h-5 w-5 text-primary" />
@@ -191,7 +191,7 @@ export function RealEstateListPage({
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-md border border-slate-200 p-4">
+            <div className="rounded-md border border-border p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm font-semibold text-muted-foreground">
                   Monthly Rent
@@ -202,7 +202,7 @@ export function RealEstateListPage({
                 {formatCurrency(monthlyRent)}
               </p>
             </div>
-            <div className="rounded-md border border-slate-200 p-4">
+            <div className="rounded-md border border-border p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm font-semibold text-muted-foreground">
                   Monthly Net Operating Income
@@ -212,14 +212,14 @@ export function RealEstateListPage({
               <p
                 className={
                   monthlyNOI >= 0
-                    ? "mt-3 text-2xl font-semibold tracking-tight text-emerald-600"
-                    : "mt-3 text-2xl font-semibold tracking-tight text-red-600"
+                    ? "mt-3 text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400"
+                    : "mt-3 text-2xl font-semibold tracking-tight text-red-600 dark:text-red-400"
                 }
               >
                 {formatCurrency(monthlyNOI)}
               </p>
             </div>
-            <div className="rounded-md border border-slate-200 p-4">
+            <div className="rounded-md border border-border p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm font-semibold text-muted-foreground">
                   Portfolio Cap Rate
@@ -230,7 +230,7 @@ export function RealEstateListPage({
                 {formatPercent(portfolioCapRate)}
               </p>
             </div>
-            <div className="rounded-md border border-slate-200 p-4">
+            <div className="rounded-md border border-border p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm font-semibold text-muted-foreground">
                   Rent Collected This Month
@@ -256,7 +256,7 @@ export function RealEstateListPage({
             const propertyEquity = calculatePropertyEquity(property);
 
             return (
-              <Card className="overflow-hidden border-slate-200 bg-white" key={property.id}>
+              <Card className="overflow-hidden border-border bg-card" key={property.id}>
                 <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
                   <PropertyImage
                     alt={property.name}
@@ -286,7 +286,7 @@ export function RealEstateListPage({
                         </span>
                       </div>
                       <Link
-                        className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium hover:bg-secondary"
+                        className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary"
                         href={`/real-estate/${property.id}`}
                       >
                         View
@@ -295,33 +295,33 @@ export function RealEstateListPage({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-md border border-slate-200 p-3">
+                      <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Value
                         </p>
                         <p className="mt-1 font-semibold">{formatCurrency(property.value)}</p>
                       </div>
-                      <div className="rounded-md border border-slate-200 p-3">
+                      <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Equity
                         </p>
                         <p className="mt-1 font-semibold">{formatCurrency(propertyEquity)}</p>
                       </div>
-                      <div className="rounded-md border border-slate-200 p-3">
+                      <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Rent
                         </p>
                         <p className="mt-1 font-semibold">{formatCurrency(property.monthlyRent)}</p>
                       </div>
-                      <div className="rounded-md border border-slate-200 p-3">
+                      <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Cash Flow
                         </p>
                         <p
                           className={
                             netCashFlow >= 0
-                              ? "mt-1 font-semibold text-emerald-600"
-                              : "mt-1 font-semibold text-red-600"
+                              ? "mt-1 font-semibold text-emerald-600 dark:text-emerald-400"
+                              : "mt-1 font-semibold text-red-600 dark:text-red-400"
                           }
                         >
                           {formatCurrency(netCashFlow)}
@@ -336,7 +336,7 @@ export function RealEstateListPage({
             );
           })
         ) : (
-          <Card className="border-slate-200 bg-white">
+          <Card className="border-border bg-card">
             <CardContent className="p-6 text-sm font-semibold text-muted-foreground">
               No properties yet.
             </CardContent>
@@ -345,7 +345,7 @@ export function RealEstateListPage({
       </section>
 
       <section id="add-property">
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <Plus className="h-5 w-5 text-primary" />

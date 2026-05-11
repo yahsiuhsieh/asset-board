@@ -80,13 +80,13 @@ export function ValuationManager({
         </p>
       ) : null}
       {syncDisabled && usage.message ? (
-        <p className="text-xs font-semibold text-red-600">{usage.message}</p>
+        <p className="text-xs font-semibold text-red-600 dark:text-red-400">{usage.message}</p>
       ) : null}
       {state.message ? (
         <p
           className={cn(
             "text-xs font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}

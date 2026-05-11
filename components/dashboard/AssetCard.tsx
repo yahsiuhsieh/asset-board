@@ -36,7 +36,7 @@ export function AssetCard({
   return (
     <Card
       className={cn(
-        "overflow-hidden border-slate-200 bg-white",
+        "overflow-hidden border-border bg-card",
         isDetail ? "min-h-[25rem]" : "min-h-[12rem]",
         className
       )}
@@ -48,7 +48,7 @@ export function AssetCard({
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
           ) : null}
         </div>
-        <div className="rounded-md border border-indigo-100 bg-indigo-50 p-2.5 text-primary">
+        <div className="rounded-md border border-primary/15 bg-primary/10 p-2.5 text-primary">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </CardHeader>
@@ -58,8 +58,8 @@ export function AssetCard({
         </p>
 
         {isDetail ? (
-          <div className="mt-8 overflow-hidden rounded-md border border-slate-200 bg-white">
-            <div className="grid grid-cols-1 divide-y divide-slate-100">
+          <div className="mt-8 overflow-hidden rounded-md border border-border bg-card">
+            <div className="grid grid-cols-1 divide-y divide-border/70">
               {rows.map((row) => (
                 <div
                   className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
@@ -69,8 +69,8 @@ export function AssetCard({
                   <span
                     className={cn(
                       "font-semibold",
-                      row.emphasis === "positive" && "text-emerald-600",
-                      row.emphasis === "negative" && "text-red-600"
+                      row.emphasis === "positive" && "text-emerald-600 dark:text-emerald-400",
+                      row.emphasis === "negative" && "text-red-600 dark:text-red-400"
                     )}
                   >
                     {row.value}

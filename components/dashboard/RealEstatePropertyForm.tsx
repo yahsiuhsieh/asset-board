@@ -66,7 +66,7 @@ function DeleteButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" variant="ghost" disabled={pending} className="text-red-600">
+    <Button type="submit" variant="ghost" disabled={pending} className="text-red-600 dark:text-red-400">
       <Trash2 className="h-4 w-4" />
       {pending ? "Deleting" : "Delete Property"}
     </Button>
@@ -117,7 +117,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
           <label className="grid gap-2 text-sm font-semibold">
             Property name
             <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={property?.name ?? ""}
               name="name"
               placeholder="Maple Row Duplex"
@@ -127,7 +127,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
           <label className="grid gap-2 text-sm font-semibold">
             Address
             <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={property?.address ?? ""}
               name="address"
               placeholder="14693 Gulfstream Ln, Moreno Valley, CA 92553"
@@ -140,7 +140,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
           <label className="grid gap-2 text-sm font-semibold">
             Rental status
             <select
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={getDefaultValue(property, "rentalStatus") || "rented"}
               name="rentalStatus"
             >
@@ -155,7 +155,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
             <label className="grid gap-2 text-sm font-semibold" key={field.name}>
               {field.label}
               <input
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
                 defaultValue={getDefaultValue(property, field.name)}
                 name={field.name}
                 placeholder={field.placeholder}
@@ -170,7 +170,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
             <label className="grid gap-2 text-sm font-semibold" key={field.name}>
               {field.label}
               <input
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
                 defaultValue={getDefaultValue(property, field.name)}
                 inputMode="decimal"
                 min="0"
@@ -198,7 +198,7 @@ export function RealEstatePropertyForm({ mode, property }: RealEstatePropertyFor
           <p
             className={cn(
               "text-sm font-semibold",
-              state.status === "error" ? "text-red-600" : "text-emerald-600"
+              state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
             )}
           >
             {state.message}

@@ -91,20 +91,20 @@ function MetricTile({
   tone?: "neutral" | "positive" | "negative";
 }) {
   return (
-    <Card className="border-slate-200 bg-white">
+    <Card className="border-border bg-card">
       <CardContent className="flex min-h-[8.5rem] flex-col justify-between p-5">
         <div className="flex items-start justify-between gap-4">
           <p className="text-sm font-semibold text-muted-foreground">{title}</p>
-          <div className="rounded-md border border-indigo-100 bg-indigo-50 p-2.5 text-primary">
+          <div className="rounded-md border border-primary/15 bg-primary/10 p-2.5 text-primary">
             <Icon className="h-5 w-5" />
           </div>
         </div>
         <p
           className={
             tone === "positive"
-              ? "text-3xl font-semibold tracking-tight text-emerald-600"
+              ? "text-3xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400"
               : tone === "negative"
-                ? "text-3xl font-semibold tracking-tight text-red-600"
+                ? "text-3xl font-semibold tracking-tight text-red-600 dark:text-red-400"
                 : "text-3xl font-semibold tracking-tight"
           }
         >
@@ -154,7 +154,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-      <section className="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-soft md:p-8">
+      <section className="mb-6 rounded-lg border border-border bg-card p-6 shadow-soft md:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
@@ -164,7 +164,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
               Household portfolio
             </h1>
           </div>
-          <div className="rounded-md border border-slate-200 bg-secondary px-5 py-4">
+          <div className="rounded-md border border-border bg-secondary px-5 py-4">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Total net worth
             </p>
@@ -209,7 +209,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
           </section>
 
           <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
-            <Card className="border-slate-200 bg-white lg:col-span-2">
+            <Card className="border-border bg-card lg:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <PieChart className="h-5 w-5" />
@@ -222,7 +222,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                   const Icon = card.icon;
 
                   return (
-                    <div className="rounded-md border border-slate-200 bg-white p-4" key={card.title}>
+                    <div className="rounded-md border border-border bg-card p-4" key={card.title}>
                       <div className="mb-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <Icon className="h-5 w-5 text-primary" />
@@ -244,7 +244,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                 })}
               </CardContent>
             </Card>
-            <Card className="border-slate-200 bg-white lg:col-span-3">
+            <Card className="border-border bg-card lg:col-span-3">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <Home className="h-5 w-5" />
@@ -259,7 +259,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
 
                     return (
                       <div
-                        className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-[1fr_auto_auto]"
+                        className="grid gap-3 rounded-md border border-border bg-card p-4 md:grid-cols-[1fr_auto_auto]"
                         key={property.id}
                       >
                         <div>
@@ -279,8 +279,8 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                           <p
                             className={
                               netCashFlow >= 0
-                                ? "font-semibold text-emerald-600"
-                                : "font-semibold text-red-600"
+                                ? "font-semibold text-emerald-600 dark:text-emerald-400"
+                                : "font-semibold text-red-600 dark:text-red-400"
                             }
                           >
                             {formatCurrency(netCashFlow)}
@@ -290,7 +290,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                     );
                   })
                 ) : (
-                  <div className="rounded-md border border-slate-200 bg-white p-5 text-sm font-semibold text-muted-foreground">
+                  <div className="rounded-md border border-border bg-card p-5 text-sm font-semibold text-muted-foreground">
                     No properties yet.
                   </div>
                 )}
@@ -325,7 +325,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
           </section>
 
           <section className="mt-5">
-            <details className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
+            <details className="rounded-lg border border-border bg-card p-5 shadow-soft">
               <summary className="flex cursor-pointer items-center gap-3 text-lg font-semibold">
                 <Plus className="h-5 w-5 text-primary" />
                 Add Property
@@ -350,7 +350,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                     mode="detail"
                     primaryValue={formatCurrency(netCashFlow)}
                     footer={
-                      <details className="rounded-md border border-slate-200 bg-secondary p-4">
+                      <details className="rounded-md border border-border bg-secondary p-4">
                         <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
                           <Pencil className="h-4 w-4 text-primary" />
                           Edit property
@@ -382,7 +382,7 @@ export function WealthDashboard({ assets }: WealthDashboardProps) {
                 );
               })
             ) : (
-              <Card className="border-slate-200 bg-white lg:col-span-2">
+              <Card className="border-border bg-card lg:col-span-2">
                 <CardContent className="p-6 text-sm font-semibold text-muted-foreground">
                   No properties yet.
                 </CardContent>

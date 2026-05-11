@@ -77,7 +77,7 @@ export function PortfolioAnnualTransactionsExport({
         </label>
         <select
           aria-label="Export year"
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring"
           data-testid="portfolio-export-year"
           id="portfolio-export-year"
           onChange={(event) => handleYearChange(event.target.value)}

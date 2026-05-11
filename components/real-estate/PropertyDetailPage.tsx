@@ -81,8 +81,8 @@ function getRentalStatusLabel(status: RealEstateAssetDetail["rentalStatus"]): st
 
 function getRentalStatusClassName(status: RealEstateAssetDetail["rentalStatus"]): string {
   return status === "vacant"
-    ? "border-amber-200 bg-amber-50 text-amber-700"
-    : "border-emerald-200 bg-emerald-50 text-emerald-700";
+    ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300";
 }
 
 function MetricTile({
@@ -97,19 +97,19 @@ function MetricTile({
   tone?: "neutral" | "positive" | "negative";
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4">
+    <div className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-4">
         <p className="text-sm font-semibold text-muted-foreground">{title}</p>
-        <div className="rounded-md border border-indigo-100 bg-indigo-50 p-2 text-primary">
+        <div className="rounded-md border border-primary/15 bg-primary/10 p-2 text-primary">
           <Icon className="h-4 w-4" />
         </div>
       </div>
       <p
         className={
           tone === "positive"
-            ? "mt-4 text-2xl font-semibold tracking-tight text-emerald-600"
+            ? "mt-4 text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400"
             : tone === "negative"
-              ? "mt-4 text-2xl font-semibold tracking-tight text-red-600"
+              ? "mt-4 text-2xl font-semibold tracking-tight text-red-600 dark:text-red-400"
               : "mt-4 text-2xl font-semibold tracking-tight"
         }
       >
@@ -129,20 +129,20 @@ function DetailRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 text-sm last:border-0">
+    <div className="flex items-center justify-between gap-4 border-b border-border/70 py-3 text-sm last:border-0">
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
         {label}
         {description ? (
           <span className="group relative inline-flex">
             <button
               aria-label={`${label} info`}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title={description}
               type="button"
             >
               <Info className="h-3.5 w-3.5" />
             </button>
-            <span className="pointer-events-none invisible absolute left-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium leading-relaxed text-slate-600 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+            <span className="pointer-events-none invisible absolute left-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-card px-3 py-2 text-xs font-medium leading-relaxed text-muted-foreground opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
               {description}
             </span>
           </span>
@@ -192,7 +192,7 @@ export function PropertyDetailPage({
         </div>
       </section>
 
-      <Card className="border-slate-200 bg-white">
+      <Card className="border-border bg-card">
         <CardContent className="p-4 md:p-6">
           <div className="relative">
             <PropertyImage
@@ -201,7 +201,7 @@ export function PropertyDetailPage({
               priority
               src={coverPhoto?.signedUrl}
             />
-            <div className="absolute bottom-4 right-4 rounded-md bg-white/95 px-4 py-3 text-right shadow-soft">
+            <div className="absolute bottom-4 right-4 rounded-md bg-card/95 px-4 py-3 text-right shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Current Value
               </p>
@@ -272,7 +272,7 @@ export function PropertyDetailPage({
       </section>
 
       <section>
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle>Performance Trends</CardTitle>
           </CardHeader>
@@ -294,13 +294,13 @@ export function PropertyDetailPage({
       </section>
 
       <section>
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle>Financial Details</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-6 xl:grid-cols-3">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Performance</h3>
+              <h3 className="text-sm font-semibold text-foreground">Performance</h3>
               <div className="mt-2">
                 <DetailRow
                   description="Monthly rental income minus operating expenses, before debt service."
@@ -325,7 +325,7 @@ export function PropertyDetailPage({
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Value & Debt</h3>
+              <h3 className="text-sm font-semibold text-foreground">Value & Debt</h3>
               <div className="mt-2">
                 <DetailRow
                   description="Original amount paid for the property."
@@ -355,7 +355,7 @@ export function PropertyDetailPage({
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Monthly Financials</h3>
+              <h3 className="text-sm font-semibold text-foreground">Monthly Financials</h3>
               <div className="mt-2">
                 <DetailRow
                   description="Target monthly rent amount for this property."
@@ -389,7 +389,7 @@ export function PropertyDetailPage({
       </section>
 
       <section>
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle>Property Location</CardTitle>
           </CardHeader>
@@ -402,7 +402,7 @@ export function PropertyDetailPage({
       </section>
 
       <section>
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <Camera className="h-5 w-5" />
@@ -414,7 +414,7 @@ export function PropertyDetailPage({
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {property.photos.length > 0 ? (
                 property.photos.map((photo) => (
-                  <div className="rounded-md border border-slate-200 p-3" key={photo.id}>
+                  <div className="rounded-md border border-border p-3" key={photo.id}>
                     <PropertyImage
                       alt={photo.caption ?? property.name}
                       className="relative min-h-[12rem]"
@@ -437,7 +437,7 @@ export function PropertyDetailPage({
                             <input name="assetId" type="hidden" value={property.id} />
                             <input name="photoId" type="hidden" value={photo.id} />
                             <button
-                              className="rounded-md border border-slate-200 p-2 text-muted-foreground hover:text-primary"
+                              className="rounded-md border border-border p-2 text-muted-foreground hover:text-primary"
                               title="Set cover"
                               type="submit"
                             >
@@ -450,7 +450,7 @@ export function PropertyDetailPage({
                           <input name="photoId" type="hidden" value={photo.id} />
                           <input name="storagePath" type="hidden" value={photo.storagePath} />
                           <button
-                            className="rounded-md border border-slate-200 p-2 text-red-600"
+                            className="rounded-md border border-border p-2 text-red-600 dark:text-red-400"
                             title="Delete photo"
                             type="submit"
                           >
@@ -462,7 +462,7 @@ export function PropertyDetailPage({
                   </div>
                 ))
               ) : (
-                <div className="rounded-md border border-slate-200 bg-secondary p-5 text-sm font-semibold text-muted-foreground md:col-span-2 xl:col-span-3">
+                <div className="rounded-md border border-border bg-secondary p-5 text-sm font-semibold text-muted-foreground md:col-span-2 xl:col-span-3">
                   No photos uploaded yet.
                 </div>
               )}

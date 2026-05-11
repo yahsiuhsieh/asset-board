@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, Menu, PanelLeftClose } from "lucide-react";
+import {
+  Building2,
+  LayoutDashboard,
+  Menu,
+  Moon,
+  PanelLeftClose,
+  Sun
+} from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -22,12 +29,95 @@ const navItems = [
   }
 ];
 
+type Theme = "light" | "dark";
+
+const themeStorageKey = "wealthvibe-theme";
+
+function getSystemTheme(): Theme {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  ) {
+    return "dark";
+  }
+
+  return "light";
+}
+
+function getStoredTheme(): Theme | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const storedTheme = localStorage.getItem(themeStorageKey);
+
+  return storedTheme === "light" || storedTheme === "dark" ? storedTheme : null;
+}
+
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.remove("light", "dark");
+  document.documentElement.classList.add(theme);
+  document.documentElement.style.colorScheme = theme;
+}
+
+function ThemeToggle({
+  isExpanded = false,
+  theme,
+  onToggle
+}: {
+  isExpanded?: boolean;
+  theme: Theme;
+  onToggle: () => void;
+}) {
+  const isDark = theme === "dark";
+  const Icon = isDark ? Sun : Moon;
+  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+
+  return (
+    <button
+      aria-label={label}
+      className={cn(
+        "inline-flex h-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isExpanded ? "w-full gap-3 px-3 text-sm font-semibold" : "w-10"
+      )}
+      onClick={onToggle}
+      title={label}
+      type="button"
+    >
+      <Icon className="h-4 w-4" />
+      {isExpanded ? <span>{isDark ? "Light mode" : "Dark mode"}</span> : null}
+    </button>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     setIsSidebarOpen(localStorage.getItem("wealthvibe-sidebar-open") === "true");
+
+    const initialTheme = getStoredTheme() ?? getSystemTheme();
+    setTheme(initialTheme);
+    applyTheme(initialTheme);
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemThemeChange = (event: MediaQueryListEvent) => {
+      if (getStoredTheme()) {
+        return;
+      }
+
+      const nextTheme = event.matches ? "dark" : "light";
+      setTheme(nextTheme);
+      applyTheme(nextTheme);
+    };
+
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleSystemThemeChange);
+    };
   }, []);
 
   function setSidebarOpen(isOpen: boolean) {
@@ -35,53 +125,65 @@ export function AppShell({ children }: { children: ReactNode }) {
     localStorage.setItem("wealthvibe-sidebar-open", String(isOpen));
   }
 
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+
+    setTheme(nextTheme);
+    applyTheme(nextTheme);
+    localStorage.setItem(themeStorageKey, nextTheme);
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="fixed inset-y-0 left-0 z-30 flex w-14 flex-col items-center border-r border-slate-200 bg-white py-4">
-        <button
-          aria-label="Open sidebar"
-          className={cn(
-            "inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground",
-            isSidebarOpen && "pointer-events-none opacity-0"
-          )}
-          onClick={() => setSidebarOpen(true)}
-          type="button"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      <div className="fixed inset-y-0 left-0 z-30 flex w-14 flex-col items-center justify-between border-r border-border bg-card py-4">
+        <div className="grid justify-items-center">
+          <button
+            aria-label="Open sidebar"
+            className={cn(
+              "inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground",
+              isSidebarOpen && "pointer-events-none opacity-0"
+            )}
+            onClick={() => setSidebarOpen(true)}
+            type="button"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-        <nav className="mt-5 grid gap-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+          <nav className="mt-5 grid gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.exact
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
 
-            return (
-              <Link
-                aria-label={item.label}
-                className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground",
-                  isActive && "bg-secondary text-primary"
-                )}
-                href={item.href}
-                key={item.href}
-                title={item.label}
-              >
-                <Icon className="h-4 w-4" />
-              </Link>
-            );
-          })}
-        </nav>
+              return (
+                <Link
+                  aria-label={item.label}
+                  className={cn(
+                    "inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground",
+                    isActive && "bg-secondary text-primary"
+                  )}
+                  href={item.href}
+                  key={item.href}
+                  title={item.label}
+                >
+                  <Icon className="h-4 w-4" />
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <ThemeToggle onToggle={toggleTheme} theme={theme} />
       </div>
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[86vw] flex-col border-r border-slate-200 bg-white shadow-2xl transition-transform duration-200 ease-out",
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[86vw] flex-col border-r border-border bg-card shadow-2xl transition-transform duration-200 ease-out",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-5">
+        <div className="flex items-center justify-between border-b border-border px-5 py-5">
           <Link
             aria-label="WealthVibe overview"
             className="block min-w-0"
@@ -97,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <button
             aria-label="Close sidebar"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:bg-secondary hover:text-foreground"
             onClick={() => setSidebarOpen(false)}
             type="button"
           >
@@ -131,12 +233,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </nav>
 
+        <div className="border-t border-border p-3">
+          <ThemeToggle isExpanded onToggle={toggleTheme} theme={theme} />
+        </div>
       </aside>
 
       {isSidebarOpen ? (
         <button
           aria-label="Close sidebar overlay"
-          className="fixed inset-0 z-30 cursor-default bg-slate-950/10 backdrop-blur-[1px]"
+          className="fixed inset-0 z-30 cursor-default bg-slate-950/30 backdrop-blur-[1px] dark:bg-slate-950/55"
           onClick={() => setSidebarOpen(false)}
           type="button"
         />

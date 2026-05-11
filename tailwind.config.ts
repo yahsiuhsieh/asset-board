@@ -42,7 +42,7 @@ const config: Config = {
         sans: ["Inter", "SF Pro Text", "Helvetica Neue", "Arial", "sans-serif"]
       },
       boxShadow: {
-        soft: "0 12px 32px rgba(50, 50, 93, 0.08)"
+        soft: "var(--shadow-soft)"
       }
     }
   },

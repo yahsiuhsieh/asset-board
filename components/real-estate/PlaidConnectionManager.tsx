@@ -87,8 +87,8 @@ function ConnectionStatusBadge({
       className={cn(
         "inline-flex h-7 w-fit items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold shadow-sm ring-1 ring-inset",
         isActive
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700 ring-emerald-100"
-          : "border-amber-200 bg-amber-50 text-amber-700 ring-amber-100"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 ring-emerald-100 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300 dark:ring-emerald-900/60"
+          : "border-amber-200 bg-amber-50 text-amber-700 ring-amber-100 dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300 dark:ring-amber-900/60"
       )}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -178,7 +178,7 @@ function RemoveConnectionButton() {
 
   return (
     <Button
-      className="w-fit text-red-600 hover:text-red-700"
+      className="w-fit text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
       disabled={pending}
       size="sm"
       type="submit"
@@ -227,7 +227,7 @@ function RemoveConnectionForm({
         <p
           className={cn(
             "text-xs font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}
@@ -582,14 +582,14 @@ export function PlaidConnectionManager({
       </div>
 
       {hasDisconnectedAccounts ? (
-        <div className="flex max-w-2xl items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
+        <div className="flex max-w-2xl items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <p>Use Reconnect to repair an existing bank link. Add Accounts creates a new link.</p>
         </div>
       ) : null}
 
       {isExistingAccountPanelOpen ? (
-        <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid gap-3 rounded-md border border-border bg-card p-3 shadow-sm">
           <div className="flex items-start gap-2">
             <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
               <Link2 className="h-3.5 w-3.5" />
@@ -614,8 +614,8 @@ export function PlaidConnectionManager({
               className={cn(
                 "rounded-md border px-3 py-2 text-xs font-semibold",
                 existingAccountState.status === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-slate-200 bg-slate-50 text-muted-foreground"
+                  ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800/70 dark:bg-red-950/35 dark:text-red-300"
+                  : "border-border bg-secondary text-muted-foreground"
               )}
             >
               {existingAccountState.message || "No existing bank accounts are available."}
@@ -634,7 +634,7 @@ export function PlaidConnectionManager({
 
                 return (
                   <div
-                    className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                     key={connection.sourceConnectionId}
                   >
                     <div className="min-w-0">
@@ -642,7 +642,7 @@ export function PlaidConnectionManager({
                       <p className="mt-1 text-xs text-muted-foreground">
                         {accountMeta.join(" · ")}
                       </p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
+                      <p className="mt-1 text-xs font-medium text-muted-foreground">
                         Used by {formatLinkedPropertyCount(connection.linkedPropertyCount)}.
                       </p>
                     </div>
@@ -668,7 +668,7 @@ export function PlaidConnectionManager({
         <p
           className={cn(
             "max-w-2xl text-xs font-semibold sm:ml-auto sm:text-right",
-            syncState.status === "error" ? "text-red-600" : "text-emerald-600"
+            syncState.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {syncState.message}
@@ -679,7 +679,7 @@ export function PlaidConnectionManager({
         <div className="grid gap-2">
           {connectedAccounts.map((connection) => (
             <div
-              className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-md border border-border bg-secondary p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
               key={connection.id}
             >
               <div>
@@ -694,7 +694,7 @@ export function PlaidConnectionManager({
               <div className="flex flex-col gap-2 sm:items-end">
                 <div className="flex flex-wrap gap-2 sm:justify-end">
                   <ConnectionStatusBadge status={connection.status} />
-                  <span className="inline-flex h-7 w-fit items-center rounded-full border border-slate-200 bg-white px-2.5 text-xs font-semibold text-muted-foreground shadow-sm">
+                  <span className="inline-flex h-7 w-fit items-center rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-muted-foreground shadow-sm">
                     {formatLastFour(connection.lastFour)}
                   </span>
                 </div>
@@ -728,7 +728,7 @@ export function PlaidConnectionManager({
         <p
           className={cn(
             "text-sm font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}

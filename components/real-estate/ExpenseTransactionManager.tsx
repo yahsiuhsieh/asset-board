@@ -245,7 +245,7 @@ function ExpenseTransactionActions({
 
   if (transaction.classification) {
     return (
-      <div className="w-fit justify-self-start rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
+      <div className="w-fit justify-self-start rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
         {transaction.classification === "expense" ? "Recorded expense" : "Ignored"}
       </div>
     );
@@ -269,7 +269,7 @@ function ExpenseTransactionActions({
           />
           <input name="reviewMonth" type="hidden" value={reviewMonth} />
           <input
-            className="h-9 w-44 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-9 w-44 min-w-0 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-secondary disabled:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             disabled={isReviewClosed}
             name="note"
             placeholder="Note"
@@ -277,7 +277,7 @@ function ExpenseTransactionActions({
           />
           <ClosedReviewActionHint disabled={isReviewClosed}>
             <select
-              className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-9 w-40 min-w-0 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-secondary disabled:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={propertyId}
               disabled={isReviewClosed}
               name="targetAssetId"
@@ -291,7 +291,7 @@ function ExpenseTransactionActions({
           </ClosedReviewActionHint>
           <ClosedReviewActionHint disabled={isReviewClosed}>
             <select
-              className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-9 w-40 min-w-0 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-secondary disabled:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue="other"
               disabled={isReviewClosed}
               name="category"
@@ -314,7 +314,7 @@ function ExpenseTransactionActions({
         <p
           className={cn(
             "max-w-full text-xs font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}
@@ -335,25 +335,25 @@ function ClassifiedTransactionList({
 }) {
   if (transactions.length === 0) {
     return (
-      <div className="flex min-h-[4.5rem] items-center rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
+      <div className="flex min-h-[4.5rem] items-center rounded-md border border-border p-4 text-sm font-semibold text-muted-foreground">
         No classified expense transactions for this month.
       </div>
     );
   }
 
   return (
-    <details className="group overflow-hidden rounded-md border border-slate-200">
+    <details className="group overflow-hidden rounded-md border border-border">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>Classified Transactions ({transactions.length})</span>
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
-      <div className="border-t border-slate-100">
+      <div className="border-t border-border/70">
         {transactions.map((transaction) => {
           const displayNote = normalizeTransactionNote(transaction.note);
 
           return (
             <div
-              className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+              className="grid gap-3 border-b border-border/70 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
               key={transaction.id}
             >
               <div className="min-w-0">
@@ -366,7 +366,7 @@ function ClassifiedTransactionList({
                     ? expenseCategoryLabels[transaction.category]
                     : "Expense"}
                   {displayNote ? (
-                    <span className="font-medium text-slate-700"> · {displayNote}</span>
+                    <span className="font-medium text-muted-foreground"> · {displayNote}</span>
                   ) : null}
                 </p>
               </div>
@@ -381,7 +381,7 @@ function ClassifiedTransactionList({
                 <input name="transactionId" type="hidden" value={transaction.id} />
                 <ClosedReviewActionHint disabled={isReviewClosed}>
                   <button
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:text-muted-foreground"
                     disabled={isReviewClosed}
                     type="submit"
                   >
@@ -412,18 +412,18 @@ function IgnoredTransactionList({
   }
 
   return (
-    <details className="group overflow-hidden rounded-md border border-slate-200">
+    <details className="group overflow-hidden rounded-md border border-border">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>Ignored Transactions ({transactions.length})</span>
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
-      <div className="border-t border-slate-100">
+      <div className="border-t border-border/70">
         {transactions.map((transaction) => {
           const displayNote = normalizeTransactionNote(transaction.note);
 
           return (
             <div
-              className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+              className="grid gap-3 border-b border-border/70 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
               key={transaction.id}
             >
               <div className="min-w-0">
@@ -434,7 +434,7 @@ function IgnoredTransactionList({
                 <p className="mt-1 break-words text-muted-foreground">
                   Ignored
                   {displayNote ? (
-                    <span className="font-medium text-slate-700"> · {displayNote}</span>
+                    <span className="font-medium text-muted-foreground"> · {displayNote}</span>
                   ) : null}
                 </p>
               </div>
@@ -449,7 +449,7 @@ function IgnoredTransactionList({
                 <input name="transactionId" type="hidden" value={transaction.id} />
                 <ClosedReviewActionHint disabled={isReviewClosed}>
                   <button
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:text-muted-foreground"
                     disabled={isReviewClosed}
                     type="submit"
                   >
@@ -669,7 +669,7 @@ export function ExpenseTransactionManager({
   return (
     <div className="grid gap-5">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-md border border-slate-200 bg-secondary p-4">
+        <div className="rounded-md border border-border bg-secondary p-4">
           <p className="text-sm font-semibold text-muted-foreground">
             Selected Month Expenses
           </p>
@@ -677,7 +677,7 @@ export function ExpenseTransactionManager({
             {formatCurrency(recordedExpenses)}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-secondary p-4">
+        <div className="rounded-md border border-border bg-secondary p-4">
           <p className="text-sm font-semibold text-muted-foreground">
             Expense Transactions
           </p>
@@ -685,7 +685,7 @@ export function ExpenseTransactionManager({
             {recordedExpenseCount}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-secondary p-4">
+        <div className="rounded-md border border-border bg-secondary p-4">
           <p className="text-sm font-semibold text-muted-foreground">Ignored</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight">{ignoredCount}</p>
         </div>
@@ -693,7 +693,7 @@ export function ExpenseTransactionManager({
 
       <form
         action={formAction}
-        className="grid gap-4 border-t border-slate-100 pt-5"
+        className="grid gap-4 border-t border-border/70 pt-5"
         onSubmit={handlePreviewSubmit}
       >
         <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
@@ -704,9 +704,9 @@ export function ExpenseTransactionManager({
           />
           <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
             Expense search:{" "}
-            <strong className="font-semibold text-slate-700">posted debits</strong>{" "}
+            <strong className="font-semibold text-muted-foreground">posted debits</strong>{" "}
             ·{" "}
-            <strong className="font-semibold text-slate-700">
+            <strong className="font-semibold text-muted-foreground">
               {selectedReviewMonth}
             </strong>.
           </p>
@@ -714,13 +714,13 @@ export function ExpenseTransactionManager({
       </form>
 
       {!hasActiveBankConnection ? (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+        <div className="rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground">
           No bank connection. Connect account to review transactions.
         </div>
       ) : null}
 
       {isReviewClosed ? (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+        <div className="rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground">
           Reopen this monthly review before changing expense transactions.
         </div>
       ) : null}
@@ -729,7 +729,7 @@ export function ExpenseTransactionManager({
         <p
           className={cn(
             "text-sm font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}
@@ -737,18 +737,18 @@ export function ExpenseTransactionManager({
       ) : null}
 
       {visiblePreviewTransactions.length > 0 ? (
-        <details className="group overflow-hidden rounded-md border border-slate-200">
+        <details className="group overflow-hidden rounded-md border border-border">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span>
               Unclassified Transactions ({visiblePreviewTransactions.length})
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
           </summary>
-          <div className="grid gap-3 border-t border-slate-100 bg-slate-50/60 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <label className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700">
+          <div className="grid gap-3 border-t border-border/70 bg-secondary/70 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <label className="flex min-w-0 items-center gap-2 text-sm font-semibold text-muted-foreground">
               <input
                 checked={allVisibleSelected}
-                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
                 disabled={isReviewClosed}
                 onChange={(event) =>
                   toggleAllVisibleTransactions(event.currentTarget.checked)
@@ -772,25 +772,25 @@ export function ExpenseTransactionManager({
               <p
                 className={cn(
                   "text-sm font-semibold sm:col-span-2",
-                  bulkState.status === "error" ? "text-red-600" : "text-emerald-600"
+                  bulkState.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                 )}
               >
                 {bulkState.message}
               </p>
             ) : null}
           </div>
-          <div className="border-t border-slate-100">
+          <div className="border-t border-border/70">
             {visiblePreviewTransactions.map((transaction) => {
               const transactionKey = getPreviewTransactionKey(transaction);
 
               return (
                 <div
-                  className="grid min-w-0 gap-3 border-b border-slate-100 p-4 text-sm last:border-0 lg:grid-cols-[auto_minmax(0,1fr)_7rem_auto] lg:items-center"
+                  className="grid min-w-0 gap-3 border-b border-border/70 p-4 text-sm last:border-0 lg:grid-cols-[auto_minmax(0,1fr)_7rem_auto] lg:items-center"
                   key={transactionKey}
                 >
                   <input
                     checked={selectedTransactionKeys.has(transactionKey)}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary lg:mt-0"
+                    className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary lg:mt-0"
                     disabled={isReviewClosed}
                     form={bulkFormId}
                     name="transactions"
@@ -828,7 +828,7 @@ export function ExpenseTransactionManager({
         </details>
       ) : null}
 
-      <div className="grid gap-3 border-t border-slate-100 pt-5">
+      <div className="grid gap-3 border-t border-border/70 pt-5">
         <ClassifiedTransactionList
           assetId={property.id}
           isReviewClosed={isReviewClosed}

@@ -34,9 +34,9 @@ function formatText(value: string | null): string {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2 last:border-0">
+    <div className="flex items-start justify-between gap-4 border-b border-border/70 py-2 last:border-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="max-w-[12rem] text-right font-semibold text-slate-900">{value}</dd>
+      <dd className="max-w-[12rem] text-right font-semibold text-foreground">{value}</dd>
     </div>
   );
 }
@@ -51,8 +51,8 @@ export function PropertyInfoPopover({ property }: { property: RealEstateAsset })
       >
         <Info className="h-4 w-4" />
       </button>
-      <div className="invisible absolute left-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-md border border-slate-200 bg-white p-4 text-sm opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-        <p className="font-semibold text-slate-900">Property details</p>
+      <div className="invisible absolute left-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-card p-4 text-sm opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <p className="font-semibold text-foreground">Property details</p>
         <dl className="mt-2">
           <InfoRow label="County" value={formatText(property.county)} />
           <InfoRow label="Purchase date" value={formatDate(property.purchasedAt)} />

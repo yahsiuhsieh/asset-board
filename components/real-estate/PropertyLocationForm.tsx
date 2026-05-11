@@ -40,7 +40,7 @@ export function PropertyLocationForm({ property }: { property: RealEstateAsset }
         <label className="grid gap-2 text-sm font-semibold">
           Latitude
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             defaultValue={property.latitude ?? ""}
             inputMode="decimal"
             name="latitude"
@@ -51,7 +51,7 @@ export function PropertyLocationForm({ property }: { property: RealEstateAsset }
         <label className="grid gap-2 text-sm font-semibold">
           Longitude
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             defaultValue={property.longitude ?? ""}
             inputMode="decimal"
             name="longitude"
@@ -62,7 +62,7 @@ export function PropertyLocationForm({ property }: { property: RealEstateAsset }
         <label className="grid gap-2 text-sm font-semibold">
           Map zoom
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             defaultValue={property.mapZoom}
             max="20"
             min="1"
@@ -79,7 +79,7 @@ export function PropertyLocationForm({ property }: { property: RealEstateAsset }
           <p
             className={cn(
               "text-sm font-semibold",
-              state.status === "error" ? "text-red-600" : "text-emerald-600"
+              state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
             )}
           >
             {state.message}

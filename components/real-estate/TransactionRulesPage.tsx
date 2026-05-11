@@ -106,7 +106,7 @@ function DeleteRuleIconButton({ ruleName }: { ruleName: string }) {
   return (
     <Button
       aria-label={`Permanently delete rule ${ruleName}`}
-      className="h-7 w-7 px-0 text-slate-400 hover:bg-red-50 hover:text-red-700"
+      className="h-7 w-7 px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/35 dark:hover:text-red-300"
       disabled={pending}
       title="Permanently delete rule"
       type="submit"
@@ -147,8 +147,8 @@ function RuleStatusBadge({ isActive }: { isActive: boolean }) {
       className={cn(
         "inline-flex w-fit items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
         isActive
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-slate-200 bg-slate-50 text-muted-foreground"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300"
+          : "border-border bg-secondary text-muted-foreground"
       )}
     >
       {isActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
@@ -191,14 +191,14 @@ function RuleEditForm({
   }, [onCancel, router, state.status]);
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-md bg-slate-50 p-4">
+    <form action={formAction} className="grid gap-4 rounded-md bg-secondary p-4">
       <input name="ruleId" type="hidden" value={rule.id} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="grid gap-4">
           <label className="grid gap-2 text-sm font-semibold">
             Rule Name
             <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={rule.name}
               name="name"
               required
@@ -207,7 +207,7 @@ function RuleEditForm({
           <label className="grid gap-2 text-sm font-semibold">
             Transaction Name Contains
             <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={rule.containsText}
               name="containsText"
               required
@@ -216,7 +216,7 @@ function RuleEditForm({
           <label className="grid gap-2 text-sm font-semibold">
             Target Amount
             <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={rule.targetAmount.toFixed(2)}
               min="0.01"
               name="targetAmount"
@@ -230,7 +230,7 @@ function RuleEditForm({
           <label className="grid gap-2 text-sm font-semibold">
             Transaction Name
             <input
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={rule.setTransactionName ?? ""}
               name="setTransactionName"
             />
@@ -238,7 +238,7 @@ function RuleEditForm({
           <label className="grid gap-2 text-sm font-semibold">
             Category
             <select
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={rule.category}
               name="category"
             >
@@ -252,7 +252,7 @@ function RuleEditForm({
           <label className="grid gap-2 text-sm font-semibold">
             Assigned Property
             <select
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={rule.assignedAssetId ?? ""}
               name="assetId"
               required
@@ -269,7 +269,7 @@ function RuleEditForm({
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input
-              className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+              className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
               defaultChecked={rule.isActive}
               name="isActive"
               type="checkbox"
@@ -291,7 +291,7 @@ function RuleEditForm({
           <p
             className={cn(
               "text-sm font-semibold",
-              state.status === "error" ? "text-red-600" : "text-emerald-600"
+              state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
             )}
           >
             {state.message}
@@ -335,7 +335,7 @@ export function TransactionRulesPage({
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-soft md:p-8">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
           Real Estate
         </p>
@@ -352,7 +352,7 @@ export function TransactionRulesPage({
       <RealEstatePortfolioNav active="rules" />
 
       <section className="grid gap-5 xl:grid-cols-[minmax(20rem,0.85fr)_minmax(0,1.15fr)]">
-        <Card className="h-fit border-slate-200 bg-white">
+        <Card className="h-fit border-border bg-card">
           <CardHeader>
             <CardTitle>Create Rule</CardTitle>
           </CardHeader>
@@ -361,19 +361,19 @@ export function TransactionRulesPage({
               <label className="grid gap-2 text-sm font-semibold">
                 Rule Name
                 <input
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                   name="name"
                   placeholder="Sunstrong utilities"
                   required
                 />
               </label>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid content-start gap-4 rounded-md border border-slate-200 bg-slate-50/60 p-4">
-                  <h3 className="text-sm font-semibold text-slate-900">Before</h3>
+                <div className="grid content-start gap-4 rounded-md border border-border bg-secondary/70 p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Before</h3>
                   <label className="grid gap-2 text-sm font-semibold">
                     Transaction Name Contains
                     <input
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                       name="containsText"
                       placeholder="SUNSTRONG"
                       required
@@ -382,7 +382,7 @@ export function TransactionRulesPage({
                   <label className="grid gap-2 text-sm font-semibold">
                     Target Amount
                     <input
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                       min="0.01"
                       name="targetAmount"
                       placeholder="82.88"
@@ -393,12 +393,12 @@ export function TransactionRulesPage({
                   </label>
                 </div>
 
-                <div className="grid content-start gap-4 rounded-md border border-slate-200 bg-white p-4">
-                  <h3 className="text-sm font-semibold text-slate-900">After</h3>
+                <div className="grid content-start gap-4 rounded-md border border-border bg-card p-4">
+                  <h3 className="text-sm font-semibold text-foreground">After</h3>
                   <label className="grid gap-2 text-sm font-semibold">
                     Transaction Name
                     <input
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                       name="setTransactionName"
                       placeholder="Sunstrong Utilities"
                     />
@@ -406,7 +406,7 @@ export function TransactionRulesPage({
                   <label className="grid gap-2 text-sm font-semibold">
                     Category
                     <select
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                       defaultValue="utilities"
                       name="category"
                     >
@@ -420,7 +420,7 @@ export function TransactionRulesPage({
                   <label className="grid gap-2 text-sm font-semibold">
                     Assigned Property
                     <select
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                       defaultValue=""
                       name="assetId"
                       required
@@ -443,7 +443,7 @@ export function TransactionRulesPage({
                   <p
                     className={cn(
                       "text-sm font-semibold",
-                      state.status === "error" ? "text-red-600" : "text-emerald-600"
+                      state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                     )}
                   >
                     {state.message}
@@ -454,19 +454,19 @@ export function TransactionRulesPage({
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white">
+        <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle>Rules</CardTitle>
           </CardHeader>
           <CardContent>
             {rules.length === 0 ? (
-              <div className="flex min-h-[6rem] items-center rounded-md border border-slate-200 bg-secondary px-4 text-sm font-semibold text-muted-foreground">
+              <div className="flex min-h-[6rem] items-center rounded-md border border-border bg-secondary px-4 text-sm font-semibold text-muted-foreground">
                 No transaction rules yet.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-md border border-slate-200">
+              <div className="overflow-x-auto rounded-md border border-border">
                 <table className="w-full min-w-[54rem] border-collapse text-left text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  <thead className="bg-secondary text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3">Rule</th>
                       <th className="px-4 py-3">Before</th>
@@ -478,12 +478,12 @@ export function TransactionRulesPage({
                   <tbody>
                     {rules.map((rule) => (
                       <Fragment key={rule.id}>
-                        <tr className="border-t border-slate-100">
+                        <tr className="border-t border-border/70">
                           <td className="px-4 py-3 align-top">
-                            <p className="font-semibold text-slate-900">{rule.name}</p>
+                            <p className="font-semibold text-foreground">{rule.name}</p>
                           </td>
                           <td className="px-4 py-3 align-top">
-                            <p className="break-words font-semibold text-slate-900">
+                            <p className="break-words font-semibold text-foreground">
                               Name contains {rule.containsText}
                             </p>
                             <p className="mt-1 font-medium tabular-nums text-muted-foreground">
@@ -491,7 +491,7 @@ export function TransactionRulesPage({
                             </p>
                           </td>
                           <td className="px-4 py-3 align-top">
-                            <p className="break-words font-semibold text-slate-900">
+                            <p className="break-words font-semibold text-foreground">
                               {rule.setTransactionName || "Keep original name"}
                             </p>
                             <p className="mt-1 font-medium text-muted-foreground">
@@ -538,7 +538,7 @@ export function TransactionRulesPage({
                           </td>
                         </tr>
                         {editingRuleId === rule.id ? (
-                          <tr className="border-t border-slate-100">
+                          <tr className="border-t border-border/70">
                             <td className="px-4 py-4" colSpan={5}>
                               <RuleEditForm
                                 onCancel={() => setEditingRuleId(null)}

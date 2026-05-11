@@ -63,20 +63,20 @@ function MetricTile({
   tone?: "neutral" | "positive" | "negative";
 }) {
   return (
-    <Card className="border-slate-200 bg-white">
+    <Card className="border-border bg-card">
       <CardContent className="flex min-h-[8.5rem] flex-col justify-between p-5">
         <div className="flex items-start justify-between gap-4">
           <p className="text-sm font-semibold text-muted-foreground">{title}</p>
-          <div className="rounded-md border border-indigo-100 bg-indigo-50 p-2.5 text-primary">
+          <div className="rounded-md border border-primary/15 bg-primary/10 p-2.5 text-primary">
             <Icon className="h-5 w-5" />
           </div>
         </div>
         <p
           className={
             tone === "positive"
-              ? "text-3xl font-semibold tracking-tight text-emerald-600"
+              ? "text-3xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400"
               : tone === "negative"
-                ? "text-3xl font-semibold tracking-tight text-red-600"
+                ? "text-3xl font-semibold tracking-tight text-red-600 dark:text-red-400"
                 : "text-3xl font-semibold tracking-tight"
           }
         >
@@ -125,7 +125,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-soft md:p-8">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
           Overview
         </p>
@@ -138,7 +138,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
               High-level view across current assets and real estate performance.
             </p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-secondary px-5 py-4">
+          <div className="rounded-md border border-border bg-secondary px-5 py-4">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Total net worth
             </p>
@@ -174,7 +174,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
       </section>
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-        <Card className="border-slate-200 bg-white lg:col-span-2">
+        <Card className="border-border bg-card lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <PieChart className="h-5 w-5" />
@@ -187,7 +187,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
               const Icon = card.icon;
 
               return (
-                <div className="rounded-md border border-slate-200 bg-white p-4" key={card.title}>
+                <div className="rounded-md border border-border bg-card p-4" key={card.title}>
                   <div className="mb-3 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <Icon className="h-5 w-5 text-primary" />
@@ -210,7 +210,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white lg:col-span-3">
+        <Card className="border-border bg-card lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <Home className="h-5 w-5" />
@@ -225,7 +225,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
 
                 return (
                   <div
-                    className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-[1fr_auto_auto]"
+                    className="grid gap-3 rounded-md border border-border bg-card p-4 md:grid-cols-[1fr_auto_auto]"
                     key={property.id}
                   >
                     <div>
@@ -245,8 +245,8 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
                       <p
                         className={
                           netCashFlow >= 0
-                            ? "font-semibold text-emerald-600"
-                            : "font-semibold text-red-600"
+                            ? "font-semibold text-emerald-600 dark:text-emerald-400"
+                            : "font-semibold text-red-600 dark:text-red-400"
                         }
                       >
                         {formatCurrency(netCashFlow)}
@@ -256,7 +256,7 @@ export function OverviewDashboard({ assets }: OverviewDashboardProps) {
                 );
               })
             ) : (
-              <div className="rounded-md border border-slate-200 bg-white p-5 text-sm font-semibold text-muted-foreground">
+              <div className="rounded-md border border-border bg-card p-5 text-sm font-semibold text-muted-foreground">
                 No properties yet.
               </div>
             )}

@@ -26,7 +26,7 @@ export function RealEstatePortfolioNav({
   return (
     <nav
       aria-label="Real estate portfolio views"
-      className="flex w-fit max-w-full overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-sm"
+      className="flex w-fit max-w-full overflow-hidden rounded-md border border-border bg-card p-1 shadow-sm"
     >
       {navItems.map((item) => {
         const Icon = item.icon;

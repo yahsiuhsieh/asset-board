@@ -21,7 +21,7 @@ export function PropertyMap({ property, className }: PropertyMapProps) {
         rel="noreferrer"
         target="_blank"
       >
-        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 rounded-md border border-slate-200 bg-secondary p-6 text-center text-sm text-muted-foreground">
+        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 rounded-md border border-border bg-secondary p-6 text-center text-sm text-muted-foreground">
           <MapPin className="h-8 w-8 text-primary" />
           <span>{property.address}</span>
         </div>
@@ -31,7 +31,7 @@ export function PropertyMap({ property, className }: PropertyMapProps) {
 
   return (
     <a className={className} href={externalMapUrl} rel="noreferrer" target="_blank">
-      <div className="relative min-h-[12rem] overflow-hidden rounded-md border border-slate-200 bg-secondary">
+      <div className="relative min-h-[12rem] overflow-hidden rounded-md border border-border bg-secondary">
         <Image
           alt={`Map showing ${property.name}`}
           className="object-cover"

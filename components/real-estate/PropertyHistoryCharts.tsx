@@ -72,20 +72,20 @@ const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const chartColors = {
-  value: "#ea580c",
-  mortgage: "#64748b",
-  equity: "#059669",
-  rent: "#2563eb",
-  cashFlow: "#0f766e",
-  expenseTotal: "#334155",
-  expenseAverage: "#7c3aed",
+  value: "hsl(var(--chart-value))",
+  mortgage: "hsl(var(--chart-mortgage))",
+  equity: "hsl(var(--chart-equity))",
+  rent: "hsl(var(--chart-rent))",
+  cashFlow: "hsl(var(--chart-cash-flow))",
+  expenseTotal: "hsl(var(--chart-expense-total))",
+  expenseAverage: "hsl(var(--chart-expense-average))",
   expenses: {
-    taxes: "#2563eb",
-    insurance: "#0284c7",
-    maintenance: "#059669",
-    hoa: "#d97706",
-    utilities: "#be123c",
-    other: "#64748b"
+    taxes: "hsl(var(--chart-expense-taxes))",
+    insurance: "hsl(var(--chart-expense-insurance))",
+    maintenance: "hsl(var(--chart-expense-maintenance))",
+    hoa: "hsl(var(--chart-expense-hoa))",
+    utilities: "hsl(var(--chart-expense-utilities))",
+    other: "hsl(var(--chart-expense-other))"
   }
 } as const;
 
@@ -112,10 +112,17 @@ const chartMargin = { bottom: 0, left: 0, right: 12, top: 18 };
 const horizontalBarChartMargin = { bottom: 0, left: 4, right: 72, top: 8 };
 const roundedStackBarRadius: [number, number, number, number] = [7, 7, 0, 0];
 const roundedHorizontalBarRadius = 8;
+const chartAxisColor = "hsl(var(--muted-foreground))";
+const chartGridColor = "hsl(var(--border))";
+const chartLabelColor = "hsl(var(--muted-foreground))";
+const chartDotFill = "hsl(var(--card))";
+const chartPieStroke = "hsl(var(--card))";
 const chartTooltipStyle = {
-  border: "1px solid #e2e8f0",
+  backgroundColor: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
   borderRadius: 8,
-  boxShadow: "0 12px 28px rgb(15 23 42 / 0.12)"
+  boxShadow: "var(--shadow-soft)",
+  color: "hsl(var(--foreground))"
 };
 
 type MonthlyExpenseChartView = "trend" | "pie" | "bars";
@@ -232,7 +239,7 @@ function ChartLegend({
   }>;
 }) {
   return (
-    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-slate-600">
+    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-muted-foreground">
       {items.map((item) => (
         <span className="inline-flex items-center gap-2" key={item.label}>
           <span
@@ -263,7 +270,7 @@ function ChartCard({
   title: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-4">
+    <div className="min-w-0 rounded-md border border-border bg-card p-4">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h3 className="font-semibold">{title}</h3>
         <span className="text-sm font-medium text-muted-foreground">
@@ -280,17 +287,23 @@ function ChartCard({
                   <stop offset="95%" stopColor={stroke} stopOpacity={0.04} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+              <CartesianGrid
+                stroke={chartGridColor}
+                strokeDasharray="3 3"
+                vertical={false}
+              />
               <XAxis
                 axisLine={false}
                 fontSize={12}
                 dataKey="date"
+                tick={{ fill: chartAxisColor }}
                 tickMargin={8}
                 tickLine={false}
               />
               <YAxis
                 axisLine={false}
                 fontSize={12}
+                tick={{ fill: chartAxisColor }}
                 tickFormatter={(value) => currencyFormatter.format(Number(value))}
                 tickLine={false}
                 width={76}
@@ -303,7 +316,7 @@ function ChartCard({
               {showZeroLine ? (
                 <ReferenceLine
                   ifOverflow="extendDomain"
-                  stroke="#94a3b8"
+                  stroke={chartAxisColor}
                   strokeDasharray="4 4"
                   y={0}
                 />
@@ -311,7 +324,7 @@ function ChartCard({
               <Area
                 activeDot={{ fill: stroke, r: 5 }}
                 dataKey="value"
-                dot={{ fill: "#ffffff", r: 3, stroke, strokeWidth: 2 }}
+                dot={{ fill: chartDotFill, r: 3, stroke, strokeWidth: 2 }}
                 fill={`url(#${gradientId})`}
                 stroke={stroke}
                 strokeWidth={2.5}
@@ -335,7 +348,7 @@ function PropertyValueEquityChart({
   points: PropertyValueEquityPoint[];
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-4">
+    <div className="min-w-0 rounded-md border border-border bg-card p-4">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h3 className="font-semibold">Value, Mortgage & Equity</h3>
         <span className="text-sm font-medium text-muted-foreground">
@@ -362,17 +375,23 @@ function PropertyValueEquityChart({
                     </linearGradient>
                   ))}
                 </defs>
-                <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid
+                  stroke={chartGridColor}
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
                 <XAxis
                   axisLine={false}
                   dataKey="date"
                   fontSize={12}
+                  tick={{ fill: chartAxisColor }}
                   tickLine={false}
                   tickMargin={8}
                 />
                 <YAxis
                   axisLine={false}
                   fontSize={12}
+                  tick={{ fill: chartAxisColor }}
                   tickFormatter={(value) => currencyFormatter.format(Number(value))}
                   tickLine={false}
                   width={76}
@@ -395,7 +414,12 @@ function PropertyValueEquityChart({
                   <Area
                     activeDot={{ fill: config.stroke, r: 5 }}
                     dataKey={config.dataKey}
-                    dot={{ fill: "#ffffff", r: 3, stroke: config.stroke, strokeWidth: 2 }}
+                    dot={{
+                      fill: chartDotFill,
+                      r: 3,
+                      stroke: config.stroke,
+                      strokeWidth: 2
+                    }}
                     fill={`url(#${getPropertyValueGradientId(config.dataKey)})`}
                     key={config.dataKey}
                     stroke={config.stroke}
@@ -455,11 +479,11 @@ function MonthlyExpenseChart({
     selectedMonthBreakdown.length > 0 && selectedMonthTotal > 0;
 
   return (
-    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-4">
+    <div className="min-w-0 rounded-md border border-border bg-card p-4">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="font-semibold">Monthly Expenses</h3>
-          <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+          <div className="inline-flex overflow-hidden rounded-md border border-border bg-card shadow-sm">
             {monthlyExpenseViewOptions.map((option) => {
               const Icon = option.icon;
               const isSelected = selectedView === option.value;
@@ -468,10 +492,10 @@ function MonthlyExpenseChart({
                 <button
                   aria-pressed={isSelected}
                   className={cn(
-                    "inline-flex h-8 items-center gap-1.5 border-l border-slate-200 px-3 text-xs font-semibold transition first:border-l-0",
+                    "inline-flex h-8 items-center gap-1.5 border-l border-border px-3 text-xs font-semibold transition first:border-l-0",
                     isSelected
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                   key={option.value}
                   onClick={() => setSelectedView(option.value)}
@@ -484,10 +508,10 @@ function MonthlyExpenseChart({
             })}
           </div>
           {shouldShowMonthSelector ? (
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
               <span className="sr-only">Expense month</span>
               <select
-                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs font-semibold text-muted-foreground shadow-sm outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
                 onChange={(event) => setSelectedMonth(event.target.value)}
                 value={effectiveSelectedMonth}
               >
@@ -516,17 +540,23 @@ function MonthlyExpenseChart({
                 data={points}
                 margin={chartMargin}
               >
-                <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid
+                  stroke={chartGridColor}
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
                 <XAxis
                   axisLine={false}
                   dataKey="date"
                   fontSize={12}
+                  tick={{ fill: chartAxisColor }}
                   tickLine={false}
                   tickMargin={8}
                 />
                 <YAxis
                   axisLine={false}
                   fontSize={12}
+                  tick={{ fill: chartAxisColor }}
                   tickFormatter={(value) => currencyFormatter.format(Number(value))}
                   tickLine={false}
                   width={76}
@@ -561,7 +591,7 @@ function MonthlyExpenseChart({
                   activeDot={{ fill: chartColors.expenseTotal, r: 5 }}
                   dataKey="total"
                   dot={{
-                    fill: "#ffffff",
+                    fill: chartDotFill,
                     r: 4,
                     stroke: chartColors.expenseTotal,
                     strokeWidth: 2
@@ -573,7 +603,7 @@ function MonthlyExpenseChart({
                 >
                   <LabelList
                     dataKey="total"
-                    fill="#475569"
+                    fill={chartLabelColor}
                     fontSize={11}
                     fontWeight={700}
                     formatter={getLineTooltipFormatter}
@@ -620,7 +650,7 @@ function MonthlyExpenseChart({
             ]}
           />
           {shouldShowAverageLine ? (
-            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">
+            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <span
                 aria-hidden="true"
                 className="h-px w-8 border-t-2 border-dashed"
@@ -642,7 +672,7 @@ function MonthlyExpenseChart({
                   nameKey="label"
                   outerRadius={108}
                   paddingAngle={1}
-                  stroke="#ffffff"
+                  stroke={chartPieStroke}
                   strokeWidth={2}
                 >
                   {selectedMonthBreakdown.map((item) => (
@@ -661,10 +691,10 @@ function MonthlyExpenseChart({
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-lg font-bold text-slate-900">
+                <div className="text-lg font-bold text-foreground">
                   {currencyFormatter.format(selectedMonthTotal)}
                 </div>
-                <div className="text-xs font-semibold text-slate-500">Total</div>
+                <div className="text-xs font-semibold text-muted-foreground">Total</div>
               </div>
             </div>
           </div>
@@ -677,12 +707,12 @@ function MonthlyExpenseChart({
                   style={{ backgroundColor: item.color }}
                 />
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-slate-700">
+                  <div className="truncate text-sm font-semibold text-muted-foreground">
                     {item.label}
                   </div>
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-sm font-semibold text-foreground">
                     {currencyFormatter.format(item.value)}{" "}
-                    <span className="font-medium text-slate-500">
+                    <span className="font-medium text-muted-foreground">
                       ({percentageFormatter.format(item.percentage)})
                     </span>
                   </div>
@@ -701,12 +731,13 @@ function MonthlyExpenseChart({
             >
               <CartesianGrid
                 horizontal={false}
-                stroke="#e2e8f0"
+                stroke={chartGridColor}
                 strokeDasharray="3 3"
               />
               <XAxis
                 axisLine={false}
                 fontSize={12}
+                tick={{ fill: chartAxisColor }}
                 tickFormatter={(value) => currencyFormatter.format(Number(value))}
                 tickLine={false}
                 type="number"
@@ -715,6 +746,7 @@ function MonthlyExpenseChart({
                 axisLine={false}
                 dataKey="label"
                 fontSize={12}
+                tick={{ fill: chartAxisColor }}
                 tickLine={false}
                 type="category"
                 width={104}
@@ -738,7 +770,7 @@ function MonthlyExpenseChart({
                 ))}
                 <LabelList
                   dataKey="value"
-                  fill="#475569"
+                  fill={chartLabelColor}
                   fontSize={12}
                   fontWeight={700}
                   formatter={getLineTooltipFormatter}

@@ -45,13 +45,17 @@ function IssueGroup({
 
   const isBlocking = tone === "blocking";
   const containerClasses = isBlocking
-    ? "border-red-100 bg-red-50/70"
-    : "border-amber-100 bg-amber-50/80";
-  const headingClasses = isBlocking ? "text-red-800" : "text-amber-800";
-  const dividerClasses = isBlocking ? "divide-red-100" : "divide-amber-100";
+    ? "border-red-100 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/35"
+    : "border-amber-100 bg-amber-50/80 dark:border-amber-900/60 dark:bg-amber-950/35";
+  const headingClasses = isBlocking
+    ? "text-red-800 dark:text-red-300"
+    : "text-amber-800 dark:text-amber-300";
+  const dividerClasses = isBlocking
+    ? "divide-red-100 dark:divide-red-900/60"
+    : "divide-amber-100 dark:divide-amber-900/60";
   const metaClasses = isBlocking
-    ? "border-red-100 text-red-700"
-    : "border-amber-100 text-amber-700";
+    ? "border-red-100 dark:border-red-900/60 text-red-700 dark:text-red-300"
+    : "border-amber-100 dark:border-amber-900/60 text-amber-700 dark:text-amber-300";
 
   return (
     <div className={`overflow-hidden rounded-md border ${containerClasses}`}>
@@ -69,20 +73,20 @@ function IssueGroup({
 
           return (
             <li
-              className="grid gap-2 bg-white/55 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+              className="grid gap-2 bg-card/70 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
               key={issue.id}
             >
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-950">
+                <p className="text-sm font-semibold text-foreground">
                   {display.title}
                 </p>
-                <p className="mt-0.5 break-words text-xs font-medium leading-5 text-slate-600">
+                <p className="mt-0.5 break-words text-xs font-medium leading-5 text-muted-foreground">
                   {display.detail}
                 </p>
               </div>
               {display.meta ? (
                 <span
-                  className={`w-fit rounded-full border bg-white px-2.5 py-1 text-xs font-semibold ${metaClasses}`}
+                  className={`w-fit rounded-full border bg-card px-2.5 py-1 text-xs font-semibold ${metaClasses}`}
                 >
                   {display.meta}
                 </span>
@@ -167,8 +171,8 @@ export function PortfolioAnnualExportGate({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
           role="dialog"
         >
-          <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-soft">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card shadow-soft">
+            <div className="flex items-start justify-between gap-4 border-b border-border/70 p-5">
               <div>
                 <h2 className="text-lg font-semibold tracking-tight">
                   {dialogTitle}
@@ -191,12 +195,12 @@ export function PortfolioAnnualExportGate({
             <div className="grid gap-4 p-5">
               {issueResults.map((result) => (
                 <div
-                  className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                  className="rounded-lg border border-border bg-card p-4 shadow-sm"
                   key={result.propertyId}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="font-semibold text-slate-950">
+                      <p className="font-semibold text-foreground">
                         {result.propertyName}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-muted-foreground">
@@ -214,7 +218,7 @@ export function PortfolioAnnualExportGate({
                       </p>
                     </div>
                     <Link
-                      className="inline-flex h-8 w-fit items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                      className="inline-flex h-8 w-fit items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-secondary"
                       href={`/real-estate/${result.propertyId}?annualReportYear=${annualReportYear}`}
                     >
                       View
@@ -236,23 +240,23 @@ export function PortfolioAnnualExportGate({
               ))}
 
               {!canExport ? (
-                <div className="rounded-md border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm font-semibold text-amber-800">
+                <div className="rounded-md border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-300">
                   {emptyExportMessage}
                 </div>
               ) : null}
 
               {hasHardBlockingIssues ? (
-                <div className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                <div className="rounded-md border border-red-100 dark:border-red-900/60 bg-red-50 dark:bg-red-950/35 px-4 py-3 text-sm font-semibold text-red-700 dark:text-red-300">
                   Mock ledger transactions must be removed before this annual report can be exported.
                 </div>
               ) : (
                 <label
-                  className="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-800"
+                  className="flex items-start gap-3 rounded-md border border-border bg-card p-4 text-sm font-semibold text-foreground"
                   htmlFor={checkboxId}
                 >
                   <input
                     checked={reviewedIssues}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-ring"
+                    className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                     id={checkboxId}
                     onChange={(event) => setReviewedIssues(event.target.checked)}
                     type="checkbox"

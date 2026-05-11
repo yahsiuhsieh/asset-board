@@ -37,18 +37,18 @@ function getCollectionStatus(property: RealEstateAssetDetail, collectedAmount: n
 
 function getCollectionStatusClassName(status: string): string {
   if (status === "Collected") {
-    return "text-emerald-700";
+    return "text-emerald-700 dark:text-emerald-300";
   }
 
   if (status === "Partial") {
-    return "text-amber-700";
+    return "text-amber-700 dark:text-amber-300";
   }
 
   if (status === "Pending") {
-    return "text-red-600";
+    return "text-red-600 dark:text-red-400";
   }
 
-  return "text-slate-900";
+  return "text-foreground";
 }
 
 export function RentCollectionManager({
@@ -63,19 +63,19 @@ export function RentCollectionManager({
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-      <div className="rounded-md border border-slate-200 bg-secondary p-4">
+      <div className="rounded-md border border-border bg-secondary p-4">
         <p className="text-sm font-semibold text-muted-foreground">Collected</p>
         <p className="mt-2 text-2xl font-semibold tracking-tight">
           {formatCurrency(collectedAmount)}
         </p>
       </div>
-      <div className="rounded-md border border-slate-200 bg-secondary p-4">
+      <div className="rounded-md border border-border bg-secondary p-4">
         <p className="text-sm font-semibold text-muted-foreground">Target Rent</p>
         <p className="mt-2 text-2xl font-semibold tracking-tight">
           {formatCurrency(property.monthlyRent)}
         </p>
       </div>
-      <div className="rounded-md border border-slate-200 bg-secondary p-4">
+      <div className="rounded-md border border-border bg-secondary p-4">
         <p className="text-sm font-semibold text-muted-foreground">Status</p>
         <p
           className={`mt-2 text-2xl font-semibold tracking-tight ${getCollectionStatusClassName(

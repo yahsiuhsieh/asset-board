@@ -40,7 +40,7 @@ export function PhotoUploadForm({ assetId }: { assetId: string }) {
           Photo
           <input
             accept="image/jpeg,image/png,image/webp,image/gif"
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
             name="photo"
             required
             type="file"
@@ -49,7 +49,7 @@ export function PhotoUploadForm({ assetId }: { assetId: string }) {
         <label className="grid gap-2 text-sm font-semibold">
           Caption
           <input
-            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
             name="caption"
             placeholder="Front exterior"
           />
@@ -60,7 +60,7 @@ export function PhotoUploadForm({ assetId }: { assetId: string }) {
         <p
           className={cn(
             "text-sm font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}

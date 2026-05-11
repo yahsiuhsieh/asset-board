@@ -80,14 +80,14 @@ function getOverallStatusLabel(assessment: MonthlyReviewAssessment): string {
 
 function getOverallStatusClassName(assessment: MonthlyReviewAssessment): string {
   if (assessment.status === "closed") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300";
   }
 
   if (assessment.status === "ready_to_close") {
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-blue-200 bg-blue-50 text-blue-700 dark:border-cyan-800/70 dark:bg-cyan-950/35 dark:text-cyan-300";
   }
 
-  return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300";
 }
 
 function SubstatusBadge({
@@ -104,8 +104,8 @@ function SubstatusBadge({
       className={cn(
         "inline-flex w-fit items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
         isReady
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-amber-200 bg-amber-50 text-amber-700"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300"
+          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300"
       )}
     >
       {isReady ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
@@ -122,11 +122,11 @@ function CloseMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+    <div className="rounded-md border border-border bg-secondary/70 px-3 py-2.5">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
     </div>
   );
 }
@@ -145,11 +145,11 @@ function MonthlyReviewStatusPanel({
   reopenState: RealEstateActionState;
 }) {
   return (
-    <div className="grid gap-4 rounded-md border border-slate-200 bg-white p-4">
+    <div className="grid gap-4 rounded-md border border-border bg-card p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-slate-900">Close Status</h3>
+            <h3 className="text-sm font-semibold text-foreground">Close Status</h3>
             <span
               className={cn(
                 "inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold",
@@ -207,14 +207,14 @@ function MonthlyReviewStatusPanel({
       </div>
 
       {!assessment.isReviewMonthComplete ? (
-        <p className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+        <p className="rounded-md border border-amber-100 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/35 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
           This month is still in progress. Close it after the month ends so late-posted
           transactions are included.
         </p>
       ) : null}
 
       {assessment.missingExpenseCategoryCount > 0 ? (
-        <p className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+        <p className="rounded-md border border-red-100 dark:border-red-900/60 bg-red-50 dark:bg-red-950/35 px-3 py-2 text-sm font-semibold text-red-700 dark:text-red-300">
           {assessment.missingExpenseCategoryCount} expense{" "}
           {assessment.missingExpenseCategoryCount === 1 ? "transaction is" : "transactions are"}{" "}
           missing a category.
@@ -225,7 +225,7 @@ function MonthlyReviewStatusPanel({
         <form action={reopenAction} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <input name="reviewMonth" type="hidden" value={assessment.reviewMonth} />
           {assessment.note ? (
-            <p className="min-w-0 flex-1 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-medium text-muted-foreground">
+            <p className="min-w-0 flex-1 rounded-md border border-border/70 bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground">
               {assessment.note}
             </p>
           ) : (
@@ -243,7 +243,7 @@ function MonthlyReviewStatusPanel({
           <label className="grid gap-2 text-sm font-semibold">
             Close Note
             <textarea
-              className="min-h-20 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
               defaultValue={assessment.note ?? ""}
               name="note"
               placeholder="Optional close note"
@@ -256,7 +256,7 @@ function MonthlyReviewStatusPanel({
       {[closeState, reopenState].map((state, index) =>
         state.status === "error" && state.message ? (
           <p
-            className="text-sm font-semibold text-red-600"
+            className="text-sm font-semibold text-red-600 dark:text-red-400"
             key={`${state.status}-${index}`}
           >
             {state.message}
@@ -279,7 +279,7 @@ function ReviewMonthSelector({
       <span className="sr-only">Review Month</span>
       <input
         aria-label="Review month"
-        className="h-9 w-36 rounded-md border border-slate-200 bg-slate-50 px-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition hover:border-slate-300 hover:bg-white focus:border-primary/50 focus:bg-white focus:ring-2 focus:ring-ring"
+        className="h-9 w-36 rounded-md border border-border bg-secondary px-2.5 text-sm font-semibold text-foreground shadow-sm outline-none transition hover:border-input hover:bg-card focus:border-primary/50 focus:bg-card focus:ring-2 focus:ring-ring"
         onChange={(event) => onReviewMonthChange(event.target.value)}
         required
         type="month"
@@ -319,7 +319,7 @@ export function MonthlyReviewWorkspace({
   }, [closeState.status, reopenState.status, router]);
 
   return (
-    <Card className="border-slate-200 bg-white">
+    <Card className="border-border bg-card">
       <CardHeader className="flex flex-col items-start gap-4 space-y-0">
         <CardTitle>Monthly Review</CardTitle>
         <ReviewMonthSelector
@@ -330,8 +330,8 @@ export function MonthlyReviewWorkspace({
       <CardContent>
         <div className="grid gap-6">
           <div className="grid gap-6">
-            <div className="grid content-start gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
-              <h3 className="text-sm font-semibold text-slate-900">Rent Collection</h3>
+            <div className="grid content-start gap-5 rounded-md border border-border bg-secondary/70 p-4">
+              <h3 className="text-sm font-semibold text-foreground">Rent Collection</h3>
               <RentCollectionManager property={property} reviewMonth={reviewMonth} />
               <RentTransactionMatchPreview
                 isReviewClosed={isReviewClosed}
@@ -340,8 +340,8 @@ export function MonthlyReviewWorkspace({
               />
             </div>
 
-            <div className="grid content-start gap-5 rounded-md border border-slate-200 bg-slate-50/60 p-4">
-              <h3 className="text-sm font-semibold text-slate-900">
+            <div className="grid content-start gap-5 rounded-md border border-border bg-secondary/70 p-4">
+              <h3 className="text-sm font-semibold text-foreground">
                 Expense Transactions
               </h3>
               <ExpenseTransactionManager

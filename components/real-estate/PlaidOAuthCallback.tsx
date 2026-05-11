@@ -155,14 +155,14 @@ export function PlaidOAuthCallback() {
         src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"
         strategy="afterInteractive"
       />
-      <div className="grid w-full gap-4 rounded-md border border-slate-200 bg-white p-6 text-center shadow-soft">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-primary">
+      <div className="grid w-full gap-4 rounded-md border border-border bg-card p-6 text-center shadow-soft">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-primary">
           {status === "loading" ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : status === "success" ? (
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           ) : (
-            <TriangleAlert className="h-5 w-5 text-red-600" />
+            <TriangleAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
           )}
         </div>
         <div>

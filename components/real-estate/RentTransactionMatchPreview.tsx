@@ -168,7 +168,7 @@ function RentMatchAction({
 
   if (state.status === "success") {
     return (
-      <p className="justify-self-start rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
+      <p className="justify-self-start rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
         {state.message}
       </p>
     );
@@ -176,7 +176,7 @@ function RentMatchAction({
 
   if (match.classification === "rental_income") {
     return (
-      <p className="justify-self-start rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 md:justify-self-end">
+      <p className="justify-self-start rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300 md:justify-self-end">
         {match.amountMatchesTarget ? "Auto-recorded rental income" : "Rental income"}
       </p>
     );
@@ -184,7 +184,7 @@ function RentMatchAction({
 
   if (match.classification === "ignored") {
     return (
-      <p className="justify-self-start rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
+      <p className="justify-self-start rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground md:justify-self-end">
         Not rental income
       </p>
     );
@@ -211,7 +211,7 @@ function RentMatchAction({
             Apply to
             <ClosedReviewActionHint disabled={isReviewClosed}>
               <input
-                className="h-8 w-32 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                className="h-8 w-32 rounded-md border border-input bg-background px-2 text-xs font-semibold text-muted-foreground outline-none transition disabled:cursor-not-allowed disabled:bg-secondary disabled:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-ring"
                 defaultValue={rentPeriodMonthInputValue}
                 disabled={isReviewClosed}
                 name="rentPeriodMonth"
@@ -234,7 +234,7 @@ function RentMatchAction({
         <p
           className={cn(
             "max-w-full text-xs font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}
@@ -306,22 +306,22 @@ function ClassifiedRentTransactionList({
 }) {
   if (transactions.length === 0) {
     return (
-      <div className="flex min-h-[4.5rem] items-center rounded-md border border-slate-200 p-4 text-sm font-semibold text-muted-foreground">
+      <div className="flex min-h-[4.5rem] items-center rounded-md border border-border p-4 text-sm font-semibold text-muted-foreground">
         No classified rent income transactions for this month.
       </div>
     );
   }
 
   return (
-    <details className="group overflow-hidden rounded-md border border-slate-200">
+    <details className="group overflow-hidden rounded-md border border-border">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>Classified Transactions ({transactions.length})</span>
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
-      <div className="border-t border-slate-100">
+      <div className="border-t border-border/70">
         {transactions.map((transaction) => (
           <div
-            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+            className="grid gap-3 border-b border-border/70 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
             key={transaction.id}
           >
             <div className="min-w-0">
@@ -344,7 +344,7 @@ function ClassifiedRentTransactionList({
               <input name="transactionId" type="hidden" value={transaction.id} />
               <ClosedReviewActionHint disabled={isReviewClosed}>
                 <button
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:text-muted-foreground"
                   disabled={isReviewClosed}
                   type="submit"
                 >
@@ -374,15 +374,15 @@ function IgnoredRentTransactionList({
   }
 
   return (
-    <details className="group overflow-hidden rounded-md border border-slate-200">
+    <details className="group overflow-hidden rounded-md border border-border">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>Ignored Transactions ({transactions.length})</span>
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
-      <div className="border-t border-slate-100">
+      <div className="border-t border-border/70">
         {transactions.map((transaction) => (
           <div
-            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+            className="grid gap-3 border-b border-border/70 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
             key={transaction.id}
           >
             <div className="min-w-0">
@@ -405,7 +405,7 @@ function IgnoredRentTransactionList({
               <input name="transactionId" type="hidden" value={transaction.id} />
               <ClosedReviewActionHint disabled={isReviewClosed}>
                 <button
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:text-muted-foreground"
                   disabled={isReviewClosed}
                   type="submit"
                 >
@@ -501,7 +501,7 @@ export function RentTransactionMatchPreview({
   const hasClassifiedRentForReviewMonth = classifiedReviewMonthTransactions.length > 0;
 
   return (
-    <div className="grid gap-5 border-t border-slate-100 pt-5">
+    <div className="grid gap-5 border-t border-border/70 pt-5">
       <form action={formAction} className="grid gap-4">
         <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
           <input name="matchMonth" type="hidden" value={selectedMatchMonth} />
@@ -512,19 +512,19 @@ export function RentTransactionMatchPreview({
           <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
             Rent auto-match:{" "}
             {hasClassifiedRentForReviewMonth ? (
-              <strong className="font-semibold text-slate-700">current month only</strong>
+              <strong className="font-semibold text-muted-foreground">current month only</strong>
             ) : (
               <>
-                <strong className="font-semibold text-slate-700">
+                <strong className="font-semibold text-muted-foreground">
                   {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}-day
                 </strong>{" "}
                 fallback window
               </>
             )}{" "}
             ·{" "}
-            <strong className="font-semibold text-slate-700">{selectedMatchMonth}</strong>{" "}
+            <strong className="font-semibold text-muted-foreground">{selectedMatchMonth}</strong>{" "}
             ·{" "}
-            <strong className="font-semibold text-slate-700">
+            <strong className="font-semibold text-muted-foreground">
               ±{formatCurrency(property.rentMatchTolerance)}
             </strong>.
           </p>
@@ -532,13 +532,13 @@ export function RentTransactionMatchPreview({
       </form>
 
       {!hasActiveBankConnection ? (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+        <div className="rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground">
           No bank connection. Connect account to review transactions.
         </div>
       ) : null}
 
       {isReviewClosed ? (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-muted-foreground">
+        <div className="rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground">
           Reopen this monthly review before changing rent transactions.
         </div>
       ) : null}
@@ -547,7 +547,7 @@ export function RentTransactionMatchPreview({
         <p
           className={cn(
             "text-sm font-semibold",
-            state.status === "error" ? "text-red-600" : "text-emerald-600"
+            state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {state.message}
@@ -555,17 +555,17 @@ export function RentTransactionMatchPreview({
       ) : null}
 
       {visibleMatches.length > 0 ? (
-        <details className="group overflow-hidden rounded-md border border-slate-200">
+        <details className="group overflow-hidden rounded-md border border-border">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span>
               Income Transactions ({visibleMatches.length})
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
           </summary>
-          <div className="border-t border-slate-100">
+          <div className="border-t border-border/70">
             {visibleMatches.map((match) => (
               <div
-                className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[1fr_auto_auto] md:items-center"
+                className="grid gap-3 border-b border-border/70 p-4 text-sm last:border-0 md:grid-cols-[1fr_auto_auto] md:items-center"
                 key={getRentMatchKey(match)}
               >
                 <div>
@@ -574,7 +574,7 @@ export function RentTransactionMatchPreview({
                     {match.accountName} · {match.postedAt}
                   </p>
                   {match.amountMatchesTarget ? (
-                    <p className="mt-1 text-xs font-semibold text-emerald-600">
+                    <p className="mt-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                       Matches target rent range
                     </p>
                   ) : null}
@@ -593,7 +593,7 @@ export function RentTransactionMatchPreview({
         </details>
       ) : null}
 
-      <div className="grid gap-3 border-t border-slate-100 pt-5">
+      <div className="grid gap-3 border-t border-border/70 pt-5">
         <ClassifiedRentTransactionList
           assetId={property.id}
           isReviewClosed={isReviewClosed}

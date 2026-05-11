@@ -55,8 +55,8 @@ export function BankConnectionDialog({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
           role="dialog"
         >
-          <div className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-soft">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-100 p-5">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-card shadow-soft">
+            <div className="flex items-center justify-between gap-4 border-b border-border/70 p-5">
               <div>
                 <h2 className="text-lg font-semibold tracking-tight">Bank Connections</h2>
                 <p className="mt-1 text-sm font-medium text-muted-foreground">
