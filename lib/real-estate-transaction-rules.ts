@@ -4,16 +4,16 @@ import type {
 } from "@/types/wealth";
 
 export interface TransactionRuleMatchInput {
-  assetId: string;
   amount: number;
   description: string;
   direction: "credit" | "debit";
 }
 
 export interface TransactionRuleClassification {
+  assignedAssetId: string | null;
   category: RealEstateExpenseCategory;
   classification: "expense";
-  note: string;
+  note: null;
   ruleId: string;
   ruleName: string;
   transactionName: string | null;
@@ -32,10 +32,6 @@ export function transactionMatchesRule(
   transaction: TransactionRuleMatchInput
 ): boolean {
   if (!rule.isActive || transaction.direction !== "debit") {
-    return false;
-  }
-
-  if (rule.assetId && rule.assetId !== transaction.assetId) {
     return false;
   }
 
@@ -62,9 +58,10 @@ export function getTransactionRuleClassification(
   rule: RealEstateTransactionRule
 ): TransactionRuleClassification {
   return {
+    assignedAssetId: rule.assignedAssetId,
     category: rule.category,
     classification: "expense",
-    note: `Classified by rule: ${rule.name}`,
+    note: null,
     ruleId: rule.id,
     ruleName: rule.name,
     transactionName: rule.setTransactionName?.trim() || null

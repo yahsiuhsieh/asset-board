@@ -4,11 +4,8 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 
-async function loadStatementHelpers() {
-  const source = await readFile(
-    new URL("../lib/real-estate-annual-statement.ts", import.meta.url),
-    "utf8"
-  );
+async function loadTsModule(path, requireMap = {}) {
+  const source = await readFile(new URL(path, import.meta.url), "utf8");
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,
@@ -22,17 +19,29 @@ async function loadStatementHelpers() {
     outputText,
     {
       exports: module.exports,
-      module
+      module,
+      require: (id) => {
+        if (id in requireMap) {
+          return requireMap[id];
+        }
+
+        throw new Error(`Unexpected import in test module: ${id}`);
+      }
     },
     {
-      filename: "real-estate-annual-statement.ts"
+      filename: path
     }
   );
 
   return module.exports;
 }
 
-const helpers = await loadStatementHelpers();
+const transactionNoteHelpers = await loadTsModule(
+  "../lib/real-estate-transaction-notes.ts"
+);
+const helpers = await loadTsModule("../lib/real-estate-annual-statement.ts", {
+  "@/lib/real-estate-transaction-notes": transactionNoteHelpers
+});
 const today = new Date("2026-04-30T12:00:00.000Z");
 
 function transaction(overrides) {
@@ -481,6 +490,7 @@ test("serializes annual report CSV with summary sections and transaction appendi
       type: "rental_income",
       category: "",
       description: "January rent",
+      note: "Tenant paid early",
       account: "Operating Checking",
       amount: 1800,
       propertyName: "Duplex A",
@@ -491,6 +501,7 @@ test("serializes annual report CSV with summary sections and transaction appendi
       type: "expense",
       category: "maintenance",
       description: "Plumbing repair",
+      note: "Reimbursed by owner reserve",
       account: "Operating Checking",
       amount: 250,
       propertyName: "Duplex A",
@@ -510,17 +521,17 @@ test("serializes annual report CSV with summary sections and transaction appendi
   );
   assert.ok(
     csv.includes(
-      "\r\n,,,,,,,,,,,,,,,,\r\nTransaction Appendix,,,,,,,,,,,,,,,,\r\ndate,type,category,description,account,amount,property name,property address,,,,,,,,,"
+      "\r\n,,,,,,,,,,,,,,,,\r\nTransaction Appendix,,,,,,,,,,,,,,,,\r\ndate,type,category,description,note,account,amount,property name,property address,,,,,,,,"
     )
   );
   assert.ok(
     csv.includes(
-      "\r\n2026-01-05,rental_income,,January rent,Operating Checking,1800.00,Duplex A,100 Main St,,,,,,,,,\r\n"
+      "\r\n2026-01-05,rental_income,,January rent,Tenant paid early,Operating Checking,1800.00,Duplex A,100 Main St,,,,,,,,\r\n"
     )
   );
   assert.ok(
     csv.includes(
-      "\r\n2026-01-15,expense,maintenance,Plumbing repair,Operating Checking,250.00,Duplex A,100 Main St,,,,,,,,,\r\n"
+      "\r\n2026-01-15,expense,maintenance,Plumbing repair,Reimbursed by owner reserve,Operating Checking,250.00,Duplex A,100 Main St,,,,,,,,\r\n"
     )
   );
   assert.ok(csv.includes("\r\ntotal,1800.00,0.00,0.00,250.00"));
@@ -558,6 +569,7 @@ test("serializes annual report CSV with escaping across sections", () => {
       type: "expense",
       category: "maintenance",
       description: 'AC "repair", urgent\nsame day',
+      note: 'Vendor said "rush", tenant approved',
       account: "Checking, main",
       amount: 125.5,
       propertyName: 'Duplex "A"',
@@ -572,7 +584,7 @@ test("serializes annual report CSV with escaping across sections", () => {
   );
   assert.ok(
     csv.includes(
-      '2026-03-12,expense,maintenance,"AC ""repair"", urgent\nsame day","Checking, main",125.50,"Duplex ""A""","100 Main St, Unit 2\nFloor 1"'
+      '2026-03-12,expense,maintenance,"AC ""repair"", urgent\nsame day","Vendor said ""rush"", tenant approved","Checking, main",125.50,"Duplex ""A""","100 Main St, Unit 2\nFloor 1"'
     )
   );
 });
@@ -608,6 +620,7 @@ test("annual report preserves transaction cents in summaries and appendix", () =
       type: "expense",
       category: "utilities",
       description: "Utility bill",
+      note: "Marked as expense.",
       account: "Chase Checking",
       amount: 82.88,
       propertyName: "Duplex A",
@@ -621,7 +634,7 @@ test("annual report preserves transaction cents in summaries and appendix", () =
   assert.ok(csv.includes("total,1200.75,0.00,0.00,0.00,0.00,82.88"));
   assert.ok(
     csv.includes(
-      "\r\n2026-05-05,expense,utilities,Utility bill,Chase Checking,82.88,Duplex A,100 Main St"
+      "\r\n2026-05-05,expense,utilities,Utility bill,,Chase Checking,82.88,Duplex A,100 Main St"
     )
   );
 });

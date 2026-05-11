@@ -1,3 +1,4 @@
+import { getTransactionNoteCsvValue } from "@/lib/real-estate-transaction-notes";
 import type {
   RealEstateAssetDetail,
   RealEstatePropertyTransaction
@@ -8,6 +9,7 @@ export interface PortfolioAnnualTransactionExportRow {
   type: "rental_income" | "expense";
   category: string;
   description: string;
+  note: string;
   account: string;
   amount: number;
   propertyId: string;
@@ -76,6 +78,7 @@ export function getPortfolioAnnualExportRows(
           type: transaction.classification as "rental_income" | "expense",
           category: transaction.category ?? "",
           description: transaction.description,
+          note: getTransactionNoteCsvValue(transaction.note),
           account: transaction.accountName,
           amount: Math.abs(transaction.amount),
           propertyId: property.id,

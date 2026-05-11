@@ -27,6 +27,7 @@ export interface MonthlySyncClassification {
 }
 
 export interface MonthlyExpenseRuleMatch {
+  assignedAssetId: string | null;
   category: RealEstateExpenseCategory;
   id: string;
   name: string;
@@ -116,6 +117,26 @@ export function getMonthlyRentCreditSyncDecisions({
         transaction
       };
     });
+}
+
+export function filterRentCreditDecisionsForReviewScope({
+  decisions,
+  reviewMonth,
+  useBufferedFallback
+}: {
+  decisions: MonthlyRentCreditSyncDecision[];
+  reviewMonth: string;
+  useBufferedFallback: boolean;
+}): MonthlyRentCreditSyncDecision[] {
+  if (useBufferedFallback) {
+    return decisions;
+  }
+
+  const reviewMonthPrefix = getReviewMonthPrefix(reviewMonth);
+
+  return decisions.filter(
+    (decision) => decision.transaction.postedAt.slice(0, 7) === reviewMonthPrefix
+  );
 }
 
 export function getMonthlyExpenseDebitSyncDecisions({

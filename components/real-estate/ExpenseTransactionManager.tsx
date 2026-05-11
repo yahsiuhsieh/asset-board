@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import {
+  bulkClassifyPropertyTransactions,
   classifyPropertyTransaction,
   previewExpenseTransactions,
   unclassifyPropertyTransaction,
@@ -25,6 +26,7 @@ import {
   getExpenseTransactionsForMonth,
   getRecordedExpensesForMonth
 } from "@/lib/real-estate-expenses";
+import { normalizeTransactionNote } from "@/lib/real-estate-transaction-notes";
 import { cn } from "@/lib/utils";
 import type {
   RealEstateAssetDetail,
@@ -104,7 +106,13 @@ function RecordExpenseButton({
 }) {
   const { pending } = useFormStatus();
   const button = (
-    <Button disabled={disabled || pending} size="sm" type="submit">
+    <Button
+      disabled={disabled || pending}
+      name="classification"
+      size="sm"
+      type="submit"
+      value="expense"
+    >
       <CheckCircle2 className="h-4 w-4" />
       {pending ? "Recording" : "Record Expense"}
     </Button>
@@ -126,7 +134,14 @@ function IgnoreButton({
 }) {
   const { pending } = useFormStatus();
   const button = (
-    <Button disabled={disabled || pending} size="sm" type="submit" variant="secondary">
+    <Button
+      disabled={disabled || pending}
+      name="classification"
+      size="sm"
+      type="submit"
+      value="ignored"
+      variant="secondary"
+    >
       <Ban className="h-4 w-4" />
       {pending ? "Ignoring" : "Ignore"}
     </Button>
@@ -139,12 +154,40 @@ function IgnoreButton({
   );
 }
 
+function BulkIgnoreButton({
+  disabled,
+  selectedCount
+}: {
+  disabled: boolean;
+  selectedCount: number;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button disabled={disabled || pending} size="sm" type="submit" variant="secondary">
+      <Ban className="h-4 w-4" />
+      {pending ? "Ignoring" : `Ignore Selected (${selectedCount})`}
+    </Button>
+  );
+}
+
 function getPreviewTransactionKey(transaction: ExpenseTransactionPreview): string {
   if (transaction.rawBankTransactionId) {
     return `raw:${transaction.rawBankTransactionId}`;
   }
 
   return `${transaction.connectionId}:${transaction.id}`;
+}
+
+function getBulkExpenseTransactionInputValue(
+  transaction: ExpenseTransactionPreview
+): string {
+  return JSON.stringify({
+    connectionId: transaction.connectionId,
+    rawBankTransactionId: transaction.rawBankTransactionId ?? "",
+    recordedTransactionId: transaction.recordedTransactionId ?? "",
+    transactionId: transaction.id
+  });
 }
 
 function getStoredTransactionConnectionId(
@@ -187,29 +230,18 @@ function ExpenseTransactionActions({
   transactionKey: string;
 }) {
   const router = useRouter();
-  const [expenseState, expenseAction] = useActionState(
+  const [state, action] = useActionState(
     classifyPropertyTransaction.bind(null, propertyId),
     initialActionState
   );
-  const [ignoreState, ignoreAction] = useActionState(
-    classifyPropertyTransaction.bind(null, propertyId),
-    initialActionState
-  );
-  const state = expenseState.message ? expenseState : ignoreState;
   const disabledReason = isReviewClosed ? CLOSED_REVIEW_ACTION_MESSAGE : null;
 
   useEffect(() => {
-    if (expenseState.status === "success" || ignoreState.status === "success") {
+    if (state.status === "success") {
       onClassified(transactionKey);
       router.refresh();
     }
-  }, [
-    expenseState.status,
-    ignoreState.status,
-    onClassified,
-    router,
-    transactionKey
-  ]);
+  }, [onClassified, router, state.status, transactionKey]);
 
   if (transaction.classification) {
     return (
@@ -222,7 +254,7 @@ function ExpenseTransactionActions({
   return (
     <div className="grid w-full min-w-0 gap-2 justify-items-start lg:w-auto lg:justify-items-end">
       <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
-        <form action={expenseAction} className="contents">
+        <form action={action} className="contents">
           <input
             name="recordedTransactionId"
             type="hidden"
@@ -236,7 +268,13 @@ function ExpenseTransactionActions({
             value={transaction.rawBankTransactionId ?? ""}
           />
           <input name="reviewMonth" type="hidden" value={reviewMonth} />
-          <input name="classification" type="hidden" value="expense" />
+          <input
+            className="h-9 w-44 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
+            disabled={isReviewClosed}
+            name="note"
+            placeholder="Note"
+            type="text"
+          />
           <ClosedReviewActionHint disabled={isReviewClosed}>
             <select
               className="h-9 w-40 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
@@ -269,22 +307,6 @@ function ExpenseTransactionActions({
             disabled={isReviewClosed}
             disabledReason={disabledReason}
           />
-        </form>
-        <form action={ignoreAction}>
-          <input
-            name="recordedTransactionId"
-            type="hidden"
-            value={transaction.recordedTransactionId ?? ""}
-          />
-          <input name="transactionId" type="hidden" value={transaction.id} />
-          <input name="connectionId" type="hidden" value={transaction.connectionId} />
-          <input
-            name="rawBankTransactionId"
-            type="hidden"
-            value={transaction.rawBankTransactionId ?? ""}
-          />
-          <input name="reviewMonth" type="hidden" value={reviewMonth} />
-          <input name="classification" type="hidden" value="ignored" />
           <IgnoreButton disabled={isReviewClosed} disabledReason={disabledReason} />
         </form>
       </div>
@@ -326,42 +348,51 @@ function ClassifiedTransactionList({
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
       <div className="border-t border-slate-100">
-        {transactions.map((transaction) => (
-          <div
-            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
-            key={transaction.id}
-          >
-            <div className="min-w-0">
-              <p className="break-words font-semibold">{transaction.description}</p>
-              <p className="mt-1 font-medium text-muted-foreground">
-                Paid from {transaction.accountName} · {transaction.postedAt}
-              </p>
-              <p className="mt-1 text-muted-foreground">
-                {transaction.category ? expenseCategoryLabels[transaction.category] : "Expense"}
-              </p>
-            </div>
-            <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
-              {formatCurrency(transaction.amount)}
-            </p>
-            <form
-              action={unclassifyPropertyTransaction}
-              className="md:col-start-3 md:justify-self-end"
+        {transactions.map((transaction) => {
+          const displayNote = normalizeTransactionNote(transaction.note);
+
+          return (
+            <div
+              className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+              key={transaction.id}
             >
-              <input name="assetId" type="hidden" value={assetId} />
-              <input name="transactionId" type="hidden" value={transaction.id} />
-              <ClosedReviewActionHint disabled={isReviewClosed}>
-                <button
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
-                  disabled={isReviewClosed}
-                  type="submit"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Unclassify
-                </button>
-              </ClosedReviewActionHint>
-            </form>
-          </div>
-        ))}
+              <div className="min-w-0">
+                <p className="break-words font-semibold">{transaction.description}</p>
+                <p className="mt-1 font-medium text-muted-foreground">
+                  Paid from {transaction.accountName} · {transaction.postedAt}
+                </p>
+                <p className="mt-1 break-words text-muted-foreground">
+                  {transaction.category
+                    ? expenseCategoryLabels[transaction.category]
+                    : "Expense"}
+                  {displayNote ? (
+                    <span className="font-medium text-slate-700"> · {displayNote}</span>
+                  ) : null}
+                </p>
+              </div>
+              <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
+                {formatCurrency(transaction.amount)}
+              </p>
+              <form
+                action={unclassifyPropertyTransaction}
+                className="md:col-start-3 md:justify-self-end"
+              >
+                <input name="assetId" type="hidden" value={assetId} />
+                <input name="transactionId" type="hidden" value={transaction.id} />
+                <ClosedReviewActionHint disabled={isReviewClosed}>
+                  <button
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                    disabled={isReviewClosed}
+                    type="submit"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Unclassify
+                  </button>
+                </ClosedReviewActionHint>
+              </form>
+            </div>
+          );
+        })}
       </div>
     </details>
   );
@@ -387,40 +418,49 @@ function IgnoredTransactionList({
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
       <div className="border-t border-slate-100">
-        {transactions.map((transaction) => (
-          <div
-            className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
-            key={transaction.id}
-          >
-            <div className="min-w-0">
-              <p className="break-words font-semibold">{transaction.description}</p>
-              <p className="mt-1 font-medium text-muted-foreground">
-                Paid from {transaction.accountName} · {transaction.postedAt}
-              </p>
-              <p className="mt-1 text-muted-foreground">Ignored</p>
-            </div>
-            <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
-              {formatCurrency(transaction.amount)}
-            </p>
-            <form
-              action={unclassifyPropertyTransaction}
-              className="md:col-start-3 md:justify-self-end"
+        {transactions.map((transaction) => {
+          const displayNote = normalizeTransactionNote(transaction.note);
+
+          return (
+            <div
+              className="grid gap-3 border-b border-slate-100 p-4 text-sm last:border-0 md:grid-cols-[minmax(0,1fr)_7rem_6rem] md:items-center"
+              key={transaction.id}
             >
-              <input name="assetId" type="hidden" value={assetId} />
-              <input name="transactionId" type="hidden" value={transaction.id} />
-              <ClosedReviewActionHint disabled={isReviewClosed}>
-                <button
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
-                  disabled={isReviewClosed}
-                  type="submit"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Review Again
-                </button>
-              </ClosedReviewActionHint>
-            </form>
-          </div>
-        ))}
+              <div className="min-w-0">
+                <p className="break-words font-semibold">{transaction.description}</p>
+                <p className="mt-1 font-medium text-muted-foreground">
+                  Paid from {transaction.accountName} · {transaction.postedAt}
+                </p>
+                <p className="mt-1 break-words text-muted-foreground">
+                  Ignored
+                  {displayNote ? (
+                    <span className="font-medium text-slate-700"> · {displayNote}</span>
+                  ) : null}
+                </p>
+              </div>
+              <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
+                {formatCurrency(transaction.amount)}
+              </p>
+              <form
+                action={unclassifyPropertyTransaction}
+                className="md:col-start-3 md:justify-self-end"
+              >
+                <input name="assetId" type="hidden" value={assetId} />
+                <input name="transactionId" type="hidden" value={transaction.id} />
+                <ClosedReviewActionHint disabled={isReviewClosed}>
+                  <button
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:text-slate-400"
+                    disabled={isReviewClosed}
+                    type="submit"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Review Again
+                  </button>
+                </ClosedReviewActionHint>
+              </form>
+            </div>
+          );
+        })}
       </div>
     </details>
   );
@@ -441,16 +481,33 @@ export function ExpenseTransactionManager({
     previewExpenseTransactions.bind(null, property.id),
     initialPreviewState
   );
+  const [bulkState, bulkAction] = useActionState(
+    bulkClassifyPropertyTransactions.bind(null, property.id),
+    initialActionState
+  );
+  const router = useRouter();
   const [hiddenPreviewTransactionKeys, setHiddenPreviewTransactionKeys] = useState<
     Set<string>
   >(new Set());
+  const [selectedTransactionKeys, setSelectedTransactionKeys] = useState<Set<string>>(
+    new Set()
+  );
+  const [
+    submittedBulkTransactionKeys,
+    setSubmittedBulkTransactionKeys
+  ] = useState<Set<string>>(new Set());
+  const [shouldShowBulkFeedback, setShouldShowBulkFeedback] = useState(false);
   const selectedReviewMonth = reviewMonth;
+  const bulkFormId = `bulk-expense-ignore-${property.id}-${selectedReviewMonth}`;
   const hasActiveBankConnection = property.bankConnections.some(
     (connection) => connection.status === "active"
   );
 
   useEffect(() => {
     setHiddenPreviewTransactionKeys(new Set());
+    setSelectedTransactionKeys(new Set());
+    setSubmittedBulkTransactionKeys(new Set());
+    setShouldShowBulkFeedback(false);
   }, [selectedReviewMonth]);
 
   useEffect(() => {
@@ -478,6 +535,25 @@ export function ExpenseTransactionManager({
     });
   }, [selectedReviewMonth, state.reviewMonth, state.status, state.transactions]);
 
+  useEffect(() => {
+    if (bulkState.status !== "success" || submittedBulkTransactionKeys.size === 0) {
+      return;
+    }
+
+    setHiddenPreviewTransactionKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+
+      submittedBulkTransactionKeys.forEach((transactionKey) => {
+        nextKeys.add(transactionKey);
+      });
+
+      return nextKeys;
+    });
+    setSelectedTransactionKeys(new Set());
+    setSubmittedBulkTransactionKeys(new Set());
+    router.refresh();
+  }, [bulkState.status, router, submittedBulkTransactionKeys]);
+
   const handleClassified = useCallback((transactionKey: string) => {
     setHiddenPreviewTransactionKeys((currentKeys) => {
       if (currentKeys.has(transactionKey)) {
@@ -486,6 +562,15 @@ export function ExpenseTransactionManager({
 
       const nextKeys = new Set(currentKeys);
       nextKeys.add(transactionKey);
+      return nextKeys;
+    });
+    setSelectedTransactionKeys((currentKeys) => {
+      if (!currentKeys.has(transactionKey)) {
+        return currentKeys;
+      }
+
+      const nextKeys = new Set(currentKeys);
+      nextKeys.delete(transactionKey);
       return nextKeys;
     });
   }, []);
@@ -527,6 +612,59 @@ export function ExpenseTransactionManager({
   const ignoredCount = ignoredReviewMonthTransactions.length;
   const shouldShowPreviewMessage =
     state.message && (!state.reviewMonth || state.reviewMonth === selectedReviewMonth);
+  const visibleTransactionKeys = visiblePreviewTransactions.map(getPreviewTransactionKey);
+  const selectedVisibleCount = visibleTransactionKeys.filter((transactionKey) =>
+    selectedTransactionKeys.has(transactionKey)
+  ).length;
+  const allVisibleSelected =
+    visibleTransactionKeys.length > 0 &&
+    selectedVisibleCount === visibleTransactionKeys.length;
+
+  function toggleTransactionSelection(transactionKey: string, checked: boolean) {
+    setSelectedTransactionKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+
+      if (checked) {
+        nextKeys.add(transactionKey);
+      } else {
+        nextKeys.delete(transactionKey);
+      }
+
+      return nextKeys;
+    });
+  }
+
+  function toggleAllVisibleTransactions(checked: boolean) {
+    setSelectedTransactionKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+
+      visibleTransactionKeys.forEach((transactionKey) => {
+        if (checked) {
+          nextKeys.add(transactionKey);
+        } else {
+          nextKeys.delete(transactionKey);
+        }
+      });
+
+      return nextKeys;
+    });
+  }
+
+  function handleBulkSubmit() {
+    setShouldShowBulkFeedback(true);
+    setSubmittedBulkTransactionKeys(
+      new Set(
+        visibleTransactionKeys.filter((transactionKey) =>
+          selectedTransactionKeys.has(transactionKey)
+        )
+      )
+    );
+  }
+
+  function handlePreviewSubmit() {
+    setShouldShowBulkFeedback(false);
+    setSubmittedBulkTransactionKeys(new Set());
+  }
 
   return (
     <div className="grid gap-5">
@@ -553,7 +691,11 @@ export function ExpenseTransactionManager({
         </div>
       </div>
 
-      <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5">
+      <form
+        action={formAction}
+        className="grid gap-4 border-t border-slate-100 pt-5"
+        onSubmit={handlePreviewSubmit}
+      >
         <div className="grid min-h-10 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
           <input name="reviewMonth" type="hidden" value={selectedReviewMonth} />
           <PreviewButton
@@ -602,15 +744,65 @@ export function ExpenseTransactionManager({
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
           </summary>
+          <div className="grid gap-3 border-t border-slate-100 bg-slate-50/60 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <label className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                checked={allVisibleSelected}
+                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                disabled={isReviewClosed}
+                onChange={(event) =>
+                  toggleAllVisibleTransactions(event.currentTarget.checked)
+                }
+                type="checkbox"
+              />
+              Select all visible
+              <span className="font-medium text-muted-foreground">
+                {selectedVisibleCount} selected
+              </span>
+            </label>
+            <form action={bulkAction} id={bulkFormId} onSubmit={handleBulkSubmit}>
+              <input name="classification" type="hidden" value="ignored" />
+              <input name="reviewMonth" type="hidden" value={selectedReviewMonth} />
+              <BulkIgnoreButton
+                disabled={isReviewClosed || selectedVisibleCount === 0}
+                selectedCount={selectedVisibleCount}
+              />
+            </form>
+            {shouldShowBulkFeedback && bulkState.message ? (
+              <p
+                className={cn(
+                  "text-sm font-semibold sm:col-span-2",
+                  bulkState.status === "error" ? "text-red-600" : "text-emerald-600"
+                )}
+              >
+                {bulkState.message}
+              </p>
+            ) : null}
+          </div>
           <div className="border-t border-slate-100">
             {visiblePreviewTransactions.map((transaction) => {
               const transactionKey = getPreviewTransactionKey(transaction);
 
               return (
                 <div
-                  className="grid min-w-0 gap-3 border-b border-slate-100 p-4 text-sm last:border-0 lg:grid-cols-[minmax(0,1fr)_7rem_auto] lg:items-center"
+                  className="grid min-w-0 gap-3 border-b border-slate-100 p-4 text-sm last:border-0 lg:grid-cols-[auto_minmax(0,1fr)_7rem_auto] lg:items-center"
                   key={transactionKey}
                 >
+                  <input
+                    checked={selectedTransactionKeys.has(transactionKey)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary lg:mt-0"
+                    disabled={isReviewClosed}
+                    form={bulkFormId}
+                    name="transactions"
+                    onChange={(event) =>
+                      toggleTransactionSelection(
+                        transactionKey,
+                        event.currentTarget.checked
+                      )
+                    }
+                    type="checkbox"
+                    value={getBulkExpenseTransactionInputValue(transaction)}
+                  />
                   <div className="min-w-0">
                     <p className="break-words font-semibold">{transaction.description}</p>
                     <p className="mt-1 font-medium text-muted-foreground">

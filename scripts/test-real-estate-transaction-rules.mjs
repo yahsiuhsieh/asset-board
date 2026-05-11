@@ -37,7 +37,7 @@ const helpers = await loadTransactionRuleHelpers();
 function rule(overrides) {
   return {
     id: "rule-id",
-    assetId: null,
+    assignedAssetId: "property-1",
     name: "Sunstrong utilities",
     containsText: "SUNSTRONG",
     targetAmount: 82.88,
@@ -52,7 +52,6 @@ function rule(overrides) {
 
 function transaction(overrides) {
   return {
-    assetId: "property-1",
     amount: 82.88,
     description: "SUNSTRONG FIN ACCT PAYMT 1394698000 WEB ID: 8518154151",
     direction: "debit",
@@ -89,20 +88,20 @@ test("transaction rule requires an exact cents amount match", () => {
   );
 });
 
-test("scoped transaction rule applies only to its property", () => {
+test("assigned property does not scope transaction rule matching", () => {
   assert.equal(
     helpers.transactionMatchesRule(
-      rule({ assetId: "property-1" }),
-      transaction({ assetId: "property-1" })
+      rule({ assignedAssetId: "property-1" }),
+      transaction({})
     ),
     true
   );
   assert.equal(
     helpers.transactionMatchesRule(
-      rule({ assetId: "property-2" }),
-      transaction({ assetId: "property-1" })
+      rule({ assignedAssetId: "property-2" }),
+      transaction({})
     ),
-    false
+    true
   );
 });
 
@@ -127,7 +126,8 @@ test("first matching transaction rule wins", () => {
 
   assert.equal(classification.category, "utilities");
   assert.equal(classification.classification, "expense");
-  assert.equal(classification.note, "Classified by rule: First rule");
+  assert.equal(classification.assignedAssetId, "property-1");
+  assert.equal(classification.note, null);
   assert.equal(classification.ruleId, "first-rule");
   assert.equal(classification.ruleName, "First rule");
   assert.equal(classification.transactionName, null);

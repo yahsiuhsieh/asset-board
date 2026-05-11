@@ -1,15 +1,29 @@
 "use client";
 
-import { useActionState, useEffect, type FormEvent } from "react";
+import {
+  Fragment,
+  useActionState,
+  useEffect,
+  useState,
+  type FormEvent
+} from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, CircleOff, Plus, RotateCcw, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleOff,
+  Pencil,
+  Plus,
+  RotateCcw,
+  X
+} from "lucide-react";
 
 import {
   createRealEstateTransactionRule,
   deactivateRealEstateTransactionRule,
   deleteRealEstateTransactionRule,
   reactivateRealEstateTransactionRule,
+  updateRealEstateTransactionRule,
   type RealEstateActionState
 } from "@/app/actions/real-estate";
 import { Button } from "@/components/ui/button";
@@ -64,13 +78,13 @@ function CreateRuleButton() {
   );
 }
 
-function DeactivateRuleButton() {
+function DisableRuleButton() {
   const { pending } = useFormStatus();
 
   return (
     <Button disabled={pending} size="sm" type="submit" variant="secondary">
       <CircleOff className="h-4 w-4" />
-      {pending ? "Deactivating" : "Deactivate"}
+      {pending ? "Disabling" : "Disable"}
     </Button>
   );
 }
@@ -86,19 +100,43 @@ function ReactivateRuleButton() {
   );
 }
 
-function DeleteRuleButton() {
+function DeleteRuleIconButton({ ruleName }: { ruleName: string }) {
   const { pending } = useFormStatus();
 
   return (
     <Button
-      className="text-red-600 hover:text-red-700"
+      aria-label={`Permanently delete rule ${ruleName}`}
+      className="h-7 w-7 px-0 text-slate-400 hover:bg-red-50 hover:text-red-700"
       disabled={pending}
-      size="sm"
+      title="Permanently delete rule"
       type="submit"
       variant="ghost"
     >
-      <Trash2 className="h-4 w-4" />
-      {pending ? "Deleting" : "Delete Rule"}
+      <X className="h-4 w-4" />
+    </Button>
+  );
+}
+
+function EditRuleButton({
+  onClick
+}: {
+  onClick: () => void;
+}) {
+  return (
+    <Button onClick={onClick} size="sm" type="button" variant="secondary">
+      <Pencil className="h-4 w-4" />
+      Edit
+    </Button>
+  );
+}
+
+function SaveRuleButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button disabled={pending} size="sm" type="submit">
+      <CheckCircle2 className="h-4 w-4" />
+      {pending ? "Saving" : "Save Rule"}
     </Button>
   );
 }
@@ -119,15 +157,149 @@ function RuleStatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-function getRuleScopeLabel(
+function getRuleAssignedPropertyLabel(
   rule: RealEstateTransactionRule,
   propertiesById: Map<string, RealEstateAsset>
 ): string {
-  if (!rule.assetId) {
-    return "All Properties";
+  if (!rule.assignedAssetId) {
+    return "Current review property";
   }
 
-  return propertiesById.get(rule.assetId)?.name ?? "Property unavailable";
+  return propertiesById.get(rule.assignedAssetId)?.name ?? "Property unavailable";
+}
+
+function RuleEditForm({
+  onCancel,
+  properties,
+  rule
+}: {
+  onCancel: () => void;
+  properties: RealEstateAsset[];
+  rule: RealEstateTransactionRule;
+}) {
+  const router = useRouter();
+  const [state, formAction] = useActionState(
+    updateRealEstateTransactionRule,
+    initialActionState
+  );
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+      onCancel();
+    }
+  }, [onCancel, router, state.status]);
+
+  return (
+    <form action={formAction} className="grid gap-4 rounded-md bg-slate-50 p-4">
+      <input name="ruleId" type="hidden" value={rule.id} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Rule Name
+            <input
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={rule.name}
+              name="name"
+              required
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Transaction Name Contains
+            <input
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={rule.containsText}
+              name="containsText"
+              required
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Target Amount
+            <input
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={rule.targetAmount.toFixed(2)}
+              min="0.01"
+              name="targetAmount"
+              required
+              step="0.01"
+              type="number"
+            />
+          </label>
+        </div>
+        <div className="grid content-start gap-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Transaction Name
+            <input
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={rule.setTransactionName ?? ""}
+              name="setTransactionName"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Category
+            <select
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={rule.category}
+              name="category"
+            >
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {expenseCategoryLabels[category]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Assigned Property
+            <select
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+              defaultValue={rule.assignedAssetId ?? ""}
+              name="assetId"
+              required
+            >
+              <option disabled value="">
+                Choose property
+              </option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+              defaultChecked={rule.isActive}
+              name="isActive"
+              type="checkbox"
+              value="true"
+            />
+            Active
+          </label>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          <SaveRuleButton />
+          <Button onClick={onCancel} size="sm" type="button" variant="ghost">
+            <X className="h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
+        {state.message ? (
+          <p
+            className={cn(
+              "text-sm font-semibold",
+              state.status === "error" ? "text-red-600" : "text-emerald-600"
+            )}
+          >
+            {state.message}
+          </p>
+        ) : null}
+      </div>
+    </form>
+  );
 }
 
 export function TransactionRulesPage({
@@ -139,6 +311,7 @@ export function TransactionRulesPage({
     createRealEstateTransactionRule,
     initialActionState
   );
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const propertiesById = new Map(properties.map((property) => [property.id, property]));
 
   useEffect(() => {
@@ -151,7 +324,11 @@ export function TransactionRulesPage({
     event: FormEvent<HTMLFormElement>,
     rule: RealEstateTransactionRule
   ) {
-    if (!window.confirm(`Delete rule "${rule.name}"?`)) {
+    if (
+      !window.confirm(
+        `Permanently delete rule "${rule.name}"? This cannot be undone.`
+      )
+    ) {
       event.preventDefault();
     }
   }
@@ -214,21 +391,6 @@ export function TransactionRulesPage({
                       type="number"
                     />
                   </label>
-                  <label className="grid gap-2 text-sm font-semibold">
-                    Scope
-                    <select
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
-                      defaultValue="all"
-                      name="assetId"
-                    >
-                      <option value="all">All Properties</option>
-                      {properties.map((property) => (
-                        <option key={property.id} value={property.id}>
-                          {property.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                 </div>
 
                 <div className="grid content-start gap-4 rounded-md border border-slate-200 bg-white p-4">
@@ -251,6 +413,24 @@ export function TransactionRulesPage({
                       {categoryOptions.map((category) => (
                         <option key={category} value={category}>
                           {expenseCategoryLabels[category]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Assigned Property
+                    <select
+                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                      defaultValue=""
+                      name="assetId"
+                      required
+                    >
+                      <option disabled value="">
+                        Choose property
+                      </option>
+                      {properties.map((property) => (
+                        <option key={property.id} value={property.id}>
+                          {property.name}
                         </option>
                       ))}
                     </select>
@@ -297,55 +477,78 @@ export function TransactionRulesPage({
                   </thead>
                   <tbody>
                     {rules.map((rule) => (
-                      <tr className="border-t border-slate-100" key={rule.id}>
-                        <td className="px-4 py-3 align-top">
-                          <p className="font-semibold text-slate-900">{rule.name}</p>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <p className="break-words font-semibold text-slate-900">
-                            Name contains {rule.containsText}
-                          </p>
-                          <p className="mt-1 font-medium tabular-nums text-muted-foreground">
-                            Amount {formatCurrency(rule.targetAmount)}
-                          </p>
-                          <p className="mt-1 font-medium text-muted-foreground">
-                            {getRuleScopeLabel(rule, propertiesById)}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <p className="break-words font-semibold text-slate-900">
-                            {rule.setTransactionName || "Keep original name"}
-                          </p>
-                          <p className="mt-1 font-medium text-muted-foreground">
-                            Category {expenseCategoryLabels[rule.category]}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <RuleStatusBadge isActive={rule.isActive} />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex justify-end gap-2">
-                            {rule.isActive ? (
-                              <form action={deactivateRealEstateTransactionRule}>
+                      <Fragment key={rule.id}>
+                        <tr className="border-t border-slate-100">
+                          <td className="px-4 py-3 align-top">
+                            <p className="font-semibold text-slate-900">{rule.name}</p>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <p className="break-words font-semibold text-slate-900">
+                              Name contains {rule.containsText}
+                            </p>
+                            <p className="mt-1 font-medium tabular-nums text-muted-foreground">
+                              Amount {formatCurrency(rule.targetAmount)}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <p className="break-words font-semibold text-slate-900">
+                              {rule.setTransactionName || "Keep original name"}
+                            </p>
+                            <p className="mt-1 font-medium text-muted-foreground">
+                              Category {expenseCategoryLabels[rule.category]}
+                            </p>
+                            <p className="mt-1 font-medium text-muted-foreground">
+                              Assigned to{" "}
+                              {getRuleAssignedPropertyLabel(rule, propertiesById)}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <RuleStatusBadge isActive={rule.isActive} />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex flex-col items-end gap-2">
+                              <form
+                                action={deleteRealEstateTransactionRule}
+                                onSubmit={(event) => handleDeleteSubmit(event, rule)}
+                              >
                                 <input name="ruleId" type="hidden" value={rule.id} />
-                                <DeactivateRuleButton />
+                                <DeleteRuleIconButton ruleName={rule.name} />
                               </form>
-                            ) : (
-                              <form action={reactivateRealEstateTransactionRule}>
-                                <input name="ruleId" type="hidden" value={rule.id} />
-                                <ReactivateRuleButton />
-                              </form>
-                            )}
-                            <form
-                              action={deleteRealEstateTransactionRule}
-                              onSubmit={(event) => handleDeleteSubmit(event, rule)}
-                            >
-                              <input name="ruleId" type="hidden" value={rule.id} />
-                              <DeleteRuleButton />
-                            </form>
-                          </div>
-                        </td>
-                      </tr>
+                              <div className="flex flex-wrap justify-end gap-2">
+                                <EditRuleButton
+                                  onClick={() =>
+                                    setEditingRuleId((currentRuleId) =>
+                                      currentRuleId === rule.id ? null : rule.id
+                                    )
+                                  }
+                                />
+                                {rule.isActive ? (
+                                  <form action={deactivateRealEstateTransactionRule}>
+                                    <input name="ruleId" type="hidden" value={rule.id} />
+                                    <DisableRuleButton />
+                                  </form>
+                                ) : (
+                                  <form action={reactivateRealEstateTransactionRule}>
+                                    <input name="ruleId" type="hidden" value={rule.id} />
+                                    <ReactivateRuleButton />
+                                  </form>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                        {editingRuleId === rule.id ? (
+                          <tr className="border-t border-slate-100">
+                            <td className="px-4 py-4" colSpan={5}>
+                              <RuleEditForm
+                                onCancel={() => setEditingRuleId(null)}
+                                properties={properties}
+                                rule={rule}
+                              />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

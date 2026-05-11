@@ -87,7 +87,13 @@ function MarkRentalIncomeButton({
 }) {
   const { pending } = useFormStatus();
   const button = (
-    <Button disabled={disabled || pending} size="sm" type="submit">
+    <Button
+      disabled={disabled || pending}
+      name="classification"
+      size="sm"
+      type="submit"
+      value="rental_income"
+    >
       <CheckCircle2 className="h-4 w-4" />
       {pending ? "Saving" : "Mark Rental Income"}
     </Button>
@@ -109,7 +115,14 @@ function NotRentalIncomeButton({
 }) {
   const { pending } = useFormStatus();
   const button = (
-    <Button disabled={disabled || pending} size="sm" type="submit" variant="secondary">
+    <Button
+      disabled={disabled || pending}
+      name="classification"
+      size="sm"
+      type="submit"
+      value="ignored"
+      variant="secondary"
+    >
       <Ban className="h-4 w-4" />
       {pending ? "Saving" : "Not Rental Income"}
     </Button>
@@ -136,30 +149,22 @@ function RentMatchAction({
   propertyId: string;
 }) {
   const router = useRouter();
-  const [rentalIncomeState, rentalIncomeAction] = useActionState(
+  const [state, action] = useActionState(
     classifyRentCreditTransaction.bind(null, propertyId),
     applyInitialState
   );
-  const [ignoredState, ignoredAction] = useActionState(
-    classifyRentCreditTransaction.bind(null, propertyId),
-    applyInitialState
-  );
-  const state = rentalIncomeState.message ? rentalIncomeState : ignoredState;
   const matchKey = getRentMatchKey(match);
   const disabledReason = isReviewClosed ? CLOSED_REVIEW_ACTION_MESSAGE : null;
+  const rentPeriodMonthInputValue = toMonthInputValue(
+    match.rentPeriodMonth ?? matchMonth
+  );
 
   useEffect(() => {
-    if (rentalIncomeState.status === "success" || ignoredState.status === "success") {
+    if (state.status === "success") {
       onClassified(matchKey);
       router.refresh();
     }
-  }, [
-    ignoredState.status,
-    matchKey,
-    onClassified,
-    rentalIncomeState.status,
-    router
-  ]);
+  }, [matchKey, onClassified, router, state.status]);
 
   if (state.status === "success") {
     return (
@@ -188,7 +193,7 @@ function RentMatchAction({
   return (
     <div className="grid w-full min-w-0 gap-2 justify-items-start md:justify-items-end">
       <div className="flex w-full min-w-0 flex-wrap items-center gap-2 md:justify-end">
-        <form action={rentalIncomeAction} className="flex flex-wrap items-center gap-2">
+        <form action={action} className="flex flex-wrap items-center gap-2">
           <input name="transactionId" type="hidden" value={match.id} />
           <input name="connectionId" type="hidden" value={match.connectionId} />
           <input
@@ -202,13 +207,12 @@ function RentMatchAction({
             value={match.recordedTransactionId ?? ""}
           />
           <input name="matchMonth" type="hidden" value={matchMonth} />
-          <input name="classification" type="hidden" value="rental_income" />
           <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
             Apply to
             <ClosedReviewActionHint disabled={isReviewClosed}>
               <input
                 className="h-8 w-32 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 focus:border-primary/50 focus:ring-2 focus:ring-ring"
-                defaultValue={match.rentPeriodMonth ?? matchMonth}
+                defaultValue={rentPeriodMonthInputValue}
                 disabled={isReviewClosed}
                 name="rentPeriodMonth"
                 required
@@ -220,27 +224,6 @@ function RentMatchAction({
             disabled={isReviewClosed}
             disabledReason={disabledReason}
           />
-        </form>
-        <form action={ignoredAction}>
-          <input name="transactionId" type="hidden" value={match.id} />
-          <input name="connectionId" type="hidden" value={match.connectionId} />
-          <input
-            name="rawBankTransactionId"
-            type="hidden"
-            value={match.rawBankTransactionId ?? ""}
-          />
-          <input
-            name="recordedTransactionId"
-            type="hidden"
-            value={match.recordedTransactionId ?? ""}
-          />
-          <input name="matchMonth" type="hidden" value={matchMonth} />
-          <input
-            name="rentPeriodMonth"
-            type="hidden"
-            value={match.rentPeriodMonth ?? matchMonth}
-          />
-          <input name="classification" type="hidden" value="ignored" />
           <NotRentalIncomeButton
             disabled={isReviewClosed}
             disabledReason={disabledReason}
@@ -273,6 +256,10 @@ function getRentMatchKey(match: RentTransactionMatch): string {
   }
 
   return `${match.connectionId}:${match.id}`;
+}
+
+function toMonthInputValue(value: string | null | undefined): string {
+  return value ? value.slice(0, 7) : "";
 }
 
 function transactionMatchesTargetRange(
@@ -342,7 +329,7 @@ function ClassifiedRentTransactionList({
               <p className="mt-1 font-medium text-muted-foreground">
                 {transaction.accountName} · {transaction.postedAt}
               </p>
-              <p className="mt-1 text-muted-foreground">
+              <p className="mt-1 break-words text-muted-foreground">
                 Rental income · applies to {getRentRecognitionMonth(transaction)}
               </p>
             </div>
@@ -403,7 +390,9 @@ function IgnoredRentTransactionList({
               <p className="mt-1 font-medium text-muted-foreground">
                 {transaction.accountName} · {transaction.postedAt}
               </p>
-              <p className="mt-1 text-muted-foreground">Not rental income</p>
+              <p className="mt-1 break-words text-muted-foreground">
+                Not rental income
+              </p>
             </div>
             <p className="font-semibold tabular-nums md:justify-self-end md:text-right">
               {formatCurrency(transaction.amount)}
@@ -509,6 +498,7 @@ export function RentTransactionMatchPreview({
   );
   const shouldShowPreviewMessage =
     state.message && (!state.matchMonth || state.matchMonth === selectedMatchMonth);
+  const hasClassifiedRentForReviewMonth = classifiedReviewMonthTransactions.length > 0;
 
   return (
     <div className="grid gap-5 border-t border-slate-100 pt-5">
@@ -521,10 +511,17 @@ export function RentTransactionMatchPreview({
           />
           <p className="min-w-0 text-sm font-medium leading-5 text-muted-foreground">
             Rent auto-match:{" "}
-            <strong className="font-semibold text-slate-700">
-              {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}-day
-            </strong>{" "}
-            window ·{" "}
+            {hasClassifiedRentForReviewMonth ? (
+              <strong className="font-semibold text-slate-700">current month only</strong>
+            ) : (
+              <>
+                <strong className="font-semibold text-slate-700">
+                  {RENT_TRANSACTION_SEARCH_BUFFER_DAYS}-day
+                </strong>{" "}
+                fallback window
+              </>
+            )}{" "}
+            ·{" "}
             <strong className="font-semibold text-slate-700">{selectedMatchMonth}</strong>{" "}
             ·{" "}
             <strong className="font-semibold text-slate-700">

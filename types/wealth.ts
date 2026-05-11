@@ -90,7 +90,7 @@ export type RealEstateExpenseCategory =
 
 export interface RealEstateTransactionRule {
   id: string;
-  assetId: string | null;
+  assignedAssetId: string | null;
   name: string;
   containsText: string;
   targetAmount: number;
@@ -106,7 +106,7 @@ export interface RealEstatePropertyTransaction {
   assetId: string;
   rawBankTransactionId: string | null;
   bankConnectionId: string | null;
-  provider: "mock" | "plaid" | "legacy_bank";
+  provider: "mock" | "plaid";
   providerTransactionId: string;
   accountId: string;
   accountName: string;

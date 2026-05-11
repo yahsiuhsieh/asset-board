@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { normalizeTransactionNote } from "@/lib/real-estate-transaction-notes";
 import type {
   RealEstateAsset,
   RealEstateBankConnection,
@@ -91,7 +92,7 @@ interface RealEstatePropertyTransactionRow {
   asset_id: string;
   raw_bank_transaction_id: string | null;
   bank_connection_id: string | null;
-  provider: "mock" | "plaid" | "legacy_bank";
+  provider: "mock" | "plaid";
   provider_transaction_id: string;
   account_id: string;
   account_name: string;
@@ -236,14 +237,14 @@ function mapPropertyTransaction(
     classification: row.classification,
     category: row.category,
     rentPeriodMonth: row.rent_period_month,
-    note: row.note
+    note: normalizeTransactionNote(row.note)
   };
 }
 
 function mapTransactionRule(row: RealEstateTransactionRuleRow): RealEstateTransactionRule {
   return {
     id: row.id,
-    assetId: row.asset_id,
+    assignedAssetId: row.asset_id,
     name: row.name,
     containsText: row.contains_text,
     targetAmount: toNumber(row.target_amount),
@@ -265,6 +266,18 @@ function mapMonthlyReview(row: RealEstateMonthlyReviewRow): RealEstateMonthlyRev
     closedAt: row.closed_at,
     note: row.note
   };
+}
+
+function sortPropertiesByName<T extends Pick<RealEstateAsset, "id" | "name">>(
+  properties: T[]
+): T[] {
+  return [...properties].sort(
+    (left, right) =>
+      left.name.localeCompare(right.name, undefined, {
+        numeric: true,
+        sensitivity: "base"
+      }) || left.id.localeCompare(right.id)
+  );
 }
 
 async function createSignedPhotoUrl(storagePath: string): Promise<string | null> {
@@ -518,7 +531,7 @@ async function getTransactionRuleRows(): Promise<RealEstateTransactionRuleRow[]>
 
 export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
   const rows = await getPropertyRows();
-  const properties = rows.map(mapRealEstateProperty);
+  const properties = sortPropertiesByName(rows.map(mapRealEstateProperty));
   const assetIds = properties.map((property) => property.id);
   const transactionRows = await getPropertyTransactionRows(assetIds);
   const transactions = transactionRows.map(mapPropertyTransaction);
@@ -533,7 +546,7 @@ export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
 
 export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDetail[]> {
   const rows = await getPropertyRows();
-  const properties = rows.map(mapRealEstateProperty);
+  const properties = sortPropertiesByName(rows.map(mapRealEstateProperty));
   const assetIds = properties.map((property) => property.id);
   const [photoRows, transactionRows] = await Promise.all([
     getPhotoRows(assetIds),
@@ -602,12 +615,10 @@ export async function getRealEstateTransactionRules(): Promise<
   return rows.map(mapTransactionRule);
 }
 
-export async function getActiveRealEstateTransactionRules(
-  assetId?: string
-): Promise<RealEstateTransactionRule[]> {
+export async function getActiveRealEstateTransactionRules(): Promise<
+  RealEstateTransactionRule[]
+> {
   const rules = await getRealEstateTransactionRules();
 
-  return rules.filter(
-    (rule) => rule.isActive && (!assetId || !rule.assetId || rule.assetId === assetId)
-  );
+  return rules.filter((rule) => rule.isActive);
 }

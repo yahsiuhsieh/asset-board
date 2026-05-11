@@ -17,7 +17,6 @@ export type AnnualQualityIssueCode =
   | "open_monthly_reviews"
   | "unclassified_expense_transactions"
   | "missing_expense_category"
-  | "ignored_transactions"
   | "no_expenses_recorded"
   | "low_coverage"
   | "vacant_rent_check_skipped";
@@ -149,9 +148,6 @@ export function getPropertyAnnualQualityResult(
     (transaction) =>
       transaction.direction === "debit" && transaction.classification == null
   );
-  const ignoredTransactions = transactions.filter(
-    (transaction) => transaction.classification === "ignored"
-  );
   const missingCategoryExpenses = expenses.filter(
     (transaction) => transaction.category == null
   );
@@ -242,19 +238,6 @@ export function getPropertyAnnualQualityResult(
         title: "Missing expense category",
         description: `${missingCategoryExpenses.length} expense ${missingCategoryExpenses.length === 1 ? "transaction needs" : "transactions need"} a category.`,
         count: missingCategoryExpenses.length
-      })
-    );
-  }
-
-  if (ignoredTransactions.length > 0) {
-    issues.push(
-      makeIssue({
-        id: `${property.id}:ignored-transactions`,
-        code: "ignored_transactions",
-        severity: "warning",
-        title: "Ignored transactions",
-        description: `${ignoredTransactions.length} transaction ${ignoredTransactions.length === 1 ? "was" : "were"} ignored this year.`,
-        count: ignoredTransactions.length
       })
     );
   }

@@ -91,14 +91,6 @@ export function getAnnualQualityIssueDisplay(
     };
   }
 
-  if (issue.code === "ignored_transactions") {
-    return {
-      detail: "Ignored this year",
-      meta: formatIssueCount(issue.count, "transaction", "transactions"),
-      title: issue.title
-    };
-  }
-
   if (issue.code === "vacant_rent_check_skipped") {
     return {
       detail: "Vacant property excluded from rent checks",

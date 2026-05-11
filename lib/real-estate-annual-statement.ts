@@ -1,3 +1,4 @@
+import { getTransactionNoteCsvValue } from "@/lib/real-estate-transaction-notes";
 import type {
   RealEstateAssetDetail,
   RealEstateExpenseCategory,
@@ -46,6 +47,7 @@ export interface RealEstateAnnualReportTransactionRow {
   type: "rental_income" | "expense";
   category: string;
   description: string;
+  note: string;
   account: string;
   amount: number;
   propertyName: string;
@@ -86,6 +88,7 @@ const portfolioAnnualReportTransactionCsvHeaders = [
   "type",
   "category",
   "description",
+  "note",
   "account",
   "amount",
   "property name",
@@ -395,6 +398,7 @@ function getTransactionAppendixCsvRow(
     row.type,
     row.category,
     row.description,
+    getTransactionNoteCsvValue(row.note),
     row.account,
     formatCurrencyCsvValue(row.amount),
     row.propertyName,

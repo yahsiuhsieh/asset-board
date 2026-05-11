@@ -246,7 +246,7 @@ test("hard blocking gate ignores normal blocking issues", () => {
   );
 });
 
-test("ignored and no-expense checks are warnings only", () => {
+test("ignored transactions are normal review decisions", () => {
   const result = helpers.getPropertyAnnualQualityResult(
     property({
       monthlyReviews: closedReviews(["2026-01", "2026-02", "2026-03", "2026-04"]),
@@ -267,10 +267,7 @@ test("ignored and no-expense checks are warnings only", () => {
   );
 
   assert.equal(result.blockingIssues.length, 0);
-  assert.deepEqual(issueCodes(result, "warning"), [
-    "ignored_transactions",
-    "no_expenses_recorded"
-  ]);
+  assert.deepEqual(issueCodes(result, "warning"), ["no_expenses_recorded"]);
 });
 
 test("future months are not checked", () => {

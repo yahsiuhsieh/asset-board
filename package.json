@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "cleanup:real-estate-mock-data": "node scripts/cleanup-real-estate-mock-data.mjs",
+    "cleanup:real-estate-manual-legacy-data": "node scripts/cleanup-real-estate-manual-legacy-data.mjs",
     "lint": "eslint . --max-warnings=0",
     "test:real-estate-export": "node --test scripts/test-real-estate-transaction-export.mjs",
     "test:real-estate-history": "node --test scripts/test-real-estate-history.mjs",

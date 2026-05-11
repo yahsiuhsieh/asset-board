@@ -1,0 +1,4 @@
+drop index if exists public.real_estate_property_transactions_raw_bank_unique;
+
+create unique index if not exists real_estate_property_transactions_asset_raw_bank_unique
+  on public.real_estate_property_transactions(asset_id, raw_bank_transaction_id);

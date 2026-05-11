@@ -60,8 +60,37 @@ async function loadMonthlyTransactionSyncHelpers() {
   return module.exports;
 }
 
+async function loadTransactionOwnershipHelpers() {
+  const source = await readFile(
+    new URL("../lib/real-estate-transaction-ownership.ts", import.meta.url),
+    "utf8"
+  );
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020
+    }
+  });
+  const module = { exports: {} };
+
+  vm.runInNewContext(
+    outputText,
+    {
+      exports: module.exports,
+      module
+    },
+    {
+      filename: "real-estate-transaction-ownership.ts"
+    }
+  );
+
+  return module.exports;
+}
+
 const helpers = await loadMonthlyReviewHelpers();
 const syncHelpers = await loadMonthlyTransactionSyncHelpers();
+const ownershipHelpers = await loadTransactionOwnershipHelpers();
 const afterFebruary = new Date("2026-03-01T12:00:00.000Z");
 
 function transaction(overrides) {
@@ -365,6 +394,51 @@ test("rent sync auto-records only same-month matching credits", () => {
   assert.equal(byId.get("march-rent").shouldCreatePendingReview, true);
 });
 
+test("rent sync uses buffered credits only while rent is missing", () => {
+  const decisions = syncHelpers.getMonthlyRentCreditSyncDecisions({
+    expectedAmount: 1800,
+    getClassification: () => null,
+    minimumAmount: 10,
+    reviewMonth: "2026-02-01",
+    tolerance: 0,
+    transactions: [
+      bankTransaction({
+        id: "january-credit",
+        postedAt: "2026-01-30"
+      }),
+      bankTransaction({
+        id: "february-credit",
+        postedAt: "2026-02-05"
+      }),
+      bankTransaction({
+        id: "march-credit",
+        postedAt: "2026-03-02"
+      })
+    ]
+  });
+
+  assert.deepEqual(
+    syncHelpers
+      .filterRentCreditDecisionsForReviewScope({
+        decisions,
+        reviewMonth: "2026-02-01",
+        useBufferedFallback: false
+      })
+      .map((decision) => decision.transaction.id),
+    ["february-credit"]
+  );
+  assert.deepEqual(
+    syncHelpers
+      .filterRentCreditDecisionsForReviewScope({
+        decisions,
+        reviewMonth: "2026-02-01",
+        useBufferedFallback: true
+      })
+      .map((decision) => decision.transaction.id),
+    ["march-credit", "february-credit", "january-credit"]
+  );
+});
+
 test("rent sync keeps existing ledger decisions instead of overwriting them", () => {
   const decisions = syncHelpers.getMonthlyRentCreditSyncDecisions({
     expectedAmount: 1800,
@@ -436,6 +510,7 @@ test("expense sync auto-records matching transaction rules", () => {
     getRuleMatch: (transaction) =>
       transaction.id === "sunstrong-utility"
         ? {
+            assignedAssetId: "property-1",
             id: "rule-id",
             name: "Sunstrong utilities",
             category: "utilities",
@@ -471,6 +546,7 @@ test("expense sync does not overwrite already classified transactions with rules
     getRuleMatch: () => {
       ruleLookupCount += 1;
       return {
+        assignedAssetId: "property-1",
         id: "rule-id",
         name: "Sunstrong utilities",
         category: "utilities",
@@ -510,4 +586,208 @@ test("expense sync leaves unmatched debit transactions pending", () => {
   assert.equal(decisions[0].ruleMatch, null);
   assert.equal(decisions[0].shouldCreatePendingReview, true);
   assert.equal(decisions[0].shouldShowAsUnclassified, true);
+});
+
+test("only real income and expense rows claim raw transactions for other properties", () => {
+  const claimedRawIds =
+    ownershipHelpers.getClaimedRawBankTransactionIdsForOtherAssets({
+      assetId: "house-3",
+      rows: [
+        {
+          asset_id: "house-2",
+          classification: null,
+          raw_bank_transaction_id: "pending-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "ignored",
+          raw_bank_transaction_id: "ignored-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "rental_income",
+          raw_bank_transaction_id: "rent-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "ignored",
+          raw_bank_transaction_id: "own-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "expense",
+          raw_bank_transaction_id: "expense-raw"
+        }
+      ]
+    });
+
+  assert.deepEqual(Array.from(claimedRawIds), ["rent-raw", "expense-raw"]);
+
+  const reverseClaimedRawIds =
+    ownershipHelpers.getClaimedRawBankTransactionIdsForOtherAssets({
+      assetId: "house-2",
+      rows: [
+        {
+          asset_id: "house-3",
+          classification: "ignored",
+          raw_bank_transaction_id: "house-3-ignored-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "expense",
+          raw_bank_transaction_id: "house-3-expense-raw"
+        }
+      ]
+    });
+
+  assert.deepEqual(Array.from(reverseClaimedRawIds), ["house-3-expense-raw"]);
+});
+
+test("pending source rows claimed by another property are selected for cleanup", () => {
+  const house3PendingCleanupIds =
+    ownershipHelpers.getPendingRawBankTransactionIdsClaimedByOtherAssets({
+      assetId: "house-3",
+      rows: [
+        {
+          asset_id: "house-3",
+          classification: null,
+          raw_bank_transaction_id: "sunrun-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "expense",
+          description: "Sunrun Utilities",
+          raw_bank_transaction_id: "sunrun-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: null,
+          raw_bank_transaction_id: "rent-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "rental_income",
+          description: "May Rent",
+          raw_bank_transaction_id: "rent-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "ignored",
+          raw_bank_transaction_id: "already-ignored-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "expense",
+          description: "Already Ignored Utilities",
+          raw_bank_transaction_id: "already-ignored-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "expense",
+          raw_bank_transaction_id: "own-expense-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "expense",
+          description: "Own Expense Utilities",
+          raw_bank_transaction_id: "own-expense-raw"
+        }
+      ]
+    });
+
+  assert.deepEqual(Array.from(house3PendingCleanupIds), ["sunrun-raw", "rent-raw"]);
+  const house3CleanupDescriptions =
+    ownershipHelpers.getPendingRawBankTransactionCleanupDescriptionsByRawId({
+      assetId: "house-3",
+      rows: [
+        {
+          asset_id: "house-3",
+          classification: null,
+          description: "Sunrun PURCHASE MZVU636UNHGJE0B WEB ID: 5911718107",
+          raw_bank_transaction_id: "sunrun-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "expense",
+          description: "Sunrun Utilities",
+          raw_bank_transaction_id: "sunrun-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: null,
+          description: "DEPOSIT ID NUMBER 126140",
+          raw_bank_transaction_id: "rent-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "rental_income",
+          description: "May Rent",
+          raw_bank_transaction_id: "rent-raw"
+        }
+      ]
+    });
+
+  assert.deepEqual(
+    Object.fromEntries(house3CleanupDescriptions),
+    { "sunrun-raw": "Sunrun Utilities", "rent-raw": "May Rent" }
+  );
+
+  const house2UnreviewedClaimDescriptions =
+    ownershipHelpers.getUnreviewedRawBankTransactionClaimDescriptionsByRawId({
+      assetId: "house-2",
+      rows: [
+        {
+          asset_id: "house-3",
+          classification: "rental_income",
+          description: "DEPOSIT ID NUMBER 907552",
+          raw_bank_transaction_id: "house-3-rent-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: "ignored",
+          raw_bank_transaction_id: "already-reviewed-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "rental_income",
+          description: "Already Reviewed Rent",
+          raw_bank_transaction_id: "already-reviewed-raw"
+        },
+        {
+          asset_id: "house-2",
+          classification: null,
+          raw_bank_transaction_id: "pending-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "rental_income",
+          description: "Pending Rent",
+          raw_bank_transaction_id: "pending-raw"
+        }
+      ]
+    });
+
+  assert.deepEqual(
+    Object.fromEntries(house2UnreviewedClaimDescriptions),
+    { "house-3-rent-raw": "DEPOSIT ID NUMBER 907552" }
+  );
+
+  const house2PendingCleanupIds =
+    ownershipHelpers.getPendingRawBankTransactionIdsClaimedByOtherAssets({
+      assetId: "house-2",
+      rows: [
+        {
+          asset_id: "house-2",
+          classification: null,
+          raw_bank_transaction_id: "house-3-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "expense",
+          raw_bank_transaction_id: "house-3-raw"
+        }
+      ]
+    });
+
+  assert.deepEqual(Array.from(house2PendingCleanupIds), ["house-3-raw"]);
 });

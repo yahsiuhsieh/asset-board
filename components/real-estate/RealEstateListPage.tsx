@@ -248,7 +248,7 @@ export function RealEstateListPage({
         </Card>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <section className="grid grid-cols-1 gap-5">
         {properties.length > 0 ? (
           properties.map((property) => {
             const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
@@ -336,7 +336,7 @@ export function RealEstateListPage({
             );
           })
         ) : (
-          <Card className="border-slate-200 bg-white xl:col-span-2">
+          <Card className="border-slate-200 bg-white">
             <CardContent className="p-6 text-sm font-semibold text-muted-foreground">
               No properties yet.
             </CardContent>
