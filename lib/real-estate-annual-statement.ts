@@ -108,7 +108,7 @@ function getTransactionYear(transaction: RealEstatePropertyTransaction): string 
   return transaction.postedAt.slice(0, 4);
 }
 
-function getReviewedMonthCount(
+export function getAnnualStatementMonthCount(
   property: RealEstateAssetDetail,
   year: string,
   today = new Date()
@@ -218,7 +218,7 @@ export function getPortfolioAnnualStatement(
     );
     const noi = rentCollected - totalOperatingExpenses;
     const scheduledDebtService =
-      property.monthlyMortgage * getReviewedMonthCount(property, year, today);
+      property.monthlyMortgage * getAnnualStatementMonthCount(property, year, today);
     const cashFlowAfterDebtService = noi - scheduledDebtService;
     const { blockingIssueCount, warningIssueCount } = getQualityCounts(
       qualityResults,

@@ -24,7 +24,7 @@ import { getExternalMapUrl } from "@/lib/maps";
 import type { PropertyAnnualQualityResult } from "@/lib/real-estate-annual-quality";
 import { getRentalIncomeForMonth } from "@/lib/real-estate-rent";
 import type { RealEstateAssetDetail } from "@/types/wealth";
-import { PortfolioAnnualTransactionsExport } from "./PortfolioAnnualTransactionsExport";
+import { PortfolioAnnualReportActions } from "./PortfolioAnnualReportActions";
 import { PropertyImage } from "./PropertyImage";
 import { PropertyMap } from "./PropertyMap";
 import { RealEstatePortfolioNav } from "./RealEstatePortfolioNav";
@@ -151,11 +151,10 @@ export function RealEstateListPage({
               Track property values, rent, cash flow, locations, and history.
             </p>
           </div>
-          <PortfolioAnnualTransactionsExport
+          <PortfolioAnnualReportActions
             annualQualityResults={annualQualityResults}
             annualReportYear={annualReportYear}
             annualReportYears={annualReportYears}
-            properties={properties}
           />
         </div>
       </section>

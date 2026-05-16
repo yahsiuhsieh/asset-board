@@ -135,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="fixed inset-y-0 left-0 z-30 flex w-14 flex-col items-center justify-between border-r border-border bg-card py-4">
+      <div className="fixed inset-y-0 left-0 z-30 flex w-14 flex-col items-center justify-between border-r border-border bg-card py-4 print:hidden">
         <div className="grid justify-items-center">
           <button
             aria-label="Open sidebar"
@@ -180,6 +180,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[86vw] flex-col border-r border-border bg-card shadow-2xl transition-transform duration-200 ease-out",
+          "print:hidden",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -241,13 +242,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       {isSidebarOpen ? (
         <button
           aria-label="Close sidebar overlay"
-          className="fixed inset-0 z-30 cursor-default bg-slate-950/30 backdrop-blur-[1px] dark:bg-slate-950/55"
+          className="fixed inset-0 z-30 cursor-default bg-slate-950/30 backdrop-blur-[1px] print:hidden dark:bg-slate-950/55"
           onClick={() => setSidebarOpen(false)}
           type="button"
         />
       ) : null}
 
-      <div className="mx-auto w-full max-w-[92rem] py-5 pl-[4.75rem] pr-5 md:pl-20 md:pr-6 lg:pr-8">
+      <div className="mx-auto w-full max-w-[92rem] py-5 pl-[4.75rem] pr-5 print:max-w-none print:p-0 md:pl-20 md:pr-6 lg:pr-8">
         <main className="min-w-0">{children}</main>
       </div>
     </div>

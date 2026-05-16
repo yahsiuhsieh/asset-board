@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, ListChecks } from "lucide-react";
+import { Building2, FileText, ListChecks } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,12 @@ const navItems = [
     label: "Portfolio",
     value: "portfolio",
     icon: Building2
+  },
+  {
+    href: "/real-estate/annual-report",
+    label: "Reports",
+    value: "annual-report",
+    icon: FileText
   },
   {
     href: "/real-estate/rules",

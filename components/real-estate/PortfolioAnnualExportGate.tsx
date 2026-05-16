@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { FileDown, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { getAnnualQualityIssueDisplay } from "@/lib/real-estate-annual-quality-display";
 import {
   type AnnualQualityIssue,
@@ -17,6 +17,7 @@ interface PortfolioAnnualExportGateProps {
   annualQualityResults: PropertyAnnualQualityResult[];
   annualReportYear: string;
   buttonLabel: string;
+  buttonVariant?: ButtonProps["variant"];
   checkboxId: string;
   dataTestId: string;
   dialogDescription: string;
@@ -103,6 +104,7 @@ export function PortfolioAnnualExportGate({
   annualQualityResults,
   annualReportYear,
   buttonLabel,
+  buttonVariant = "default",
   canExport,
   checkboxId,
   dataTestId,
@@ -160,6 +162,7 @@ export function PortfolioAnnualExportGate({
         disabled={!canClickExport}
         onClick={handleExport}
         type="button"
+        variant={buttonVariant}
       >
         <FileDown className="h-4 w-4" />
         {buttonLabel}

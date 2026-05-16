@@ -85,3 +85,381 @@ body {
     linear-gradient(180deg, rgba(15, 23, 42, 0.72), transparent 22rem),
     hsl(var(--background));
 }
+
+@page {
+  size: letter;
+  margin: 0;
+}
+
+@media print {
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  :root,
+  .dark {
+    --background: 0 0% 100%;
+    --foreground: 225 18% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 225 18% 16%;
+    --primary: 252 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 96%;
+    --secondary-foreground: 225 18% 16%;
+    --muted: 220 18% 95%;
+    --muted-foreground: 223 9% 43%;
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 252 83% 58%;
+    --shadow-soft: 0 12px 32px rgba(50, 50, 93, 0.08);
+    --chart-value: 24 94% 47%;
+    --chart-mortgage: 215 16% 47%;
+    --chart-equity: 160 84% 39%;
+    --chart-rent: 221 83% 53%;
+    --chart-cash-flow: 175 84% 32%;
+    --chart-expense-total: 215 25% 27%;
+    --chart-expense-average: 262 83% 58%;
+    --chart-expense-taxes: 221 83% 53%;
+    --chart-expense-insurance: 199 89% 48%;
+    --chart-expense-maintenance: 160 84% 39%;
+    --chart-expense-hoa: 32 95% 44%;
+    --chart-expense-utilities: 346 77% 49%;
+    --chart-expense-other: 215 16% 47%;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  body {
+    color: hsl(var(--foreground));
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .annual-report-document {
+    background: white !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: hsl(var(--foreground)) !important;
+    max-width: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .dark .annual-report-document,
+  .dark .annual-report-document .dark\:text-foreground,
+  .dark .annual-report-document .dark\:text-muted-foreground {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark .annual-report-document .text-muted-foreground,
+  .dark .annual-report-document .dark\:text-muted-foreground {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  .dark .annual-report-document .text-primary {
+    color: hsl(var(--primary)) !important;
+  }
+
+  .dark .annual-report-document .text-emerald-700,
+  .dark .annual-report-document .dark\:text-emerald-300 {
+    color: rgb(4 120 87) !important;
+  }
+
+  .dark .annual-report-document .text-red-700,
+  .dark .annual-report-document .dark\:text-red-300 {
+    color: rgb(185 28 28) !important;
+  }
+
+  .dark .annual-report-document .text-amber-700,
+  .dark .annual-report-document .dark\:text-amber-300 {
+    color: rgb(180 83 9) !important;
+  }
+
+  .dark .annual-report-document .bg-card,
+  .dark .annual-report-document .dark\:bg-card {
+    background-color: white !important;
+  }
+
+  .dark .annual-report-document .bg-secondary,
+  .dark .annual-report-document .bg-secondary\/60,
+  .dark .annual-report-document .bg-secondary\/70 {
+    background-color: hsl(var(--secondary)) !important;
+  }
+
+  .dark .annual-report-document .border-border {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .dark .annual-report-document .border-emerald-200,
+  .dark .annual-report-document .dark\:border-emerald-800\/70 {
+    border-color: rgb(167 243 208) !important;
+  }
+
+  .dark .annual-report-document .bg-emerald-50,
+  .dark .annual-report-document .dark\:bg-emerald-950\/35 {
+    background-color: rgb(236 253 245) !important;
+  }
+
+  .dark .annual-report-document .text-emerald-800 {
+    color: rgb(6 95 70) !important;
+  }
+
+  .dark .annual-report-document .border-red-200,
+  .dark .annual-report-document .border-red-100,
+  .dark .annual-report-document .dark\:border-red-800\/70,
+  .dark .annual-report-document .dark\:border-red-900\/60 {
+    border-color: rgb(254 202 202) !important;
+  }
+
+  .dark .annual-report-document .bg-red-50,
+  .dark .annual-report-document .bg-red-50\/70,
+  .dark .annual-report-document .dark\:bg-red-950\/35 {
+    background-color: rgb(254 242 242) !important;
+  }
+
+  .dark .annual-report-document .border-amber-200,
+  .dark .annual-report-document .border-amber-100,
+  .dark .annual-report-document .dark\:border-amber-800\/70,
+  .dark .annual-report-document .dark\:border-amber-900\/60 {
+    border-color: rgb(253 230 138) !important;
+  }
+
+  .dark .annual-report-document .bg-amber-50,
+  .dark .annual-report-document .bg-amber-50\/80,
+  .dark .annual-report-document .dark\:bg-amber-950\/35 {
+    background-color: rgb(255 251 235) !important;
+  }
+
+  .annual-report-cover {
+    border: 0 !important;
+    break-inside: avoid;
+    min-height: 0;
+    padding: 12mm !important;
+    page-break-inside: avoid;
+  }
+
+  .annual-report-cover-metrics {
+    gap: 8px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .annual-report-cover-metric {
+    break-inside: avoid;
+    padding: 10px !important;
+    page-break-inside: avoid;
+  }
+
+  .annual-report-cover-label {
+    letter-spacing: 0.02em !important;
+    text-transform: none !important;
+  }
+
+  .annual-report-section-eyebrow {
+    letter-spacing: 0.08em !important;
+  }
+
+  .annual-report-section {
+    border-top: 0 !important;
+    break-before: page;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    page-break-before: always;
+    padding: 12mm !important;
+  }
+
+  .annual-report-section-heading {
+    break-after: avoid;
+    margin-bottom: 10px !important;
+    page-break-after: avoid;
+  }
+
+  .annual-report-section-title {
+    font-size: 18px !important;
+    line-height: 1.2 !important;
+  }
+
+  .annual-report-section-description {
+    font-size: 10.8px !important;
+    line-height: 1.45 !important;
+    max-width: none !important;
+  }
+
+  .annual-report-panel-title {
+    break-after: avoid;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    page-break-after: avoid;
+  }
+
+  .annual-report-panel-label,
+  .annual-report-detail-label {
+    font-size: 10.5px !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.01em !important;
+    line-height: 1.25 !important;
+    text-transform: none !important;
+  }
+
+  .annual-report-metric-grid {
+    break-inside: avoid;
+    gap: 8px !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    page-break-inside: avoid;
+  }
+
+  .annual-report-metric-panel,
+  .annual-report-chart-panel,
+  .annual-report-scorecard,
+  .annual-report-table--keep-together {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .annual-report-metric-panel {
+    padding: 9px 10px !important;
+  }
+
+  .annual-report-metric-icon {
+    height: 12px !important;
+    width: 12px !important;
+  }
+
+  .annual-report-metric-value {
+    font-size: 18px !important;
+    line-height: 1.15 !important;
+    margin-top: 6px !important;
+  }
+
+  .annual-report-chart-panel {
+    margin-top: 6mm !important;
+    padding: 10px !important;
+  }
+
+  .annual-report-scorecard {
+    margin-top: 6mm !important;
+    padding: 10px !important;
+  }
+
+  .annual-report-scorecard-title {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  .annual-report-scorecard-address {
+    font-size: 10.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  .annual-report-scorecard-value {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  .annual-report-scorecard-grid {
+    column-gap: 14px !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    margin-top: 10px !important;
+  }
+
+  .annual-report-detail-metric {
+    padding-bottom: 5px !important;
+    padding-top: 5px !important;
+  }
+
+  .annual-report-detail-value {
+    font-size: 10.8px !important;
+    line-height: 1.25 !important;
+    margin-top: 2px !important;
+  }
+
+  .annual-report-table {
+    margin-top: 6mm !important;
+    max-width: 100%;
+    overflow: visible !important;
+  }
+
+  .annual-report-table--allow-break {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .annual-report-visual {
+    break-inside: avoid;
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+
+  .annual-report-visual svg {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .annual-report-table table {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    min-width: 0 !important;
+    table-layout: fixed;
+    width: 100% !important;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+
+  .annual-report-table thead {
+    display: table-header-group;
+  }
+
+  .annual-report-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .annual-report-table th,
+  .annual-report-table td {
+    overflow-wrap: anywhere;
+    vertical-align: top;
+    white-space: normal;
+  }
+
+  .annual-report-table th {
+    font-size: 10.5px !important;
+    font-weight: 700;
+    letter-spacing: 0 !important;
+    line-height: 1.35;
+    padding: 0.55rem 0.45rem !important;
+    text-transform: none;
+  }
+
+  .annual-report-table td {
+    font-size: 10.5px !important;
+    line-height: 1.45;
+    padding: 0.55rem 0.45rem !important;
+  }
+
+  .annual-report-table-metric-value {
+    font-size: 10.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  .annual-report-table-bar {
+    height: 5px !important;
+  }
+
+  .annual-report-table--compact table {
+    table-layout: fixed;
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+
+  .annual-report-table--compact th,
+  .annual-report-table--compact td {
+    padding: 0.42rem 0.35rem !important;
+  }
+}
