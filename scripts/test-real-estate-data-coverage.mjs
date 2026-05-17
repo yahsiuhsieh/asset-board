@@ -290,8 +290,6 @@ function monthlyReview(month, overrides = {}) {
     id: `review-${month}`,
     assetId: "property-1",
     reviewMonth: `${month}-01`,
-    rentStatus: "ready",
-    expenseStatus: "ready",
     closedAt: "2026-02-01T12:00:00.000Z",
     note: null,
     ...overrides

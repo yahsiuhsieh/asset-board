@@ -75,10 +75,6 @@ export function getPortfolioAnnualReportYears(
   const years = new Set<string>([currentYear]);
 
   for (const property of properties) {
-    if (property.purchasedAt) {
-      years.add(property.purchasedAt.slice(0, 4));
-    }
-
     for (const transaction of property.propertyTransactions) {
       years.add(getTransactionYear(transaction));
 

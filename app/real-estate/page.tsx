@@ -4,7 +4,7 @@ import {
   getPortfolioAnnualQualityResults,
   getPortfolioAnnualReportYears
 } from "@/lib/real-estate-annual-quality";
-import { getRealEstateAssetsWithPhotos } from "@/lib/real-estate";
+import { getRealEstateAssetsWithCoverPhoto } from "@/lib/real-estate";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ function getRequestedAnnualReportYear(
 }
 
 export default async function RealEstatePage({ searchParams }: PageProps) {
-  const properties = await getRealEstateAssetsWithPhotos();
+  const properties = await getRealEstateAssetsWithCoverPhoto();
   const resolvedSearchParams = await searchParams;
   const annualReportYears = getPortfolioAnnualReportYears(properties);
   const selectedAnnualReportYear = getDefaultPortfolioAnnualReportYear(

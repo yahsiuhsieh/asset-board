@@ -269,7 +269,6 @@ export function RealEstateListPage({
       <section className="grid grid-cols-1 gap-5">
         {properties.length > 0 ? (
           properties.map((property) => {
-            const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
             const netCashFlow = calculateMonthlyNetCashFlow(property);
             const propertyEquity = calculatePropertyEquity(property);
             const coverageStatus = getPropertyCardCoverageStatus(
@@ -287,7 +286,7 @@ export function RealEstateListPage({
                   <PropertyImage
                     alt={property.name}
                     className="relative min-h-[15rem]"
-                    src={coverPhoto?.signedUrl}
+                    src={property.coverPhoto?.signedUrl}
                   />
                   <div className="grid gap-4 p-5">
                     <div className="flex items-start justify-between gap-4">

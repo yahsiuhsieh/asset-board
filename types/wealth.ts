@@ -31,6 +31,7 @@ export interface RealEstateAsset extends BaseAsset {
   type: "real-estate";
   address: string;
   rentalStatus: RealEstateRentalStatus;
+  coverPhoto: RealEstateCoverPhoto | null;
   latitude?: number | null;
   longitude?: number | null;
   mapZoom: number;
@@ -46,9 +47,6 @@ export interface RealEstateAsset extends BaseAsset {
   buildingCost: number;
   landCost: number;
   totalDepreciation: number;
-  rentCollectionMonth?: string | null;
-  rentCollectedAmount: number;
-  rentCollectedAt?: string | null;
   rentMatchTolerance: number;
   propertyTransactions?: RealEstatePropertyTransaction[];
 }
@@ -57,7 +55,7 @@ export interface RealEstateBankConnection {
   id: string;
   assetId: string;
   provider: "plaid";
-  providerItemId: string | null;
+  providerItemId: string;
   accountId: string;
   accountName: string;
   accountType: string | null;
@@ -124,25 +122,16 @@ export interface RealEstatePropertyTransaction {
   note: string | null;
 }
 
-export type RealEstateMonthlyReviewStatus = "ready" | "needs_review";
-
 export interface RealEstateMonthlyReview {
   id: string;
   assetId: string;
   reviewMonth: string;
-  rentStatus: RealEstateMonthlyReviewStatus;
-  expenseStatus: RealEstateMonthlyReviewStatus;
   closedAt: string | null;
   note: string | null;
 }
 
-export interface RealEstatePhoto {
-  id: string;
-  assetId: string;
+export interface RealEstateCoverPhoto {
   storagePath: string;
-  caption: string | null;
-  sortOrder: number;
-  isCover: boolean;
   signedUrl: string | null;
 }
 
@@ -163,7 +152,6 @@ export interface RealEstateMetricSnapshot {
 }
 
 export interface RealEstateAssetDetail extends RealEstateAsset {
-  photos: RealEstatePhoto[];
   snapshots: RealEstateMetricSnapshot[];
   propertyTransactions: RealEstatePropertyTransaction[];
   bankConnections: RealEstateBankConnection[];

@@ -31,8 +31,6 @@ function makeMonthlyReviews(assetId: string, startMonth = 1) {
     id: `${assetId}-review-${month}`,
     assetId,
     reviewMonth: `${fixtureYear}-${month}-01`,
-    rentStatus: "ready" as const,
-    expenseStatus: "ready" as const,
     closedAt: `${fixtureYear}-${month}-27T16:00:00.000Z`,
     note: "E2E fixture monthly review."
   }));
@@ -247,21 +245,11 @@ function makeProperty({
     buildingCost,
     landCost,
     totalDepreciation: Math.round(buildingCost * 0.03),
-    rentCollectionMonth: "2026-04-01",
-    rentCollectedAmount: monthlyRent,
-    rentCollectedAt: "2026-04-05",
     rentMatchTolerance: 75,
-    photos: [
-      {
-        id: `${propertyId}-photo-cover`,
-        assetId: propertyId,
-        storagePath: `${propertyId}/cover.jpg`,
-        caption: "Front exterior",
-        sortOrder: 1,
-        isCover: true,
-        signedUrl: null
-      }
-    ],
+    coverPhoto: {
+      storagePath: `${propertyId}/cover.jpg`,
+      signedUrl: null
+    },
     snapshots: makeSnapshots({
       assetId: propertyId,
       currentMarketValue,
@@ -370,7 +358,7 @@ const fixtureRules: RealEstateTransactionRule[] = [
 function cloneProperty(property: RealEstateAssetDetail): RealEstateAssetDetail {
   return {
     ...property,
-    photos: property.photos.map((photo) => ({ ...photo })),
+    coverPhoto: property.coverPhoto ? { ...property.coverPhoto } : null,
     snapshots: property.snapshots.map((snapshot) => ({ ...snapshot })),
     propertyTransactions: property.propertyTransactions.map((transaction) => ({
       ...transaction
@@ -382,18 +370,19 @@ function cloneProperty(property: RealEstateAssetDetail): RealEstateAssetDetail {
   };
 }
 
-export function getE2ERealEstateAssetsWithPhotos(): RealEstateAssetDetail[] {
+export function getE2ERealEstateAssetsWithCoverPhoto(): RealEstateAssetDetail[] {
   return fixtureProperties.map(cloneProperty);
 }
 
 export function getE2ERealEstateAssets(): RealEstateAsset[] {
-  return getE2ERealEstateAssetsWithPhotos().map((property) => ({
+  return getE2ERealEstateAssetsWithCoverPhoto().map((property) => ({
     id: property.id,
     name: property.name,
     type: property.type,
     value: property.value,
     address: property.address,
     rentalStatus: property.rentalStatus,
+    coverPhoto: property.coverPhoto ? { ...property.coverPhoto } : null,
     latitude: property.latitude,
     longitude: property.longitude,
     mapZoom: property.mapZoom,
@@ -409,9 +398,6 @@ export function getE2ERealEstateAssets(): RealEstateAsset[] {
     buildingCost: property.buildingCost,
     landCost: property.landCost,
     totalDepreciation: property.totalDepreciation,
-    rentCollectionMonth: property.rentCollectionMonth,
-    rentCollectedAmount: property.rentCollectedAmount,
-    rentCollectedAt: property.rentCollectedAt,
     rentMatchTolerance: property.rentMatchTolerance,
     propertyTransactions: property.propertyTransactions.map((transaction) => ({
       ...transaction
@@ -423,7 +409,7 @@ export function getE2ERealEstateAssetDetail(
   assetId: string
 ): RealEstateAssetDetail | null {
   return (
-    getE2ERealEstateAssetsWithPhotos().find((property) => property.id === assetId) ??
+    getE2ERealEstateAssetsWithCoverPhoto().find((property) => property.id === assetId) ??
     null
   );
 }

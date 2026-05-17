@@ -1,21 +1,14 @@
 import Link from "next/link";
 import {
   ArrowLeft,
-  Camera,
   ChartNoAxesCombined,
   Home,
   Info,
   MapPin,
-  Star,
-  Trash2,
   TrendingUp,
   Wallet
 } from "lucide-react";
 
-import {
-  deletePropertyPhoto,
-  setCoverPhoto
-} from "@/app/actions/real-estate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   calculateAnnualNOI,
@@ -32,9 +25,9 @@ import type { PropertyAnnualQualityResult } from "@/lib/real-estate-annual-quali
 import type { PropertyValuationUsageStatus } from "@/lib/valuations/property-valuation-usage";
 import type { RealEstateAssetDetail } from "@/types/wealth";
 import { BankConnectionDialog } from "./BankConnectionDialog";
+import { CoverPhotoUploadButton } from "./CoverPhotoUploadButton";
 import { EditPropertyDialog } from "./EditPropertyDialog";
 import { MonthlyReviewWorkspace } from "./MonthlyReviewWorkspace";
-import { PhotoUploadForm } from "./PhotoUploadForm";
 import { PropertyAnnualReportIssues } from "./PropertyAnnualReportIssues";
 import { PropertyHistoryCharts } from "./PropertyHistoryCharts";
 import { PropertyImage } from "./PropertyImage";
@@ -161,7 +154,7 @@ export function PropertyDetailPage({
   propertyOptions,
   valuationUsage
 }: PropertyDetailPageProps) {
-  const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
+  const coverPhoto = property.coverPhoto;
   const currentMonthExpenses = getRecordedExpensesForMonth(property.propertyTransactions);
   const ytdAverageMonthlyExpenses = getYtdAverageMonthlyOperatingExpenses(property);
   const netCashFlow = calculateMonthlyNetCashFlow(property);
@@ -200,6 +193,10 @@ export function PropertyDetailPage({
               className="relative min-h-[20rem] overflow-hidden rounded-md md:min-h-[28rem]"
               priority
               src={coverPhoto?.signedUrl}
+            />
+            <CoverPhotoUploadButton
+              assetId={property.id}
+              hasCoverPhoto={Boolean(coverPhoto)}
             />
             <div className="absolute bottom-4 right-4 rounded-md bg-card/95 px-4 py-3 text-right shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -397,76 +394,6 @@ export function PropertyDetailPage({
             <PropertyMap property={property} />
             <p className="mt-3 text-sm text-muted-foreground">{property.address}</p>
             <PropertyLocationForm property={property} />
-          </CardContent>
-        </Card>
-      </section>
-
-      <section>
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Camera className="h-5 w-5" />
-              Photos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5">
-            <PhotoUploadForm assetId={property.id} />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {property.photos.length > 0 ? (
-                property.photos.map((photo) => (
-                  <div className="rounded-md border border-border p-3" key={photo.id}>
-                    <PropertyImage
-                      alt={photo.caption ?? property.name}
-                      className="relative min-h-[12rem]"
-                      src={photo.signedUrl}
-                    />
-                    <div className="mt-3 flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {photo.caption || "Property photo"}
-                        </p>
-                        {photo.isCover ? (
-                          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                            Cover
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex gap-2">
-                        {!photo.isCover ? (
-                          <form action={setCoverPhoto}>
-                            <input name="assetId" type="hidden" value={property.id} />
-                            <input name="photoId" type="hidden" value={photo.id} />
-                            <button
-                              className="rounded-md border border-border p-2 text-muted-foreground hover:text-primary"
-                              title="Set cover"
-                              type="submit"
-                            >
-                              <Star className="h-4 w-4" />
-                            </button>
-                          </form>
-                        ) : null}
-                        <form action={deletePropertyPhoto}>
-                          <input name="assetId" type="hidden" value={property.id} />
-                          <input name="photoId" type="hidden" value={photo.id} />
-                          <input name="storagePath" type="hidden" value={photo.storagePath} />
-                          <button
-                            className="rounded-md border border-border p-2 text-red-600 dark:text-red-400"
-                            title="Delete photo"
-                            type="submit"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-md border border-border bg-secondary p-5 text-sm font-semibold text-muted-foreground md:col-span-2 xl:col-span-3">
-                  No photos uploaded yet.
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
       </section>

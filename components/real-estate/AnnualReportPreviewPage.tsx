@@ -1017,10 +1017,6 @@ export function AnnualReportPreviewPage({
                 onExport={downloadAnnualReportCsv}
               />
             </div>
-            <p className="max-w-md text-xs font-medium leading-5 text-muted-foreground sm:text-right">
-              PDF output uses a light print layout. If Chrome still shows browser
-              headers or footers, turn off Headers and footers in print settings.
-            </p>
           </div>
         </div>
         <RealEstatePortfolioNav active="annual-report" />

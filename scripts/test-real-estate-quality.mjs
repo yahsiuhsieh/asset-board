@@ -131,8 +131,6 @@ function monthlyReview(month, overrides = {}) {
     id: `review-${month}`,
     assetId: "property-1",
     reviewMonth: `${month}-01`,
-    rentStatus: "ready",
-    expenseStatus: "ready",
     closedAt: "2026-05-01T12:00:00.000Z",
     note: null,
     ...overrides
@@ -186,6 +184,27 @@ function issueCodes(result, severity) {
 
   return Array.from(issues, (issue) => issue.code);
 }
+
+test("annual report years ignore purchase dates without reporting activity", () => {
+  const years = helpers.getPortfolioAnnualReportYears(
+    [
+      property({
+        purchasedAt: "2020-05-01",
+        propertyTransactions: [
+          transaction({ postedAt: "2025-12-31" }),
+          transaction({
+            postedAt: "2024-12-31",
+            rentPeriodMonth: "2023-12-01"
+          })
+        ],
+        monthlyReviews: [monthlyReview("2022-11")]
+      })
+    ],
+    "2026"
+  );
+
+  assert.deepEqual(Array.from(years), ["2026", "2025", "2024", "2023", "2022"]);
+});
 
 test("rented property with missing rent months has a blocking issue", () => {
   const result = helpers.getPropertyAnnualQualityResult(

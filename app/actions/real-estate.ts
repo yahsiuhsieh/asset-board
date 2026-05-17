@@ -366,7 +366,7 @@ interface PropertyBankConnectionRow {
   institution_name: string | null;
   institution_id: string | null;
   last_four: string | null;
-  provider_item_id: string | null;
+  provider_item_id: string;
   status: string;
   last_synced_at: string | null;
   raw_transactions_synced_start_date: string | null;
@@ -4005,8 +4005,6 @@ export async function closeMonthlyReview(
       {
         asset_id: assetId,
         review_month: assessment.reviewMonthDate,
-        rent_status: assessment.rentStatus,
-        expense_status: assessment.expenseStatus,
         closed_at: now,
         note,
         updated_at: now
@@ -4054,8 +4052,6 @@ export async function reopenMonthlyReview(
     const { data, error } = await supabase
       .from("real_estate_monthly_reviews")
       .update({
-        rent_status: assessment.rentStatus,
-        expense_status: assessment.expenseStatus,
         closed_at: null,
         updated_at: now
       })
@@ -4073,8 +4069,6 @@ export async function reopenMonthlyReview(
         .insert({
           asset_id: assetId,
           review_month: assessment.reviewMonthDate,
-          rent_status: assessment.rentStatus,
-          expense_status: assessment.expenseStatus,
           closed_at: null,
           note: null,
           updated_at: now
@@ -4193,9 +4187,21 @@ export async function uploadPropertyPhoto(
 ): Promise<RealEstateActionState> {
   try {
     const file = getPhotoFile(formData);
-    const caption = readText(formData, "caption") || null;
     const storagePath = `${assetId}/${getSafeFileName(file.name)}`;
     const supabase = createServerSupabaseClient();
+    const { data: property, error: loadError } = await supabase
+      .from("real_estate_properties")
+      .select("cover_photo_storage_path")
+      .eq("asset_id", assetId)
+      .single();
+
+    if (loadError) {
+      return errorState(`Could not load property: ${loadError.message}`);
+    }
+
+    const previousStoragePath =
+      (property as { cover_photo_storage_path: string | null } | null)
+        ?.cover_photo_storage_path ?? null;
 
     const { error: uploadError } = await supabase.storage
       .from(PROPERTY_PHOTO_BUCKET)
@@ -4208,82 +4214,28 @@ export async function uploadPropertyPhoto(
       return errorState(`Could not upload photo: ${uploadError.message}`);
     }
 
-    const { count } = await supabase
-      .from("real_estate_photos")
-      .select("id", { count: "exact", head: true })
+    const { error: updateError } = await supabase
+      .from("real_estate_properties")
+      .update({
+        cover_photo_storage_path: storagePath,
+        updated_at: new Date().toISOString()
+      })
       .eq("asset_id", assetId);
 
-    const { error: insertError } = await supabase.from("real_estate_photos").insert({
-      asset_id: assetId,
-      storage_path: storagePath,
-      caption,
-      sort_order: count ?? 0,
-      is_cover: (count ?? 0) === 0
-    });
-
-    if (insertError) {
+    if (updateError) {
       await supabase.storage.from(PROPERTY_PHOTO_BUCKET).remove([storagePath]);
-      return errorState(`Could not save photo: ${insertError.message}`);
+      return errorState(`Could not save cover photo: ${updateError.message}`);
+    }
+
+    if (previousStoragePath && previousStoragePath !== storagePath) {
+      await supabase.storage.from(PROPERTY_PHOTO_BUCKET).remove([previousStoragePath]);
     }
 
     revalidatePropertyPages(assetId);
-    return successState("Photo uploaded.");
+    return successState("Cover photo updated.");
   } catch (error) {
-    return errorState(error instanceof Error ? error.message : "Could not upload photo.");
+    return errorState(error instanceof Error ? error.message : "Could not upload cover photo.");
   }
-}
-
-export async function deletePropertyPhoto(formData: FormData) {
-  const assetId = readText(formData, "assetId");
-  const photoId = readText(formData, "photoId");
-  const storagePath = readText(formData, "storagePath");
-
-  if (!assetId || !photoId || !storagePath) {
-    throw new Error("Missing photo information.");
-  }
-
-  const supabase = createServerSupabaseClient();
-  const { error: deleteError } = await supabase
-    .from("real_estate_photos")
-    .delete()
-    .eq("id", photoId);
-
-  if (deleteError) {
-    throw new Error(`Could not delete photo: ${deleteError.message}`);
-  }
-
-  await supabase.storage.from(PROPERTY_PHOTO_BUCKET).remove([storagePath]);
-  revalidatePropertyPages(assetId);
-}
-
-export async function setCoverPhoto(formData: FormData) {
-  const assetId = readText(formData, "assetId");
-  const photoId = readText(formData, "photoId");
-
-  if (!assetId || !photoId) {
-    throw new Error("Missing photo information.");
-  }
-
-  const supabase = createServerSupabaseClient();
-  const { error: resetError } = await supabase
-    .from("real_estate_photos")
-    .update({ is_cover: false })
-    .eq("asset_id", assetId);
-
-  if (resetError) {
-    throw new Error(`Could not update cover photo: ${resetError.message}`);
-  }
-
-  const { error: coverError } = await supabase
-    .from("real_estate_photos")
-    .update({ is_cover: true })
-    .eq("id", photoId);
-
-  if (coverError) {
-    throw new Error(`Could not update cover photo: ${coverError.message}`);
-  }
-
-  revalidatePropertyPages(assetId);
 }
 
 function readMetricType(formData: FormData): RealEstateMetricType {

@@ -22,7 +22,7 @@ interface MonthWindow {
 interface PropertyValuationUsageRow {
   asset_id: string;
   current_market_value_live_sync_count: number | string | null;
-  current_market_value_live_synced_at: string | null;
+  current_market_value_synced_at: string | null;
 }
 
 function getCurrentMonthWindow(now = new Date()): MonthWindow {
@@ -44,7 +44,7 @@ function isInMonth(value: string | null, month: MonthWindow): boolean {
 }
 
 function getMonthlyUsageCount(row: PropertyValuationUsageRow, month: MonthWindow): number {
-  if (!isInMonth(row.current_market_value_live_synced_at, month)) {
+  if (!isInMonth(row.current_market_value_synced_at, month)) {
     return 0;
   }
 
@@ -96,9 +96,7 @@ export async function getPropertyValuationUsageStatus(): Promise<PropertyValuati
   const month = getCurrentMonthWindow();
   const { data, error } = await supabase
     .from("real_estate_properties")
-    .select(
-      "asset_id, current_market_value_live_sync_count, current_market_value_live_synced_at"
-    );
+    .select("asset_id, current_market_value_live_sync_count, current_market_value_synced_at");
 
   if (error) {
     return getUnavailableUsageStatus(
@@ -131,7 +129,7 @@ export async function recordPropertyValuationUsage(assetId: string, syncedAt: st
   const month = getCurrentMonthWindow(new Date(syncedAt));
   const { data, error: loadError } = await supabase
     .from("real_estate_properties")
-    .select("asset_id, current_market_value_live_sync_count, current_market_value_live_synced_at")
+    .select("asset_id, current_market_value_live_sync_count, current_market_value_synced_at")
     .eq("asset_id", assetId)
     .single();
 
@@ -144,8 +142,7 @@ export async function recordPropertyValuationUsage(assetId: string, syncedAt: st
   const { error: updateError } = await supabase
     .from("real_estate_properties")
     .update({
-      current_market_value_live_sync_count: currentCount + 1,
-      current_market_value_live_synced_at: syncedAt
+      current_market_value_live_sync_count: currentCount + 1
     })
     .eq("asset_id", assetId);
 

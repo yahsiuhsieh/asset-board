@@ -10,7 +10,7 @@ export interface ReusablePlaidBankConnectionRow {
   institution_name: string | null;
   institution_id: string | null;
   last_four: string | null;
-  provider_item_id: string | null;
+  provider_item_id: string;
   status: string;
 }
 
@@ -22,7 +22,7 @@ export interface LinkablePlaidBankConnectionOption {
   institutionName: string | null;
   institutionId: string | null;
   lastFour: string | null;
-  providerItemId: string | null;
+  providerItemId: string;
   linkedPropertyCount: number;
 }
 
@@ -30,7 +30,7 @@ export interface PlaidAccountSyncConnection {
   access_token: string;
   account_id: string;
   last_synced_at: string | null;
-  provider_item_id: string | null;
+  provider_item_id: string;
   raw_transactions_synced_end_date: string | null;
   raw_transactions_synced_start_date: string | null;
   status: string;
