@@ -75,6 +75,14 @@ export function getAnnualQualityIssueDisplay(
     };
   }
 
+  if (issue.code === "incomplete_bank_coverage") {
+    return {
+      detail: formatIssueMonths(issue.months) ?? "Run Check & Sync or reconnect accounts",
+      meta: formatIssueCount(issue.count, "month", "months"),
+      title: issue.title
+    };
+  }
+
   if (issue.code === "unclassified_expense_transactions") {
     return {
       detail: "Review in Expense Transactions",

@@ -68,6 +68,8 @@ export interface RealEstateBankConnection {
   status: "active" | "disconnected";
   connectedAt: string;
   lastSyncedAt: string | null;
+  rawTransactionsSyncedStartDate: string | null;
+  rawTransactionsSyncedEndDate: string | null;
 }
 
 export type RealEstateDataSource = "manual" | "chase";

@@ -84,6 +84,12 @@ const coverMetricClassName =
 const coverMetricLabelClassName =
   "annual-report-cover-label text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground print:text-slate-500";
 
+function formatSvgNumber(value: number): string {
+  const rounded = Number(value.toFixed(3));
+
+  return Object.is(rounded, -0) ? "0" : String(rounded);
+}
+
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
@@ -450,8 +456,8 @@ function getPointOnCircle(
   const radians = (angle * Math.PI) / 180;
 
   return {
-    x: centerX + radius * Math.cos(radians),
-    y: centerY + radius * Math.sin(radians)
+    x: Number(formatSvgNumber(centerX + radius * Math.cos(radians))),
+    y: Number(formatSvgNumber(centerY + radius * Math.sin(radians)))
   };
 }
 
@@ -478,10 +484,14 @@ function getDonutSegmentPath({
   const largeArcFlag = safeEndAngle - startAngle > 180 ? 1 : 0;
 
   return [
-    `M ${outerStart.x} ${outerStart.y}`,
-    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${outerEnd.x} ${outerEnd.y}`,
-    `L ${innerEnd.x} ${innerEnd.y}`,
-    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${innerStart.x} ${innerStart.y}`,
+    `M ${formatSvgNumber(outerStart.x)} ${formatSvgNumber(outerStart.y)}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${formatSvgNumber(
+      outerEnd.x
+    )} ${formatSvgNumber(outerEnd.y)}`,
+    `L ${formatSvgNumber(innerEnd.x)} ${formatSvgNumber(innerEnd.y)}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${formatSvgNumber(
+      innerStart.x
+    )} ${formatSvgNumber(innerStart.y)}`,
     "Z"
   ].join(" ");
 }
@@ -614,11 +624,11 @@ function ExpenseDonutCallout({
     <g>
       <path
         d={[
-          `M ${start.x} ${start.y}`,
-          `L ${shoulder.x} ${shoulder.y}`,
-          `L ${railX} ${shoulder.y}`,
-          `L ${railX} ${labelY}`,
-          `L ${lineEndX} ${labelY}`
+          `M ${formatSvgNumber(start.x)} ${formatSvgNumber(start.y)}`,
+          `L ${formatSvgNumber(shoulder.x)} ${formatSvgNumber(shoulder.y)}`,
+          `L ${formatSvgNumber(railX)} ${formatSvgNumber(shoulder.y)}`,
+          `L ${formatSvgNumber(railX)} ${formatSvgNumber(labelY)}`,
+          `L ${formatSvgNumber(lineEndX)} ${formatSvgNumber(labelY)}`
         ].join(" ")}
         fill="none"
         stroke={segment.color}
@@ -626,14 +636,19 @@ function ExpenseDonutCallout({
         strokeLinejoin="round"
         strokeWidth="1.6"
       />
-      <circle cx={start.x} cy={start.y} fill={segment.color} r="3.5" />
+      <circle
+        cx={formatSvgNumber(start.x)}
+        cy={formatSvgNumber(start.y)}
+        fill={segment.color}
+        r="3.5"
+      />
       <text
         fill="hsl(var(--foreground))"
         fontSize="13"
         fontWeight="800"
         textAnchor={textAnchor}
-        x={labelX}
-        y={labelY - 12}
+        x={formatSvgNumber(labelX)}
+        y={formatSvgNumber(labelY - 12)}
       >
         {segment.row.label}
       </text>
@@ -642,8 +657,8 @@ function ExpenseDonutCallout({
         fontSize="12"
         fontWeight="700"
         textAnchor={textAnchor}
-        x={labelX}
-        y={labelY + 5}
+        x={formatSvgNumber(labelX)}
+        y={formatSvgNumber(labelY + 5)}
       >
         {formatCurrency(segment.row.amount)} · {formatPercent(segment.row.shareOfExpenses)}
       </text>
@@ -652,8 +667,8 @@ function ExpenseDonutCallout({
         fontSize="11"
         fontWeight="600"
         textAnchor={textAnchor}
-        x={labelX}
-        y={labelY + 21}
+        x={formatSvgNumber(labelX)}
+        y={formatSvgNumber(labelY + 21)}
       >
         {formatIssueCount(segment.row.transactionCount, "transaction", "transactions")}
       </text>
@@ -881,6 +896,7 @@ export function AnnualReportPreviewPage({
   const searchParams = useSearchParams();
   const hasReportData =
     report.statement.propertyRows.length > 0 || report.transactionRows.length > 0;
+  const hasHardBlockingIssues = report.status.hardBlockingIssueCount > 0;
   const performanceRows: ReportBarRow[] = [
     {
       color: chartColors.rent,
@@ -973,7 +989,16 @@ export function AnnualReportPreviewPage({
                   </option>
                 ))}
               </select>
-              <Button onClick={printReport} type="button">
+              <Button
+                disabled={hasHardBlockingIssues}
+                onClick={printReport}
+                title={
+                  hasHardBlockingIssues
+                    ? "Fix hard blocking issues before printing this report."
+                    : undefined
+                }
+                type="button"
+              >
                 <Printer className="h-4 w-4" />
                 Print / Save PDF
               </Button>
@@ -998,6 +1023,11 @@ export function AnnualReportPreviewPage({
           </div>
         </div>
         <RealEstatePortfolioNav active="annual-report" />
+        {hasHardBlockingIssues ? (
+          <div className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/35 dark:text-red-300">
+            Annual report output is blocked until hard data issues are fixed.
+          </div>
+        ) : null}
       </div>
 
       <article className="annual-report-document mx-auto w-full max-w-[72rem] overflow-hidden rounded-lg border border-border bg-card shadow-soft print:max-w-none print:rounded-none print:border-0 print:bg-white print:shadow-none">

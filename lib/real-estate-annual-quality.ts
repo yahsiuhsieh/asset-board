@@ -3,6 +3,7 @@ import type {
   RealEstatePropertyTransaction,
   RealEstateRentalStatus
 } from "@/types/wealth";
+import { getPropertyAnnualDataCoverageIssues } from "@/lib/real-estate-data-coverage";
 import {
   getPropertyReviewMonths,
   getRentRecognitionMonth,
@@ -19,6 +20,7 @@ export type AnnualQualityIssueCode =
   | "missing_expense_category"
   | "no_expenses_recorded"
   | "low_coverage"
+  | "incomplete_bank_coverage"
   | "vacant_rent_check_skipped";
 
 export interface AnnualQualityIssue {
@@ -154,6 +156,11 @@ export function getPropertyAnnualQualityResult(
   const mockLedgerTransactions = transactions.filter(
     (transaction) => transaction.provider === "mock"
   );
+  const incompleteBankCoverageMonths = getPropertyAnnualDataCoverageIssues({
+    property,
+    today,
+    year
+  }).map((assessment) => assessment.reviewMonth);
   const issues: AnnualQualityIssue[] = [];
   const missingRentMonths =
     property.monthlyRent > 0
@@ -170,6 +177,21 @@ export function getPropertyAnnualQualityResult(
         description:
           "Mock bank transactions are recorded in this year's ledger. Remove them before exporting the annual report.",
         count: mockLedgerTransactions.length
+      })
+    );
+  }
+
+  if (incompleteBankCoverageMonths.length > 0) {
+    issues.push(
+      makeIssue({
+        id: `${property.id}:incomplete-bank-coverage`,
+        code: "incomplete_bank_coverage",
+        severity: "blocking",
+        title: "Incomplete bank coverage",
+        description:
+          "Bank-linked raw transaction sync does not cover every expected month in this report year.",
+        months: incompleteBankCoverageMonths,
+        count: incompleteBankCoverageMonths.length
       })
     );
   }
@@ -315,7 +337,10 @@ export function hasBlockingAnnualQualityIssues(
 }
 
 export function isHardBlockingAnnualQualityIssue(issue: AnnualQualityIssue): boolean {
-  return issue.code === "mock_ledger_transactions";
+  return (
+    issue.code === "mock_ledger_transactions" ||
+    issue.code === "incomplete_bank_coverage"
+  );
 }
 
 export function hasHardBlockingAnnualQualityIssues(

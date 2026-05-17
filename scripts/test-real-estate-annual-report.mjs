@@ -52,6 +52,11 @@ const transactionExportHelpers = await loadTsModule(
   }
 );
 const helpers = await loadTsModule("../lib/real-estate-annual-report.ts", {
+  "@/lib/real-estate-annual-quality": {
+    isHardBlockingAnnualQualityIssue: (issue) =>
+      issue.code === "mock_ledger_transactions" ||
+      issue.code === "incomplete_bank_coverage"
+  },
   "@/lib/real-estate-annual-statement": annualStatementHelpers,
   "@/lib/real-estate-transaction-export": transactionExportHelpers
 });

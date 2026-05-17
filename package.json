@@ -10,6 +10,7 @@
     "lint": "eslint . --max-warnings=0",
     "test:real-estate-export": "node --test scripts/test-real-estate-transaction-export.mjs",
     "test:real-estate-annual-report": "node --test scripts/test-real-estate-annual-report.mjs",
+    "test:real-estate-data-coverage": "node --test scripts/test-real-estate-data-coverage.mjs",
     "test:real-estate-history": "node --test scripts/test-real-estate-history.mjs",
     "test:real-estate-monthly-review": "node --test scripts/test-real-estate-monthly-review.mjs",
     "test:real-estate-provider-containment": "node --test scripts/test-real-estate-provider-containment.mjs",

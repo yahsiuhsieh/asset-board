@@ -9,9 +9,10 @@ import {
   getPortfolioAnnualExportRows,
   type PortfolioAnnualTransactionExportRow
 } from "@/lib/real-estate-transaction-export";
-import type {
-  AnnualQualityIssue,
-  PropertyAnnualQualityResult
+import {
+  isHardBlockingAnnualQualityIssue,
+  type AnnualQualityIssue,
+  type PropertyAnnualQualityResult
 } from "@/lib/real-estate-annual-quality";
 import type {
   RealEstateAssetDetail,
@@ -142,9 +143,7 @@ function getHardBlockingIssueCount(
   return annualQualityResults.reduce(
     (total, result) =>
       total +
-      result.blockingIssues.filter(
-        (issue) => issue.code === "mock_ledger_transactions"
-      ).length,
+      result.blockingIssues.filter(isHardBlockingAnnualQualityIssue).length,
     0
   );
 }

@@ -22,8 +22,11 @@ import {
 } from "@/lib/calculations";
 import { getExternalMapUrl } from "@/lib/maps";
 import type { PropertyAnnualQualityResult } from "@/lib/real-estate-annual-quality";
+import { getMonthlyDataCoverageAssessment } from "@/lib/real-estate-data-coverage";
+import { getPropertyReviewMonths } from "@/lib/real-estate-monthly-review";
 import { getRentalIncomeForMonth } from "@/lib/real-estate-rent";
 import type { RealEstateAssetDetail } from "@/types/wealth";
+import { DataCoverageBadge } from "./DataCoverageBadge";
 import { PortfolioAnnualReportActions } from "./PortfolioAnnualReportActions";
 import { PropertyImage } from "./PropertyImage";
 import { PropertyMap } from "./PropertyMap";
@@ -75,6 +78,22 @@ function getRentalStatusClassName(status: RealEstateAssetDetail["rentalStatus"])
   return status === "vacant"
     ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300"
     : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-300";
+}
+
+function getCurrentReviewMonth(): string {
+  const now = new Date();
+
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getPropertyCardCoverageStatus(
+  property: RealEstateAssetDetail,
+  annualReportYear: string
+) {
+  const reviewMonths = getPropertyReviewMonths(property, annualReportYear);
+  const reviewMonth = reviewMonths[reviewMonths.length - 1] ?? getCurrentReviewMonth();
+
+  return getMonthlyDataCoverageAssessment(property, reviewMonth).status;
 }
 
 function MetricTile({
@@ -253,6 +272,10 @@ export function RealEstateListPage({
             const coverPhoto = property.photos.find((photo) => photo.isCover) ?? property.photos[0];
             const netCashFlow = calculateMonthlyNetCashFlow(property);
             const propertyEquity = calculatePropertyEquity(property);
+            const coverageStatus = getPropertyCardCoverageStatus(
+              property,
+              annualReportYear
+            );
 
             return (
               <Card className="overflow-hidden border-border bg-card" key={property.id}>
@@ -276,13 +299,16 @@ export function RealEstateListPage({
                         >
                           {property.address}
                         </a>
-                        <span
-                          className={`mt-2 inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${getRentalStatusClassName(
-                            property.rentalStatus
-                          )}`}
-                        >
-                          {getRentalStatusLabel(property.rentalStatus)}
-                        </span>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span
+                            className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${getRentalStatusClassName(
+                              property.rentalStatus
+                            )}`}
+                          >
+                            {getRentalStatusLabel(property.rentalStatus)}
+                          </span>
+                          <DataCoverageBadge status={coverageStatus} />
+                        </div>
                       </div>
                       <Link
                         className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary"

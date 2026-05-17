@@ -29,6 +29,40 @@ async function loadQualityHelpers() {
     }
   );
 
+  const dataCoverageSource = await readFile(
+    new URL("../lib/real-estate-data-coverage.ts", import.meta.url),
+    "utf8"
+  );
+  const { outputText: dataCoverageOutput } = ts.transpileModule(
+    dataCoverageSource,
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020
+      }
+    }
+  );
+  const dataCoverageModule = { exports: {} };
+
+  vm.runInNewContext(
+    dataCoverageOutput,
+    {
+      exports: dataCoverageModule.exports,
+      module: dataCoverageModule,
+      require: (specifier) => {
+        if (specifier === "@/lib/real-estate-monthly-review") {
+          return monthlyReviewModule.exports;
+        }
+
+        throw new Error(`Unexpected require: ${specifier}`);
+      }
+    },
+    {
+      filename: "real-estate-data-coverage.ts"
+    }
+  );
+
   const source = await readFile(
     new URL("../lib/real-estate-annual-quality.ts", import.meta.url),
     "utf8"
@@ -50,6 +84,10 @@ async function loadQualityHelpers() {
       require: (specifier) => {
         if (specifier === "@/lib/real-estate-monthly-review") {
           return monthlyReviewModule.exports;
+        }
+
+        if (specifier === "@/lib/real-estate-data-coverage") {
+          return dataCoverageModule.exports;
         }
 
         throw new Error(`Unexpected require: ${specifier}`);
@@ -105,6 +143,28 @@ function closedReviews(months) {
   return months.map((month) => monthlyReview(month));
 }
 
+function bankConnection(overrides = {}) {
+  return {
+    id: "bank-connection-id",
+    assetId: "property-1",
+    provider: "plaid",
+    providerItemId: "item-id",
+    accountId: "account-id",
+    accountName: "Operating Checking",
+    accountType: "depository",
+    accountSubtype: "checking",
+    institutionName: "Bank",
+    institutionId: "bank-id",
+    lastFour: "1234",
+    status: "active",
+    connectedAt: "2026-01-01T12:00:00.000Z",
+    lastSyncedAt: "2026-02-01T12:00:00.000Z",
+    rawTransactionsSyncedStartDate: "2026-01-01",
+    rawTransactionsSyncedEndDate: "2026-01-31",
+    ...overrides
+  };
+}
+
 function property(overrides) {
   return {
     id: "property-1",
@@ -114,6 +174,7 @@ function property(overrides) {
     purchasedAt: "2025-01-01",
     monthlyRent: 1800,
     propertyTransactions: [],
+    bankConnections: [],
     monthlyReviews: [],
     ...overrides
   };
@@ -244,6 +305,93 @@ test("hard blocking gate ignores normal blocking issues", () => {
     helpers.hasHardBlockingAnnualQualityIssues([result]),
     false
   );
+});
+
+test("property without linked bank account does not block bank coverage", () => {
+  const result = helpers.getPropertyAnnualQualityResult(
+    property({
+      monthlyRent: 0,
+      monthlyReviews: closedReviews(["2026-01"]),
+      propertyTransactions: []
+    }),
+    "2026",
+    new Date("2026-02-01T12:00:00.000Z")
+  );
+
+  assert.ok(!issueCodes(result, "blocking").includes("incomplete_bank_coverage"));
+});
+
+test("closed historical bank-linked month with partial coverage does not block annual quality", () => {
+  const result = helpers.getPropertyAnnualQualityResult(
+    property({
+      bankConnections: [
+        bankConnection({
+          rawTransactionsSyncedEndDate: "2026-01-15"
+        })
+      ],
+      monthlyRent: 0,
+      monthlyReviews: closedReviews(["2026-01"]),
+      propertyTransactions: []
+    }),
+    "2026",
+    new Date("2026-02-01T12:00:00.000Z")
+  );
+
+  assert.ok(!issueCodes(result, "blocking").includes("incomplete_bank_coverage"));
+});
+
+test("open linked bank account with partial monthly coverage blocks annual quality", () => {
+  const result = helpers.getPropertyAnnualQualityResult(
+    property({
+      bankConnections: [
+        bankConnection({
+          rawTransactionsSyncedEndDate: "2026-01-15"
+        })
+      ],
+      monthlyRent: 0,
+      monthlyReviews: [],
+      propertyTransactions: []
+    }),
+    "2026",
+    new Date("2026-02-01T12:00:00.000Z")
+  );
+
+  assert.ok(issueCodes(result, "blocking").includes("incomplete_bank_coverage"));
+  assert.deepEqual(
+    Array.from(
+      result.blockingIssues.find((issue) => issue.code === "incomplete_bank_coverage")
+        .months
+    ),
+    ["2026-01"]
+  );
+  assert.equal(helpers.hasHardBlockingAnnualQualityIssues([result]), true);
+});
+
+test("open disconnected linked bank account blocks annual quality", () => {
+  const result = helpers.getPropertyAnnualQualityResult(
+    property({
+      bankConnections: [
+        bankConnection({
+          status: "disconnected"
+        })
+      ],
+      monthlyRent: 0,
+      monthlyReviews: [],
+      propertyTransactions: []
+    }),
+    "2026",
+    new Date("2026-02-01T12:00:00.000Z")
+  );
+
+  assert.ok(issueCodes(result, "blocking").includes("incomplete_bank_coverage"));
+  assert.deepEqual(
+    Array.from(
+      result.blockingIssues.find((issue) => issue.code === "incomplete_bank_coverage")
+        .months
+    ),
+    ["2026-01"]
+  );
+  assert.equal(helpers.hasHardBlockingAnnualQualityIssues([result]), true);
 });
 
 test("ignored transactions are normal review decisions", () => {

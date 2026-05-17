@@ -33,6 +33,11 @@ import {
   findMatchingTransactionRule
 } from "@/lib/real-estate-transaction-rules";
 import {
+  getMonthlyDataCoverageAssessment,
+  isMonthlyDataCoverageCloseBlocked,
+  type RealEstateMonthlyDataCoverageAssessment
+} from "@/lib/real-estate-data-coverage";
+import {
   getMonthlyReviewAssessment,
   RENT_TRANSACTION_SEARCH_BUFFER_DAYS
 } from "@/lib/real-estate-monthly-review";
@@ -3905,6 +3910,16 @@ function getMonthlyCloseBlockedMessage(
   return `Could not close ${assessment.reviewMonth}: ${blockers.join("; ")}.`;
 }
 
+function getMonthlyDataCoverageCloseBlockedMessage(
+  assessment: RealEstateMonthlyDataCoverageAssessment
+): string {
+  if (assessment.status === "needs_reconnect") {
+    return `Could not close ${assessment.reviewMonth}: reconnect linked bank accounts before closing this month.`;
+  }
+
+  return `Could not close ${assessment.reviewMonth}: run Check & Sync so linked bank accounts cover ${assessment.startDate} through ${assessment.endDate}.`;
+}
+
 export async function closeMonthlyReview(
   assetId: string,
   _previousState: RealEstateActionState,
@@ -3973,6 +3988,15 @@ export async function closeMonthlyReview(
 
     if (!assessment.isReadyToClose) {
       return errorState(getMonthlyCloseBlockedMessage(assessment));
+    }
+
+    const coverageAssessment = getMonthlyDataCoverageAssessment(
+      property,
+      reviewMonth
+    );
+
+    if (isMonthlyDataCoverageCloseBlocked(coverageAssessment)) {
+      return errorState(getMonthlyDataCoverageCloseBlockedMessage(coverageAssessment));
     }
 
     const now = new Date().toISOString();

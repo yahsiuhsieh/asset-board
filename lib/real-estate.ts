@@ -66,6 +66,8 @@ interface RealEstateBankConnectionRow {
   status: "active" | "disconnected";
   connected_at: string;
   last_synced_at: string | null;
+  raw_transactions_synced_start_date: string | null;
+  raw_transactions_synced_end_date: string | null;
 }
 
 interface RealEstatePhotoRow {
@@ -200,7 +202,9 @@ function mapBankConnection(row: RealEstateBankConnectionRow): RealEstateBankConn
     lastFour: row.last_four,
     status: row.status,
     connectedAt: row.connected_at,
-    lastSyncedAt: row.last_synced_at
+    lastSyncedAt: row.last_synced_at,
+    rawTransactionsSyncedStartDate: row.raw_transactions_synced_start_date,
+    rawTransactionsSyncedEndDate: row.raw_transactions_synced_end_date
   };
 }
 
@@ -377,7 +381,9 @@ async function getBankConnectionRows(
       last_four,
       status,
       connected_at,
-      last_synced_at
+      last_synced_at,
+      raw_transactions_synced_start_date,
+      raw_transactions_synced_end_date
     `
     )
     .in("asset_id", assetIds)
@@ -552,11 +558,13 @@ export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDe
     getPhotoRows(assetIds),
     getPropertyTransactionRows(assetIds)
   ]);
-  const [monthlyReviewRows, photos, transactions] = await Promise.all([
+  const [bankConnectionRows, monthlyReviewRows, photos, transactions] = await Promise.all([
+    getBankConnectionRows(assetIds),
     getMonthlyReviewRows(assetIds),
     Promise.all(photoRows.map(mapPhoto)),
     Promise.resolve(transactionRows.map(mapPropertyTransaction))
   ]);
+  const bankConnections = bankConnectionRows.map(mapBankConnection);
   const monthlyReviews = monthlyReviewRows.map(mapMonthlyReview);
 
   return properties.map((property) => ({
@@ -566,7 +574,9 @@ export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDe
     propertyTransactions: transactions.filter(
       (transaction) => transaction.assetId === property.id
     ),
-    bankConnections: [],
+    bankConnections: bankConnections.filter(
+      (connection) => connection.assetId === property.id
+    ),
     monthlyReviews: monthlyReviews.filter((review) => review.assetId === property.id)
   }));
 }

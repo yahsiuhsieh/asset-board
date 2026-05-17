@@ -250,7 +250,7 @@ export function PortfolioAnnualExportGate({
 
               {hasHardBlockingIssues ? (
                 <div className="rounded-md border border-red-100 dark:border-red-900/60 bg-red-50 dark:bg-red-950/35 px-4 py-3 text-sm font-semibold text-red-700 dark:text-red-300">
-                  Mock ledger transactions must be removed before this annual report can be exported.
+                  Hard blocking issues must be fixed before this annual report can be exported.
                 </div>
               ) : (
                 <label
