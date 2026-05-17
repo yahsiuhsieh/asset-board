@@ -278,7 +278,11 @@ export function RealEstateListPage({
             );
 
             return (
-              <Card className="overflow-hidden border-border bg-card" key={property.id}>
+              <Card
+                className="overflow-hidden border-border bg-card"
+                data-testid={`property-card-${property.id}`}
+                key={property.id}
+              >
                 <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
                   <PropertyImage
                     alt={property.name}
@@ -312,6 +316,7 @@ export function RealEstateListPage({
                       </div>
                       <Link
                         className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary"
+                        data-testid={`property-detail-link-${property.id}`}
                         href={`/real-estate/${property.id}`}
                       >
                         View

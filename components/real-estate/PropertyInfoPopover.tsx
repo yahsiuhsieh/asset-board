@@ -51,7 +51,7 @@ export function PropertyInfoPopover({ property }: { property: RealEstateAsset })
       >
         <Info className="h-4 w-4" />
       </button>
-      <div className="invisible absolute left-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-card p-4 text-sm opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+      <div className="absolute right-0 top-full z-50 mt-2 hidden w-72 max-w-[calc(100vw-6rem)] rounded-md border border-border bg-card p-4 text-sm shadow-lg group-hover:block group-focus-within:block">
         <p className="font-semibold text-foreground">Property details</p>
         <dl className="mt-2">
           <InfoRow label="County" value={formatText(property.county)} />

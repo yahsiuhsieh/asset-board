@@ -979,6 +979,7 @@ export function AnnualReportPreviewPage({
               <select
                 aria-label="Report year"
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring"
+                data-testid="annual-report-preview-year"
                 id="annual-report-preview-year"
                 onChange={(event) => handleYearChange(event.target.value)}
                 value={report.year}
@@ -1030,7 +1031,10 @@ export function AnnualReportPreviewPage({
         ) : null}
       </div>
 
-      <article className="annual-report-document mx-auto w-full max-w-[72rem] overflow-hidden rounded-lg border border-border bg-card shadow-soft print:max-w-none print:rounded-none print:border-0 print:bg-white print:shadow-none">
+      <article
+        className="annual-report-document mx-auto w-full max-w-[72rem] overflow-hidden rounded-lg border border-border bg-card shadow-soft print:max-w-none print:rounded-none print:border-0 print:bg-white print:shadow-none"
+        data-testid="annual-report-document"
+      >
         <section className="annual-report-cover bg-white px-5 py-7 text-slate-950 dark:bg-card dark:text-foreground print:bg-white print:text-slate-950 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">

@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { isWealthVibeE2EFixtureMode } from "@/lib/e2e-fixtures";
 import { getConfiguredPropertyValuationProvider } from "@/lib/valuations/property-valuation-provider";
 
 export const PROPERTY_VALUATION_MONTHLY_USAGE_LIMIT = 40;
@@ -75,6 +76,10 @@ function getUnavailableUsageStatus(message: string): PropertyValuationUsageStatu
 }
 
 export async function getPropertyValuationUsageStatus(): Promise<PropertyValuationUsageStatus> {
+  if (isWealthVibeE2EFixtureMode()) {
+    return getMockUsageStatus();
+  }
+
   const provider = getConfiguredPropertyValuationProvider();
 
   if (provider === "mock") {

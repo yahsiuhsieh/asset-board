@@ -8,6 +8,9 @@
     "cleanup:real-estate-mock-data": "node scripts/cleanup-real-estate-mock-data.mjs",
     "cleanup:real-estate-manual-legacy-data": "node scripts/cleanup-real-estate-manual-legacy-data.mjs",
     "lint": "eslint . --max-warnings=0",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
     "test:real-estate-export": "node --test scripts/test-real-estate-transaction-export.mjs",
     "test:real-estate-annual-report": "node --test scripts/test-real-estate-annual-report.mjs",
     "test:real-estate-data-coverage": "node --test scripts/test-real-estate-data-coverage.mjs",
@@ -16,7 +19,8 @@
     "test:real-estate-provider-containment": "node --test scripts/test-real-estate-provider-containment.mjs",
     "test:real-estate-quality": "node --test scripts/test-real-estate-quality.mjs",
     "test:real-estate-rules": "node --test scripts/test-real-estate-transaction-rules.mjs",
-    "test:real-estate-statement": "node --test scripts/test-real-estate-annual-statement.mjs"
+    "test:real-estate-statement": "node --test scripts/test-real-estate-annual-statement.mjs",
+    "verify:browser": "npm run lint && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@radix-ui/react-tabs": "^1.1.12",
@@ -33,6 +37,7 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

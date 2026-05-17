@@ -142,7 +142,7 @@ function DetailRow({
             >
               <Info className="h-3.5 w-3.5" />
             </button>
-            <span className="pointer-events-none invisible absolute left-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-card px-3 py-2 text-xs font-medium leading-relaxed text-muted-foreground opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+            <span className="pointer-events-none absolute right-0 top-full z-40 mt-2 hidden w-72 max-w-[calc(100vw-6rem)] rounded-md border border-border bg-card px-3 py-2 text-xs font-medium leading-relaxed text-muted-foreground shadow-lg group-hover:block group-focus-within:block">
               {description}
             </span>
           </span>
@@ -173,7 +173,7 @@ export function PropertyDetailPage({
   const externalMapUrl = getExternalMapUrl(property.address);
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5" data-testid="property-detail-page">
       <section className="grid gap-4">
         <Link
           className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary"

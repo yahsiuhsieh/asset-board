@@ -334,7 +334,7 @@ export function TransactionRulesPage({
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5" data-testid="transaction-rules-page">
       <section className="rounded-lg border border-border bg-card p-6 shadow-soft md:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
           Real Estate
@@ -352,7 +352,7 @@ export function TransactionRulesPage({
       <RealEstatePortfolioNav active="rules" />
 
       <section className="grid gap-5 xl:grid-cols-[minmax(20rem,0.85fr)_minmax(0,1.15fr)]">
-        <Card className="h-fit border-border bg-card">
+        <Card className="h-fit min-w-0 border-border bg-card">
           <CardHeader>
             <CardTitle>Create Rule</CardTitle>
           </CardHeader>
@@ -454,7 +454,7 @@ export function TransactionRulesPage({
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        <Card className="min-w-0 border-border bg-card">
           <CardHeader>
             <CardTitle>Rules</CardTitle>
           </CardHeader>

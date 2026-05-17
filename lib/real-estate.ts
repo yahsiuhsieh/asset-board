@@ -1,4 +1,11 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  getE2ERealEstateAssetDetail,
+  getE2ERealEstateAssets,
+  getE2ERealEstateAssetsWithPhotos,
+  getE2ERealEstateTransactionRules,
+  isWealthVibeE2EFixtureMode
+} from "@/lib/e2e-fixtures";
 import { normalizeTransactionNote } from "@/lib/real-estate-transaction-notes";
 import type {
   RealEstateAsset,
@@ -536,6 +543,10 @@ async function getTransactionRuleRows(): Promise<RealEstateTransactionRuleRow[]>
 }
 
 export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
+  if (isWealthVibeE2EFixtureMode()) {
+    return getE2ERealEstateAssets();
+  }
+
   const rows = await getPropertyRows();
   const properties = sortPropertiesByName(rows.map(mapRealEstateProperty));
   const assetIds = properties.map((property) => property.id);
@@ -551,6 +562,10 @@ export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
 }
 
 export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDetail[]> {
+  if (isWealthVibeE2EFixtureMode()) {
+    return getE2ERealEstateAssetsWithPhotos();
+  }
+
   const rows = await getPropertyRows();
   const properties = sortPropertiesByName(rows.map(mapRealEstateProperty));
   const assetIds = properties.map((property) => property.id);
@@ -584,6 +599,10 @@ export async function getRealEstateAssetsWithPhotos(): Promise<RealEstateAssetDe
 export async function getRealEstateAssetDetail(
   assetId: string
 ): Promise<RealEstateAssetDetail | null> {
+  if (isWealthVibeE2EFixtureMode()) {
+    return getE2ERealEstateAssetDetail(assetId);
+  }
+
   const rows = await getPropertyRows();
   const row = rows.find((property) => property.asset_id === assetId);
 
@@ -620,6 +639,10 @@ export async function getRealEstateAssetDetail(
 export async function getRealEstateTransactionRules(): Promise<
   RealEstateTransactionRule[]
 > {
+  if (isWealthVibeE2EFixtureMode()) {
+    return getE2ERealEstateTransactionRules();
+  }
+
   const rows = await getTransactionRuleRows();
 
   return rows.map(mapTransactionRule);

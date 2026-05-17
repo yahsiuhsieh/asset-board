@@ -179,9 +179,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[86vw] flex-col border-r border-border bg-card shadow-2xl transition-transform duration-200 ease-out",
+          "fixed inset-y-0 left-0 z-40 w-72 max-w-[86vw] flex-col border-r border-border bg-card shadow-2xl transition-transform duration-200 ease-out",
           "print:hidden",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          isSidebarOpen ? "flex translate-x-0" : "hidden -translate-x-full"
         )}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-5">
