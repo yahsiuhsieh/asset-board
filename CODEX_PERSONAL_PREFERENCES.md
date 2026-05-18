@@ -30,9 +30,9 @@ This file captures my working style and product preferences so future Codex sess
 - Prefer transaction-ledger data over manual estimates when bank transactions are available.
 - Keep raw/vendor/internal metadata out of customer-facing UI unless it is legally or operationally necessary.
 
-## WealthVibe Product Direction
+## AssetBoard Product Direction
 
-- WealthVibe is a practical real estate asset-management MVP, not a marketing site.
+- AssetBoard is a practical real estate asset-management MVP, not a marketing site.
 - The property page should feel like a performance dashboard:
   - key metrics first
   - charts before workflow forms

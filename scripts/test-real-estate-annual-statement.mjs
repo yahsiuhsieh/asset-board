@@ -642,6 +642,6 @@ test("annual report preserves transaction cents in summaries and appendix", () =
 test("uses the portfolio annual report filename", () => {
   assert.equal(
     helpers.getPortfolioAnnualReportFilename("2026"),
-    "wealthvibe-real-estate-2026-annual-report.csv"
+    "assetboard-real-estate-2026-annual-report.csv"
   );
 });

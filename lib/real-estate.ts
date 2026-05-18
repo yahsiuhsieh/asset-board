@@ -4,7 +4,7 @@ import {
   getE2ERealEstateAssets,
   getE2ERealEstateAssetsWithCoverPhoto,
   getE2ERealEstateTransactionRules,
-  isWealthVibeE2EFixtureMode
+  isAssetBoardE2EFixtureMode
 } from "@/lib/e2e-fixtures";
 import { normalizeTransactionNote } from "@/lib/real-estate-transaction-notes";
 import type {
@@ -500,7 +500,7 @@ async function getTransactionRuleRows(): Promise<RealEstateTransactionRuleRow[]>
 }
 
 export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
-  if (isWealthVibeE2EFixtureMode()) {
+  if (isAssetBoardE2EFixtureMode()) {
     return getE2ERealEstateAssets();
   }
 
@@ -521,7 +521,7 @@ export async function getRealEstateAssets(): Promise<RealEstateAsset[]> {
 }
 
 export async function getRealEstateAssetsWithCoverPhoto(): Promise<RealEstateAssetDetail[]> {
-  if (isWealthVibeE2EFixtureMode()) {
+  if (isAssetBoardE2EFixtureMode()) {
     return getE2ERealEstateAssetsWithCoverPhoto();
   }
 
@@ -555,7 +555,7 @@ export async function getRealEstateAssetsWithCoverPhoto(): Promise<RealEstateAss
 export async function getRealEstateAssetDetail(
   assetId: string
 ): Promise<RealEstateAssetDetail | null> {
-  if (isWealthVibeE2EFixtureMode()) {
+  if (isAssetBoardE2EFixtureMode()) {
     return getE2ERealEstateAssetDetail(assetId);
   }
 
@@ -591,7 +591,7 @@ export async function getRealEstateAssetDetail(
 export async function getRealEstateTransactionRules(): Promise<
   RealEstateTransactionRule[]
 > {
-  if (isWealthVibeE2EFixtureMode()) {
+  if (isAssetBoardE2EFixtureMode()) {
     return getE2ERealEstateTransactionRules();
   }
 

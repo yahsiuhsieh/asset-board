@@ -597,7 +597,7 @@ export function PlaidConnectionManager({
             <div>
               <p className="text-sm font-semibold">Link existing bank account</p>
               <p className="text-xs text-muted-foreground">
-                Reuse a bank account already connected in WealthVibe without creating a new
+                Reuse a bank account already connected in AssetBoard without creating a new
                 Plaid Item.
               </p>
             </div>

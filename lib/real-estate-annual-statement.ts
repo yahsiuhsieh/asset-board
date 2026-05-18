@@ -449,5 +449,5 @@ export function serializePortfolioAnnualReportCsv(
 }
 
 export function getPortfolioAnnualReportFilename(year: string): string {
-  return `wealthvibe-real-estate-${year}-annual-report.csv`;
+  return `assetboard-real-estate-${year}-annual-report.csv`;
 }

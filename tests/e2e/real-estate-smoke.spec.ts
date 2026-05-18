@@ -102,7 +102,7 @@ test.describe("real estate browser smoke", () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toBe(
-      "wealthvibe-real-estate-2026-annual-report.csv"
+      "assetboard-real-estate-2026-annual-report.csv"
     );
 
     const downloadPath = await download.path();

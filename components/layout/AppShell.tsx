@@ -31,7 +31,8 @@ const navItems = [
 
 type Theme = "light" | "dark";
 
-const themeStorageKey = "wealthvibe-theme";
+const themeStorageKey = "assetboard-theme";
+const sidebarStorageKey = "assetboard-sidebar-open";
 
 function getSystemTheme(): Theme {
   if (
@@ -96,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    setIsSidebarOpen(localStorage.getItem("wealthvibe-sidebar-open") === "true");
+    setIsSidebarOpen(localStorage.getItem(sidebarStorageKey) === "true");
 
     const initialTheme = getStoredTheme() ?? getSystemTheme();
     setTheme(initialTheme);
@@ -122,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   function setSidebarOpen(isOpen: boolean) {
     setIsSidebarOpen(isOpen);
-    localStorage.setItem("wealthvibe-sidebar-open", String(isOpen));
+    localStorage.setItem(sidebarStorageKey, String(isOpen));
   }
 
   function toggleTheme() {
@@ -186,13 +187,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-5">
           <Link
-            aria-label="WealthVibe overview"
+            aria-label="AssetBoard overview"
             className="block min-w-0"
             href="/"
             onClick={() => setSidebarOpen(false)}
           >
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-              WealthVibe
+              AssetBoard
             </p>
             <p className="mt-1 text-base font-semibold tracking-tight">
               Household portfolio

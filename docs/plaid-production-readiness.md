@@ -4,7 +4,7 @@ Last reviewed: 2026-05-09
 
 ## Goal
 
-Keep WealthVibe's Plaid integration useful for real estate monthly review while minimizing paid or limited Plaid usage. The current MVP should stay manual-first: users connect accounts, explicitly run Check & Sync, and explicitly find monthly rent or expense transactions.
+Keep AssetBoard's Plaid integration useful for real estate monthly review while minimizing paid or limited Plaid usage. The current MVP should stay manual-first: users connect accounts, explicitly run Check & Sync, and explicitly find monthly rent or expense transactions.
 
 Official references:
 
@@ -70,7 +70,7 @@ For the first Chase test:
 7. Close the month and confirm the status stays ready or closed as expected.
 8. Export the annual CSV and confirm rent and expense rows are present.
 9. Check the Plaid Dashboard usage page after the test.
-10. If the account should not remain connected, remove it in WealthVibe so the app calls `/item/remove`.
+10. If the account should not remain connected, remove it in AssetBoard so the app calls `/item/remove`.
 
 Remember that Plaid Trial plan limits, if applicable to the team, are Item-count based. Plaid documents that removing Trial Items does not restore the Trial Item limit.
 

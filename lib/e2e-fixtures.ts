@@ -12,11 +12,11 @@ const fixtureMonths = Array.from({ length: 12 }, (_, index) =>
   String(index + 1).padStart(2, "0")
 );
 
-export function isWealthVibeE2EFixtureMode(): boolean {
-  const isEnabled = process.env.WEALTHVIBE_E2E_FIXTURES === "1";
+export function isAssetBoardE2EFixtureMode(): boolean {
+  const isEnabled = process.env.ASSETBOARD_E2E_FIXTURES === "1";
 
   if (isEnabled && process.env.NODE_ENV === "production") {
-    throw new Error("WEALTHVIBE_E2E_FIXTURES cannot be enabled in production.");
+    throw new Error("ASSETBOARD_E2E_FIXTURES cannot be enabled in production.");
   }
 
   return isEnabled;

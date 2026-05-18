@@ -1,6 +1,6 @@
 # Browser Verification
 
-WealthVibe has a small Playwright smoke suite for browser and mobile checks. The suite uses `WEALTHVIBE_E2E_FIXTURES=1`, which serves deterministic real estate fixture data from the app server instead of Supabase, Plaid, RentCast, or Mapbox.
+AssetBoard has a small Playwright smoke suite for browser and mobile checks. The suite uses `ASSETBOARD_E2E_FIXTURES=1`, which serves deterministic real estate fixture data from the app server instead of Supabase, Plaid, RentCast, or Mapbox.
 
 ## Commands
 
@@ -33,7 +33,7 @@ npm run verify:browser
 By default Playwright starts the app at `http://127.0.0.1:3100` with fixture mode enabled. To test against an existing server, start it with the same fixture environment and pass `PLAYWRIGHT_BASE_URL`:
 
 ```bash
-WEALTHVIBE_E2E_FIXTURES=1 PROPERTY_VALUATION_PROVIDER=mock BANK_TRANSACTION_PROVIDER=mock npm run dev -- --hostname 127.0.0.1 --port 3100
+ASSETBOARD_E2E_FIXTURES=1 PROPERTY_VALUATION_PROVIDER=mock BANK_TRANSACTION_PROVIDER=mock npm run dev -- --hostname 127.0.0.1 --port 3100
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
 ```
 
@@ -47,6 +47,6 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
 
 ## Fixture Safety
 
-- `WEALTHVIBE_E2E_FIXTURES=1` is guarded and throws in production.
+- `ASSETBOARD_E2E_FIXTURES=1` is guarded and throws in production.
 - The fixture data uses `provider: "plaid"` ledger rows so annual report quality checks do not fail on mock ledger blockers.
 - The fixture uses null coordinates and null signed photo URLs to avoid live Mapbox or Supabase Storage requests during browser tests.

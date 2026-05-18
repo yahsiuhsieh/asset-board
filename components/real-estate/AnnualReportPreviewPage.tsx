@@ -965,7 +965,7 @@ export function AnnualReportPreviewPage({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-semibold text-muted-foreground">
-              WealthVibe / Real Estate / Annual Report
+              AssetBoard / Real Estate / Annual Report
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
               Annual report preview

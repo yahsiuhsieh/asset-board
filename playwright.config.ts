@@ -26,7 +26,7 @@ export default defineConfig({
           BANK_TRANSACTION_PROVIDER: "mock",
           NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "",
           PROPERTY_VALUATION_PROVIDER: "mock",
-          WEALTHVIBE_E2E_FIXTURES: "1"
+          ASSETBOARD_E2E_FIXTURES: "1"
         },
         reuseExistingServer: false,
         timeout: 120_000,

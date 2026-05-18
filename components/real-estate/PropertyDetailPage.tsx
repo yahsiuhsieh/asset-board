@@ -177,7 +177,7 @@ export function PropertyDetailPage({
         </Link>
         <div>
           <p className="text-sm font-semibold text-muted-foreground">
-            WealthVibe / Real Estate / Property
+            AssetBoard / Real Estate / Property
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
             Property overview

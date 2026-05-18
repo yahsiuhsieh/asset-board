@@ -408,7 +408,7 @@ export function mapPlaidTransactionToBankTransaction({
 export async function createPlaidBankLinkToken(assetId: string): Promise<string> {
   const plaidClient = createPlaidClient();
   const request: LinkTokenCreateRequest = {
-    client_name: "WealthVibe",
+    client_name: "AssetBoard",
     country_codes: getPlaidCountryCodes(),
     language: "en",
     products: [Products.Transactions],
@@ -417,7 +417,7 @@ export async function createPlaidBankLinkToken(assetId: string): Promise<string>
       days_requested: getPlaidTransactionsDaysRequested()
     },
     user: {
-      client_user_id: `wealthvibe-property-${assetId}`
+      client_user_id: `assetboard-property-${assetId}`
     }
   };
 
@@ -446,7 +446,7 @@ export async function createPlaidBankUpdateLinkToken({
   const plaidClient = createPlaidClient();
   const request: LinkTokenCreateRequest = {
     access_token: token,
-    client_name: "WealthVibe",
+    client_name: "AssetBoard",
     country_codes: getPlaidCountryCodes(),
     language: "en",
     redirect_uri: getPlaidRedirectUri(),
@@ -454,7 +454,7 @@ export async function createPlaidBankUpdateLinkToken({
       reauthorization_enabled: true
     },
     user: {
-      client_user_id: `wealthvibe-property-${assetId}`
+      client_user_id: `assetboard-property-${assetId}`
     }
   };
 

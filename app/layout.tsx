@@ -5,14 +5,14 @@ import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WealthVibe",
+  title: "AssetBoard",
   description: "A calm personal asset dashboard."
 };
 
 const themeInitScript = `
 (() => {
   try {
-    const storageKey = "wealthvibe-theme";
+    const storageKey = "assetboard-theme";
     const storedTheme = window.localStorage.getItem(storageKey);
     const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const theme = storedTheme === "light" || storedTheme === "dark"
