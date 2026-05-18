@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import {
   Configuration,
   CountryCode,
@@ -175,54 +173,6 @@ function getPlaidEnvironmentBasePath(): string {
   }
 
   return createPlaidConfigError("PLAID_ENV must be sandbox or production.");
-}
-
-function getEnvValueFingerprint(name: string): {
-  hasLeadingOrTrailingWhitespace: boolean;
-  hashPrefix: string | null;
-  set: boolean;
-  trimmedLength: number;
-} {
-  const rawValue = process.env[name];
-  const trimmedValue = rawValue?.trim() ?? "";
-
-  return {
-    hasLeadingOrTrailingWhitespace: rawValue !== undefined && rawValue !== trimmedValue,
-    hashPrefix: trimmedValue
-      ? createHash("sha256").update(trimmedValue).digest("hex").slice(0, 12)
-      : null,
-    set: rawValue !== undefined,
-    trimmedLength: trimmedValue.length
-  };
-}
-
-function logPlaidRuntimeDiagnostics(error: unknown): void {
-  const details = getPlaidApiErrorDetails(error);
-  const shouldLog =
-    process.env.PLAID_DIAGNOSTICS === "1" ||
-    (isProductionRuntime() && details.errorCode === "INVALID_API_KEYS");
-
-  if (!shouldLog) {
-    return;
-  }
-
-  console.warn("Plaid runtime diagnostics", {
-    basePath: getPlaidEnvironmentBasePath(),
-    clientId: getEnvValueFingerprint("PLAID_CLIENT_ID"),
-    errorCode: details.errorCode ?? null,
-    errorType: details.errorType ?? null,
-    nodeEnv: process.env.NODE_ENV ?? null,
-    plaidEnv: process.env.PLAID_ENV?.trim().toLowerCase() || "sandbox",
-    secret: getEnvValueFingerprint("PLAID_SECRET"),
-    status: details.status ?? null,
-    vercelEnv: process.env.VERCEL_ENV ?? null,
-    vercelGitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null
-  });
-}
-
-function createPlaidApiError(error: unknown, fallback: string): Error {
-  logPlaidRuntimeDiagnostics(error);
-  return new Error(getPlaidApiErrorMessage(error, fallback));
 }
 
 function createPlaidClient(): PlaidApi {
@@ -476,7 +426,7 @@ export async function createPlaidBankLinkToken(assetId: string): Promise<string>
 
     return response.data.link_token;
   } catch (error) {
-    throw createPlaidApiError(error, "Could not create Plaid Link token.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not create Plaid Link token."));
   }
 }
 
@@ -513,7 +463,7 @@ export async function createPlaidBankUpdateLinkToken({
 
     return response.data.link_token;
   } catch (error) {
-    throw createPlaidApiError(error, "Could not create Plaid reconnect token.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not create Plaid reconnect token."));
   }
 }
 
@@ -537,7 +487,7 @@ export async function exchangePlaidPublicToken(publicToken: string): Promise<{
       itemId: response.data.item_id
     };
   } catch (error) {
-    throw createPlaidApiError(error, "Could not exchange Plaid public token.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not exchange Plaid public token."));
   }
 }
 
@@ -553,7 +503,7 @@ export async function removePlaidItem(accessToken: string): Promise<void> {
       access_token: token
     });
   } catch (error) {
-    throw createPlaidApiError(error, "Could not remove Plaid Item.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not remove Plaid Item."));
   }
 }
 
@@ -588,7 +538,7 @@ export async function getPlaidItemHealth(accessToken: string): Promise<PlaidItem
       };
     }
 
-    throw createPlaidApiError(error, "Could not check Plaid Item.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not check Plaid Item."));
   }
 }
 
@@ -622,7 +572,7 @@ export async function getPlaidConnectionAccounts({
       throw error;
     }
 
-    throw createPlaidApiError(error, "Could not load Plaid accounts.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not load Plaid accounts."));
   }
 }
 
@@ -702,7 +652,7 @@ async function fetchPlaidBankTransactions(
       );
     }
 
-    throw createPlaidApiError(error, "Could not fetch Plaid transactions.");
+    throw new Error(getPlaidApiErrorMessage(error, "Could not fetch Plaid transactions."));
   }
 
   return {
