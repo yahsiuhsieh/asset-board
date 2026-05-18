@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AppShell } from "@/components/layout/AppShell";
 
 import "./globals.css";
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <AppShell>{children}</AppShell>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
