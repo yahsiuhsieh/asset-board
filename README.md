@@ -24,8 +24,10 @@ automation.
 
 ## Screenshots
 
-These screenshots use deterministic fixture data from the browser verification
-suite. They do not show live account data or call paid external APIs.
+These screenshots use deterministic fixture financial data from the browser
+verification suite. They do not show live account data or call paid external
+APIs. The property photo is illustrative; replace it before publishing if the
+image itself is sensitive.
 
 ![Real estate portfolio](docs/screenshots/real-estate-portfolio.png)
 
@@ -66,6 +68,31 @@ Key implementation expectations:
 - Keep transaction-ledger data as the source of truth for YTD and annual report
   metrics where real bank/API data exists.
 - Keep setup and admin workflows secondary to the property performance dashboard.
+
+Easy-to-forget operational notes:
+
+- To change the shared login password, update `ASSETBOARD_SITE_PASSWORD` in
+  local `.env.local` and in the deployment environment, then restart or redeploy.
+  The current password gate sets a one-day signed cookie, so rotating this value
+  forces users to log in again.
+- To add a bank account through Plaid, temporarily set
+  `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=1`, restart the app so the client bundle
+  picks it up, complete the Add Accounts or Connect Accounts flow, then set the
+  value back to `0` and restart or redeploy again.
+- Real Plaid linking also requires `BANK_TRANSACTION_PROVIDER=plaid`,
+  `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`, and `PLAID_REDIRECT_URI`.
+  Keep `BANK_TRANSACTION_PROVIDER=mock` for normal local development and tests.
+- Keep `PLAID_REDIRECT_URI` matched to the exact app host and
+  `/real-estate/plaid/oauth` path being used, and make sure the same redirect URI
+  is allowed in the Plaid Dashboard.
+- Any `NEXT_PUBLIC_*` environment variable is included in the browser bundle.
+  Restart `npm run dev` locally or redeploy the app after changing one.
+- Keep `PROPERTY_VALUATION_PROVIDER=mock` unless deliberately testing valuation
+  sync. Switching to a live provider requires `RENTCAST_API_KEY` and can consume
+  quota.
+- Use `ASSETBOARD_E2E_FIXTURES=1` only for deterministic browser verification
+  and README-style screenshots. It bypasses live Supabase, Plaid, RentCast, and
+  Mapbox data paths by design.
 
 For Plaid-specific production guidance, read
 [`docs/plaid-production-readiness.md`](docs/plaid-production-readiness.md).
