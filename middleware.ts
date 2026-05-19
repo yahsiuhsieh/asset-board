@@ -8,7 +8,7 @@ import {
 } from "@/lib/site-auth";
 
 const PUBLIC_PATH_PREFIXES = ["/_next/", "/_vercel/"];
-const PUBLIC_PATHS = new Set(["/favicon.ico", "/icon.svg"]);
+const PUBLIC_PATHS = new Set(["/favicon.ico", "/icon.png"]);
 const PUBLIC_FILE_PATTERN = /\.(?:css|gif|ico|jpg|jpeg|js|json|map|png|svg|txt|webp|xml)$/i;
 
 function isPublicPath(pathname: string): boolean {
@@ -53,5 +53,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png).*)"]
 };

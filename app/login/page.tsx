@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import { LockKeyhole } from "lucide-react";
 
 import { loginToAssetBoard } from "@/app/login/actions";
 import {
@@ -44,16 +44,19 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12 text-foreground">
       <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-soft">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-secondary text-primary">
-            <LockKeyhole className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-              AssetBoard
-            </p>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight">Enter password</h1>
-          </div>
+        <div className="mb-7 flex items-center gap-4">
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="h-14 w-14 shrink-0 object-contain"
+            height={56}
+            priority
+            src="/icon.png"
+            width={56}
+          />
+          <h1 className="text-3xl font-semibold tracking-normal text-primary">
+            AssetBoard
+          </h1>
         </div>
 
         <form action={loginToAssetBoard} className="grid gap-4">
