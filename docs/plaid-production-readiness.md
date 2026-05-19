@@ -27,6 +27,7 @@ Official references:
 
 ## Current Cost Guards In Code
 
+- App access is protected by `ASSETBOARD_SITE_PASSWORD`, which sets a one-day signed HTTP-only cookie after login.
 - Development defaults to `BANK_TRANSACTION_PROVIDER=mock`.
 - Production rejects the `mock` transaction provider.
 - No webhook endpoint is implemented.
@@ -75,6 +76,14 @@ For the first Chase test:
 
 Remember that Plaid Trial plan limits, if applicable to the team, are Item-count based. Plaid documents that removing Trial Items does not restore the Trial Item limit.
 
+## Hobby Plan Site Protection
+
+AssetBoard uses an app-level shared password gate instead of Vercel Deployment Protection. Set `ASSETBOARD_SITE_PASSWORD` in Vercel and local `.env.local` before sharing the production URL.
+
+Successful login sets a signed HTTP-only cookie for one day. To rotate access, change `ASSETBOARD_SITE_PASSWORD` in Vercel and redeploy; existing cookies stop matching the new password signature and users must log in again.
+
+This is a beta access gate, not per-user authentication. It does not identify who changed data. Upgrade to Supabase Auth and row-level security before broader multi-user use.
+
 ## Owner Account Linking Workflow
 
 Keep `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0` or unset for normal beta and production use. In this mode, Add Accounts and Connect Accounts show an email request prompt instead of opening Plaid Link.
@@ -121,6 +130,7 @@ rg -n "transactions/refresh|accounts/balance|getIdentity|identityGet|authGet|ass
 Local development:
 
 ```env
+ASSETBOARD_SITE_PASSWORD=...
 BANK_TRANSACTION_PROVIDER=mock
 NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0
 PLAID_ENV=sandbox
@@ -134,6 +144,7 @@ PLAID_TRANSACTIONS_DAYS_REQUESTED=365
 Production:
 
 ```env
+ASSETBOARD_SITE_PASSWORD=...
 BANK_TRANSACTION_PROVIDER=plaid
 NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0
 PLAID_ENV=production

@@ -93,6 +93,21 @@ function ThemeToggle({
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  return <AuthenticatedAppShell pathname={pathname}>{children}</AuthenticatedAppShell>;
+}
+
+function AuthenticatedAppShell({
+  children,
+  pathname
+}: {
+  children: ReactNode;
+  pathname: string;
+}) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
 
