@@ -32,6 +32,7 @@ Official references:
 - No webhook endpoint is implemented.
 - No background or scheduled Plaid sync is implemented.
 - No tests call live Plaid APIs.
+- Direct Add Accounts / Connect Accounts is gated by `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK`.
 - `Check & Sync` scans only the last 60 days.
 - Initial Link requests only the Transactions product.
 - Update mode does not request additional products.
@@ -74,6 +75,19 @@ For the first Chase test:
 
 Remember that Plaid Trial plan limits, if applicable to the team, are Item-count based. Plaid documents that removing Trial Items does not restore the Trial Item limit.
 
+## Owner Account Linking Workflow
+
+Keep `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0` or unset for normal beta and production use. In this mode, Add Accounts and Connect Accounts show an email request prompt instead of opening Plaid Link.
+
+When the owner needs to add a new bank account:
+
+1. Temporarily set `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=1` in local `.env.local`.
+2. Restart `npm run dev` so the frontend picks up the public environment value.
+3. Use Add Accounts or Connect Accounts to complete the Plaid Link flow.
+4. Set `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0` again, or remove it, then restart the dev server.
+
+Do not leave `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=1` enabled in production. If direct linking must happen on Vercel, use password protection, turn the flag on only for that protected deployment, complete the account link, then turn the flag off and redeploy.
+
 ## Stabilization Commands
 
 Run these before the first real Chase connection:
@@ -108,6 +122,7 @@ Local development:
 
 ```env
 BANK_TRANSACTION_PROVIDER=mock
+NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0
 PLAID_ENV=sandbox
 PLAID_CLIENT_ID=...
 PLAID_SECRET=...
@@ -120,6 +135,7 @@ Production:
 
 ```env
 BANK_TRANSACTION_PROVIDER=plaid
+NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0
 PLAID_ENV=production
 PLAID_CLIENT_ID=...
 PLAID_SECRET=...

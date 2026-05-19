@@ -15,8 +15,10 @@ import {
   CheckCircle2,
   Landmark,
   Link2,
+  Mail,
   RefreshCw,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 
 import {
@@ -31,7 +33,7 @@ import {
   type LinkablePlaidBankConnectionsState,
   type RealEstateActionState
 } from "@/app/actions/real-estate";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { RealEstateAssetDetail, RealEstateBankConnection } from "@/types/wealth";
 
@@ -54,6 +56,10 @@ const emptyLinkableConnectionsState: LinkablePlaidBankConnectionsState = {
   message: "",
   connections: []
 };
+const ACCOUNT_LINKING_REQUEST_EMAIL =
+  "mailto:arthur960304@gmail.com?subject=AssetBoard%20account%20linking%20request";
+const directAccountLinkingEnabled =
+  process.env.NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK === "1";
 
 function formatLastFour(lastFour: string | null): string {
   return lastFour ? `•••• ${lastFour}` : "Last 4 unavailable";
@@ -237,6 +243,56 @@ function RemoveConnectionForm({
   );
 }
 
+function AccountLinkingRequestDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      aria-describedby="account-linking-request-description"
+      aria-labelledby="account-linking-request-title"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4"
+      role="dialog"
+    >
+      <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-soft">
+        <div className="flex items-start justify-between gap-4 border-b border-border/70 p-5">
+          <div>
+            <h2
+              className="text-lg font-semibold tracking-tight"
+              id="account-linking-request-title"
+            >
+              Request account linking
+            </h2>
+            <p
+              className="mt-2 text-sm font-medium text-muted-foreground"
+              id="account-linking-request-description"
+            >
+              Email Yahsiu to request a new account connection.
+            </p>
+          </div>
+          <Button
+            aria-label="Close"
+            className="h-8 w-8 shrink-0 p-0"
+            onClick={onClose}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex flex-col-reverse gap-2 p-5 sm:flex-row sm:justify-end">
+          <Button onClick={onClose} type="button" variant="secondary">
+            Close
+          </Button>
+          <a className={buttonVariants()} href={ACCOUNT_LINKING_REQUEST_EMAIL}>
+            <Mail className="h-4 w-4" />
+            Email Yahsiu
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PlaidConnectionManager({
   property
 }: {
@@ -257,6 +313,7 @@ export function PlaidConnectionManager({
     useState<LinkablePlaidBankConnectionsState>(emptyLinkableConnectionsState);
   const [syncState, setSyncState] = useState<RealEstateActionState>(idleState);
   const [state, setState] = useState<RealEstateActionState>(idleState);
+  const [isAccountLinkRequestOpen, setIsAccountLinkRequestOpen] = useState(false);
   const connectedAccounts = property.bankConnections;
   const isConnected = connectedAccounts.length > 0;
   const disconnectedAccountCount = connectedAccounts.filter(
@@ -272,6 +329,21 @@ export function PlaidConnectionManager({
       setIsScriptReady(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAccountLinkRequestOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsAccountLinkRequestOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAccountLinkRequestOpen]);
 
   const handleSyncResult = useCallback((result: RealEstateActionState) => {
     setSyncState(result);
@@ -330,6 +402,11 @@ export function PlaidConnectionManager({
     } finally {
       setLinkingExistingConnectionId(null);
     }
+  }
+
+  function openAccountLinkRequestDialog() {
+    setState(idleState);
+    setIsAccountLinkRequestOpen(true);
   }
 
   async function openPlaidLink() {
@@ -570,16 +647,28 @@ export function PlaidConnectionManager({
                 : "Use Existing"}
           </Button>
           <Button
-            disabled={isDisabled}
-            onClick={openPlaidLink}
+            disabled={directAccountLinkingEnabled ? isDisabled : isBankActionPending}
+            onClick={
+              directAccountLinkingEnabled ? openPlaidLink : openAccountLinkRequestDialog
+            }
             type="button"
             variant={isConnected ? "secondary" : "default"}
           >
             <Landmark className="h-4 w-4" />
-            {isConnecting ? "Connecting" : isConnected ? "Add Accounts" : "Connect Accounts"}
+            {directAccountLinkingEnabled && isConnecting
+              ? "Connecting"
+              : isConnected
+                ? "Add Accounts"
+                : "Connect Accounts"}
           </Button>
         </div>
       </div>
+
+      {isAccountLinkRequestOpen ? (
+        <AccountLinkingRequestDialog
+          onClose={() => setIsAccountLinkRequestOpen(false)}
+        />
+      ) : null}
 
       {hasDisconnectedAccounts ? (
         <div className="flex max-w-2xl items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm dark:border-amber-800/70 dark:bg-amber-950/35 dark:text-amber-300">
