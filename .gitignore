@@ -6,6 +6,8 @@ dist
 .env.local
 .env*.local
 .secrets
+.codex/
+CODEX_PERSONAL_PREFERENCES.md
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

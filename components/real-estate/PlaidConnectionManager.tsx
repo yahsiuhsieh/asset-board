@@ -56,8 +56,13 @@ const emptyLinkableConnectionsState: LinkablePlaidBankConnectionsState = {
   message: "",
   connections: []
 };
-const ACCOUNT_LINKING_REQUEST_EMAIL =
-  "mailto:arthur960304@gmail.com?subject=AssetBoard%20account%20linking%20request";
+const accountLinkingRequestEmail =
+  process.env.NEXT_PUBLIC_ACCOUNT_LINKING_REQUEST_EMAIL?.trim() ?? "";
+const accountLinkingRequestHref = accountLinkingRequestEmail
+  ? `mailto:${accountLinkingRequestEmail}?${new URLSearchParams({
+      subject: "AssetBoard account linking request"
+    }).toString()}`
+  : null;
 const directAccountLinkingEnabled =
   process.env.NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK === "1";
 
@@ -265,7 +270,9 @@ function AccountLinkingRequestDialog({ onClose }: { onClose: () => void }) {
               className="mt-2 text-sm font-medium text-muted-foreground"
               id="account-linking-request-description"
             >
-              Email Yahsiu to request a new account connection.
+              {accountLinkingRequestHref
+                ? "Email the AssetBoard owner to request a new account connection."
+                : "Direct account linking is disabled for this deployment. Ask the AssetBoard owner to enable account linking when a new bank connection is needed."}
             </p>
           </div>
           <Button
@@ -283,10 +290,12 @@ function AccountLinkingRequestDialog({ onClose }: { onClose: () => void }) {
           <Button onClick={onClose} type="button" variant="secondary">
             Close
           </Button>
-          <a className={buttonVariants()} href={ACCOUNT_LINKING_REQUEST_EMAIL}>
-            <Mail className="h-4 w-4" />
-            Email Yahsiu
-          </a>
+          {accountLinkingRequestHref ? (
+            <a className={buttonVariants()} href={accountLinkingRequestHref}>
+              <Mail className="h-4 w-4" />
+              Request by Email
+            </a>
+          ) : null}
         </div>
       </div>
     </div>

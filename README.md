@@ -164,7 +164,8 @@ are:
 - Valuation: `PROPERTY_VALUATION_PROVIDER`, `RENTCAST_API_KEY`
 - Banking: `BANK_TRANSACTION_PROVIDER`, `PLAID_CLIENT_ID`, `PLAID_SECRET`,
   `PLAID_ENV`, `PLAID_REDIRECT_URI`
-- Safety gate: `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK`
+- Account linking UI: `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK`,
+  `NEXT_PUBLIC_ACCOUNT_LINKING_REQUEST_EMAIL`
 
 Use production credentials only in trusted deployment environments. Keep local
 development on mock providers unless you are deliberately testing a real

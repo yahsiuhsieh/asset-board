@@ -86,7 +86,7 @@ This is a beta access gate, not per-user authentication. It does not identify wh
 
 ## Owner Account Linking Workflow
 
-Keep `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0` or unset for normal beta and production use. In this mode, Add Accounts and Connect Accounts show an email request prompt instead of opening Plaid Link.
+Keep `NEXT_PUBLIC_ALLOW_DIRECT_PLAID_LINK=0` or unset for normal beta and production use. In this mode, Add Accounts and Connect Accounts show a request prompt instead of opening Plaid Link. Set `NEXT_PUBLIC_ACCOUNT_LINKING_REQUEST_EMAIL` if the deployment should show a mailto link for these requests; leave it empty for a generic owner-contact message.
 
 When the owner needs to add a new bank account:
 
