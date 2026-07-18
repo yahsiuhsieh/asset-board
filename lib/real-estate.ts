@@ -44,6 +44,7 @@ interface RealEstatePropertyRow {
   purchased_at: string | null;
   parcel_number: string | null;
   purchase_price: string | number;
+  cash_invested: string | number;
   current_market_value: string | number;
   remaining_mortgage_balance: string | number;
   monthly_rent: string | number;
@@ -180,6 +181,7 @@ async function mapRealEstateProperty(row: RealEstatePropertyRow): Promise<RealEs
     purchasedAt: row.purchased_at,
     parcelNumber: row.parcel_number,
     purchasePrice: toNumber(row.purchase_price),
+    cashInvested: toNumber(row.cash_invested),
     currentMarketValue: toNumber(row.current_market_value),
     remainingMortgageBalance: toNumber(row.remaining_mortgage_balance),
     monthlyRent: toNumber(row.monthly_rent),
@@ -318,6 +320,7 @@ async function getPropertyRows() {
       purchased_at,
       parcel_number,
       purchase_price,
+      cash_invested,
       current_market_value,
       remaining_mortgage_balance,
       monthly_rent,

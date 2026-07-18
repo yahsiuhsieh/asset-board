@@ -333,6 +333,7 @@ function readPropertyPayload(formData: FormData) {
       purchased_at: readOptionalDate(formData, "purchasedAt"),
       parcel_number: parcelNumber,
       purchase_price: purchasePrice,
+      cash_invested: readMoney(formData, "cashInvested"),
       remaining_mortgage_balance: readMoney(formData, "remainingMortgageBalance"),
       monthly_rent: readMoney(formData, "monthlyRent"),
       monthly_mortgage: readMoney(formData, "monthlyMortgage"),
@@ -1592,6 +1593,65 @@ async function ignoreSourcePendingTransactionsClaimedByOtherAssets({
   return updatedCount;
 }
 
+async function ignoreOtherPendingRowsForClaimedRawTransaction({
+  assetId,
+  classification,
+  description,
+  direction,
+  rawBankTransactionId,
+  updatedAt
+}: {
+  assetId: string;
+  classification: RealEstateTransactionClassification;
+  description?: string | null;
+  direction: "credit" | "debit";
+  rawBankTransactionId: string | null | undefined;
+  updatedAt: string;
+}): Promise<string[]> {
+  if (
+    !rawBankTransactionId ||
+    !isRawBankTransactionClaimingClassification(classification)
+  ) {
+    return [];
+  }
+
+  const cleanedDescription = description?.trim() || null;
+  const updateValues: {
+    category: null;
+    classification: "ignored";
+    description?: string;
+    note: null;
+    updated_at: string;
+  } = {
+    category: null,
+    classification: "ignored",
+    note: null,
+    updated_at: updatedAt
+  };
+
+  if (cleanedDescription) {
+    updateValues.description = cleanedDescription;
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("real_estate_property_transactions")
+    .update(updateValues)
+    .eq("raw_bank_transaction_id", rawBankTransactionId)
+    .neq("asset_id", assetId)
+    .eq("direction", direction)
+    .is("classification", null)
+    .select("asset_id");
+
+  if (error) {
+    throw new Error(`Could not ignore shared pending transactions: ${error.message}`);
+  }
+
+  return Array.from(
+    new Set(((data ?? []) as Array<{ asset_id: string }>).map((row) => row.asset_id))
+  );
+}
+
 async function ignoreUnreviewedRentCreditsClaimedByOtherAssets({
   assetId,
   provider,
@@ -2738,6 +2798,7 @@ export async function removeBankConnection(
 }
 
 interface RentCreditSyncResult {
+  affectedAssetIds: string[];
   autoMatchedCount: number;
   matchMonth: string;
   matches: RentTransactionMatch[];
@@ -2791,6 +2852,7 @@ async function syncRentCreditsForReviewMonth({
 
   if (!transactionResult) {
     return {
+      affectedAssetIds: [],
       autoMatchedCount: 0,
       matchMonth: matchMonth.slice(0, 7),
       matches: [],
@@ -2802,6 +2864,7 @@ async function syncRentCreditsForReviewMonth({
   }
 
   let wroteLedgerRows = false;
+  const affectedAssetIds = new Set<string>();
   const sourceCleanupCount =
     await ignoreSourcePendingTransactionsClaimedByOtherAssets({
       assetId,
@@ -2814,6 +2877,7 @@ async function syncRentCreditsForReviewMonth({
 
   if (sourceCleanupCount > 0) {
     wroteLedgerRows = true;
+    affectedAssetIds.add(assetId);
   }
 
   const availableTransactions = await filterTransactionsOwnedByCurrentProperty({
@@ -2859,6 +2923,23 @@ async function syncRentCreditsForReviewMonth({
     );
 
     wroteLedgerRows = true;
+    affectedAssetIds.add(assetId);
+    for (const decision of autoMatchedDecisions) {
+      const cleanupAffectedAssetIds =
+        await ignoreOtherPendingRowsForClaimedRawTransaction({
+          assetId,
+          classification: "rental_income",
+          description: decision.transaction.description,
+          direction: "credit",
+          rawBankTransactionId: decision.transaction.rawBankTransactionId,
+          updatedAt: now
+        });
+
+      cleanupAffectedAssetIds.forEach((affectedAssetId) => {
+        affectedAssetIds.add(affectedAssetId);
+      });
+    }
+
     classifications = await loadPropertyTransactionClassifications({
       assetId,
       startDate,
@@ -2892,6 +2973,7 @@ async function syncRentCreditsForReviewMonth({
 
   if (sharedIgnoredCount > 0) {
     wroteLedgerRows = true;
+    affectedAssetIds.add(assetId);
   }
 
   const scopedDecisions = filterRentCreditDecisionsForReviewScope({
@@ -2922,6 +3004,7 @@ async function syncRentCreditsForReviewMonth({
     );
 
     wroteLedgerRows = true;
+    affectedAssetIds.add(assetId);
   }
 
   const matches = scopedDecisions.map((decision) => ({
@@ -2941,6 +3024,7 @@ async function syncRentCreditsForReviewMonth({
   }));
 
   return {
+    affectedAssetIds: Array.from(affectedAssetIds),
     autoMatchedCount: autoMatchedDecisions.length,
     matchMonth: matchMonth.slice(0, 7),
     matches,
@@ -3053,6 +3137,11 @@ async function syncExpenseTransactionsForReviewMonth({
   if (ruleMatchedDecisions.length > 0) {
     const now = new Date().toISOString();
     const ruleLedgerRows: PropertyTransactionLedgerUpsertRow[] = [];
+    const claimedRuleTransactions: Array<{
+      assetId: string;
+      description: string;
+      rawBankTransactionId: string | null | undefined;
+    }> = [];
 
     for (const decision of ruleMatchedDecisions) {
       const ruleMatch = decision.ruleMatch;
@@ -3091,6 +3180,11 @@ async function syncExpenseTransactionsForReviewMonth({
           updatedAt: now
         })
       );
+      claimedRuleTransactions.push({
+        assetId: targetAssetId,
+        description: ruleMatch.transactionName || decision.transaction.description,
+        rawBankTransactionId: decision.transaction.rawBankTransactionId
+      });
       affectedAssetIds.add(targetAssetId);
 
       if (targetAssetId !== assetId) {
@@ -3117,6 +3211,21 @@ async function syncExpenseTransactionsForReviewMonth({
     );
 
     wroteLedgerRows = true;
+    for (const transaction of claimedRuleTransactions) {
+      const cleanupAffectedAssetIds =
+        await ignoreOtherPendingRowsForClaimedRawTransaction({
+          assetId: transaction.assetId,
+          classification: "expense",
+          description: transaction.description,
+          direction: "debit",
+          rawBankTransactionId: transaction.rawBankTransactionId,
+          updatedAt: now
+        });
+
+      cleanupAffectedAssetIds.forEach((affectedAssetId) => {
+        affectedAssetIds.add(affectedAssetId);
+      });
+    }
   }
 
   if (pendingDecisions.length > 0) {
@@ -3192,7 +3301,9 @@ export async function previewRentTransactionMatches(
     });
 
     if (result.wroteLedgerRows) {
-      revalidatePropertyPages(assetId);
+      result.affectedAssetIds.forEach((affectedAssetId) => {
+        revalidatePropertyPages(affectedAssetId);
+      });
     }
 
     if (result.skippedBankSync) {
@@ -3281,7 +3392,9 @@ export async function classifyRentCreditTransaction(
       const supabase = createServerSupabaseClient();
       const { data: existingTransaction, error: loadError } = await supabase
         .from("real_estate_property_transactions")
-        .select("asset_id, direction, posted_at, raw_bank_transaction_id, rent_period_month")
+        .select(
+          "asset_id, direction, posted_at, raw_bank_transaction_id, rent_period_month, description"
+        )
         .eq("id", recordedTransactionId)
         .eq("asset_id", assetId)
         .eq("direction", "credit")
@@ -3296,6 +3409,7 @@ export async function classifyRentCreditTransaction(
       );
       const existingTransactionRow = existingTransaction as
         PropertyTransactionReviewOwnerRow & {
+          description: string | null;
           raw_bank_transaction_id: string | null;
         };
 
@@ -3329,7 +3443,20 @@ export async function classifyRentCreditTransaction(
         return errorState("That credit transaction could not be found.");
       }
 
+      const cleanupAffectedAssetIds =
+        await ignoreOtherPendingRowsForClaimedRawTransaction({
+          assetId,
+          classification,
+          description: existingTransactionRow.description,
+          direction: "credit",
+          rawBankTransactionId: existingTransactionRow.raw_bank_transaction_id,
+          updatedAt: now
+        });
+
       revalidatePropertyPages(assetId);
+      cleanupAffectedAssetIds.forEach((affectedAssetId) => {
+        revalidatePropertyPages(affectedAssetId);
+      });
       return successState(
         classification === "rental_income"
           ? "Rental income recorded."
@@ -3396,7 +3523,20 @@ export async function classifyRentCreditTransaction(
       "Could not save rent credit"
     );
 
+    const cleanupAffectedAssetIds =
+      await ignoreOtherPendingRowsForClaimedRawTransaction({
+        assetId,
+        classification,
+        description: matchedTransaction.description,
+        direction: "credit",
+        rawBankTransactionId: matchedTransaction.rawBankTransactionId,
+        updatedAt: now
+      });
+
     revalidatePropertyPages(assetId);
+    cleanupAffectedAssetIds.forEach((affectedAssetId) => {
+      revalidatePropertyPages(affectedAssetId);
+    });
     return successState(
       classification === "rental_income"
         ? "Rental income recorded."
@@ -3591,7 +3731,9 @@ export async function classifyPropertyTransaction(
       const supabase = createServerSupabaseClient();
       const { data: existingTransaction, error: loadError } = await supabase
         .from("real_estate_property_transactions")
-        .select("asset_id, direction, posted_at, raw_bank_transaction_id, rent_period_month")
+        .select(
+          "asset_id, direction, posted_at, raw_bank_transaction_id, rent_period_month, description"
+        )
         .eq("id", recordedTransactionId)
         .eq("asset_id", assetId)
         .eq("direction", "debit")
@@ -3603,6 +3745,7 @@ export async function classifyPropertyTransaction(
 
       const existingTransactionRow = existingTransaction as
         PropertyTransactionReviewOwnerRow & {
+          description: string | null;
           raw_bank_transaction_id: string | null;
         };
       const existingReviewMonth = getPropertyTransactionReviewMonth(
@@ -3650,8 +3793,21 @@ export async function classifyPropertyTransaction(
         return errorState("That expense transaction could not be found.");
       }
 
+      const cleanupAffectedAssetIds =
+        await ignoreOtherPendingRowsForClaimedRawTransaction({
+          assetId: targetAssetId,
+          classification,
+          description: existingTransactionRow.description,
+          direction: "debit",
+          rawBankTransactionId: existingTransactionRow.raw_bank_transaction_id,
+          updatedAt: now
+        });
+
       revalidatePropertyPages(assetId);
       revalidatePropertyPages(targetAssetId);
+      cleanupAffectedAssetIds.forEach((affectedAssetId) => {
+        revalidatePropertyPages(affectedAssetId);
+      });
       return successState(
         classification === "expense" ? "Expense recorded." : "Transaction ignored."
       );
@@ -3710,8 +3866,21 @@ export async function classifyPropertyTransaction(
       "Could not save transaction"
     );
 
+    const cleanupAffectedAssetIds =
+      await ignoreOtherPendingRowsForClaimedRawTransaction({
+        assetId: targetAssetId,
+        classification,
+        description: transaction.description,
+        direction: "debit",
+        rawBankTransactionId: transaction.rawBankTransactionId,
+        updatedAt: now
+      });
+
     revalidatePropertyPages(assetId);
     revalidatePropertyPages(targetAssetId);
+    cleanupAffectedAssetIds.forEach((affectedAssetId) => {
+      revalidatePropertyPages(affectedAssetId);
+    });
     return successState(
       classification === "expense" ? "Expense recorded." : "Transaction ignored."
     );
@@ -3956,9 +4125,9 @@ export async function closeMonthlyReview(
       });
 
       wroteLedgerRows ||= rentSyncResult.wroteLedgerRows;
-      if (rentSyncResult.wroteLedgerRows) {
-        affectedAssetIds.add(assetId);
-      }
+      rentSyncResult.affectedAssetIds.forEach((affectedAssetId) => {
+        affectedAssetIds.add(affectedAssetId);
+      });
     }
 
     const expenseSyncResult = await syncExpenseTransactionsForReviewMonth({

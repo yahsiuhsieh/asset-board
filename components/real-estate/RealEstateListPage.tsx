@@ -16,12 +16,14 @@ import { RealEstatePropertyForm } from "@/components/dashboard/RealEstatePropert
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   calculateAnnualNOI,
+  calculateCapRate,
   calculateMonthlyNetCashFlow,
   calculateMonthlyNOI,
   calculatePropertyEquity
 } from "@/lib/calculations";
 import { getExternalMapUrl } from "@/lib/maps";
 import type { PropertyAnnualQualityResult } from "@/lib/real-estate-annual-quality";
+import { getPortfolioAnnualStatement } from "@/lib/real-estate-annual-statement";
 import { getMonthlyDataCoverageAssessment } from "@/lib/real-estate-data-coverage";
 import { getPropertyReviewMonths } from "@/lib/real-estate-monthly-review";
 import { getRentalIncomeForMonth } from "@/lib/real-estate-rent";
@@ -54,9 +56,9 @@ function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0%";
+function formatPercent(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) {
+    return "N/A";
   }
 
   return percentFormatter.format(value);
@@ -154,6 +156,10 @@ export function RealEstateListPage({
     (property) =>
       property.monthlyRent > 0 && getCurrentMonthRentCollected(property) < property.monthlyRent
   ).length;
+  const annualStatement = getPortfolioAnnualStatement(properties, annualReportYear);
+  const annualRowsByPropertyId = new Map(
+    annualStatement.propertyRows.map((row) => [row.propertyId, row])
+  );
 
   return (
     <div className="grid gap-5">
@@ -269,12 +275,13 @@ export function RealEstateListPage({
       <section className="grid grid-cols-1 gap-5">
         {properties.length > 0 ? (
           properties.map((property) => {
-            const netCashFlow = calculateMonthlyNetCashFlow(property);
-            const propertyEquity = calculatePropertyEquity(property);
+            const capRate = calculateCapRate(property);
             const coverageStatus = getPropertyCardCoverageStatus(
               property,
               annualReportYear
             );
+            const statementRow = annualRowsByPropertyId.get(property.id);
+            const ytdCashFlow = statementRow?.cashFlowAfterDebtService ?? 0;
 
             return (
               <Card
@@ -323,37 +330,53 @@ export function RealEstateListPage({
                       </Link>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          Value
+                          Current Value
                         </p>
-                        <p className="mt-1 font-semibold">{formatCurrency(property.value)}</p>
+                        <p className="mt-1 font-semibold">{formatCurrency(property.currentMarketValue)}</p>
                       </div>
                       <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          Equity
+                          YTD Rent Collected
                         </p>
-                        <p className="mt-1 font-semibold">{formatCurrency(propertyEquity)}</p>
+                        <p className="mt-1 font-semibold">{formatCurrency(statementRow?.rentCollected ?? 0)}</p>
                       </div>
                       <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          Rent
+                          YTD Operating Expenses
                         </p>
-                        <p className="mt-1 font-semibold">{formatCurrency(property.monthlyRent)}</p>
+                        <p className="mt-1 font-semibold">{formatCurrency(statementRow?.totalOperatingExpenses ?? 0)}</p>
                       </div>
                       <div className="rounded-md border border-border p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          Cash Flow
+                          YTD Cash Flow
                         </p>
                         <p
                           className={
-                            netCashFlow >= 0
+                            ytdCashFlow >= 0
                               ? "mt-1 font-semibold text-emerald-600 dark:text-emerald-400"
                               : "mt-1 font-semibold text-red-600 dark:text-red-400"
                           }
                         >
-                          {formatCurrency(netCashFlow)}
+                          {formatCurrency(ytdCashFlow)}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                          Expense Ratio
+                        </p>
+                        <p className="mt-1 font-semibold">
+                          {formatPercent(statementRow?.expenseRatio ?? null)}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                          Cap Rate
+                        </p>
+                        <p className="mt-1 font-semibold">
+                          {formatPercent(capRate)}
                         </p>
                       </div>
                     </div>

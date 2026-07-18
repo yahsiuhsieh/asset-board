@@ -27,6 +27,7 @@ const initialState: RealEstateActionState = {
 
 const moneyFields = [
   { name: "purchasePrice", label: "Purchase price" },
+  { name: "cashInvested", label: "Cash invested" },
   { name: "remainingMortgageBalance", label: "Mortgage balance" },
   { name: "monthlyMortgage", label: "Monthly mortgage" },
   { name: "monthlyRent", label: "Monthly rent" },
@@ -88,6 +89,7 @@ function getDefaultValue(property: RealEstateAsset | undefined, field: string): 
     purchasedAt: property.purchasedAt ?? "",
     parcelNumber: property.parcelNumber ?? "",
     buildingCost: property.buildingCost,
+    cashInvested: property.cashInvested,
     landCost: property.landCost,
     totalDepreciation: property.totalDepreciation
   };

@@ -103,6 +103,7 @@ function property(overrides) {
     purchasedAt: "2026-01-10",
     parcelNumber: "P-100",
     purchasePrice: 450000,
+    cashInvested: 100000,
     currentMarketValue: 500000,
     remainingMortgageBalance: 300000,
     monthlyRent: 2000,
@@ -170,6 +171,7 @@ test("builds annual report model from statement, transactions, and quality resul
         currentMarketValue: 250000,
         remainingMortgageBalance: 100000,
         purchasePrice: 230000,
+        cashInvested: 80000,
         monthlyRent: 1500,
         monthlyMortgage: 800,
         propertyTransactions: [
@@ -214,9 +216,12 @@ test("builds annual report model from statement, transactions, and quality resul
   assert.equal(report.portfolio.propertyCount, 2);
   assert.equal(report.portfolio.currentValue, 750000);
   assert.equal(report.portfolio.mortgageBalance, 400000);
+  assert.equal(report.portfolio.cashInvested, 180000);
   assert.equal(report.statement.totalRow.rentCollected, 3500);
   assert.equal(report.statement.totalRow.totalOperatingExpenses, 500);
   assert.equal(report.statement.totalRow.noi, 3000);
+  assert.equal(report.statement.totalRow.cashInvested, 180000);
+  assert.equal(report.statement.totalRow.cashOnCashReturn, -3400 / 180000);
   assert.equal(report.status.label, "Needs Review");
   assert.equal(report.status.blockingIssueCount, 1);
   assert.equal(report.status.warningIssueCount, 1);
@@ -230,8 +235,12 @@ test("builds annual report model from statement, transactions, and quality resul
   );
   assert.equal(report.propertyScorecards[0].expectedRent, 8000);
   assert.equal(report.propertyScorecards[0].rentVariance, -6000);
+  assert.equal(report.propertyScorecards[0].cashInvested, 100000);
+  assert.equal(report.propertyScorecards[0].cashOnCashReturn, -3100 / 100000);
   assert.equal(report.propertyScorecards[1].expectedRent, 3000);
   assert.equal(report.propertyScorecards[1].rentVariance, -1500);
+  assert.equal(report.propertyScorecards[1].cashInvested, 80000);
+  assert.equal(report.propertyScorecards[1].cashOnCashReturn, -300 / 80000);
 });
 
 test("flags hard blockers and limits appendix preview rows", () => {

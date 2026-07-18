@@ -73,6 +73,7 @@ function property(overrides) {
     address: "100 Main St",
     rentalStatus: "rented",
     purchasedAt: "2026-01-01",
+    cashInvested: 0,
     monthlyMortgage: 1000,
     propertyTransactions: [],
     ...overrides
@@ -101,6 +102,7 @@ function getNumericStatementFields(row) {
     noi: row.noi,
     scheduledDebtService: row.scheduledDebtService,
     cashFlowAfterDebtService: row.cashFlowAfterDebtService,
+    cashInvested: row.cashInvested,
     blockingIssueCount: row.blockingIssueCount,
     warningIssueCount: row.warningIssueCount
   };
@@ -115,6 +117,7 @@ test("builds multi-property annual statement rows and portfolio totals", () => {
         address: "100 Main St",
         rentalStatus: "rented",
         purchasedAt: "2026-02-10",
+        cashInvested: 100000,
         monthlyMortgage: 1000,
         propertyTransactions: [
           transaction({
@@ -171,6 +174,7 @@ test("builds multi-property annual statement rows and portfolio totals", () => {
         address: "200 Oak Ave",
         rentalStatus: "vacant",
         purchasedAt: null,
+        cashInvested: 50000,
         monthlyMortgage: 500,
         propertyTransactions: [
           transaction({
@@ -228,6 +232,7 @@ test("builds multi-property annual statement rows and portfolio totals", () => {
     noi: 3100,
     scheduledDebtService: 3000,
     cashFlowAfterDebtService: 100,
+    cashInvested: 100000,
     blockingIssueCount: 2,
     warningIssueCount: 1
   });
@@ -243,6 +248,7 @@ test("builds multi-property annual statement rows and portfolio totals", () => {
     noi: 950,
     scheduledDebtService: 2000,
     cashFlowAfterDebtService: -1050,
+    cashInvested: 50000,
     blockingIssueCount: 0,
     warningIssueCount: 2
   });
@@ -258,10 +264,14 @@ test("builds multi-property annual statement rows and portfolio totals", () => {
     noi: 4050,
     scheduledDebtService: 5000,
     cashFlowAfterDebtService: -950,
+    cashInvested: 150000,
     blockingIssueCount: 2,
     warningIssueCount: 3
   });
   assert.equal(statement.totalRow.expenseRatio, 750 / 4800);
+  assert.equal(statement.propertyRows[0].cashOnCashReturn, 100 / 100000);
+  assert.equal(statement.propertyRows[1].cashOnCashReturn, -1050 / 50000);
+  assert.equal(statement.totalRow.cashOnCashReturn, -950 / 150000);
 });
 
 test("scheduled debt service uses current year elapsed months only", () => {
@@ -391,7 +401,8 @@ test("portfolio total row equals the sum of property rows", () => {
     "totalOperatingExpenses",
     "noi",
     "scheduledDebtService",
-    "cashFlowAfterDebtService"
+    "cashFlowAfterDebtService",
+    "cashInvested"
   ]) {
     assert.equal(
       statement.totalRow[field],
@@ -422,7 +433,7 @@ test("zero rent expense ratio is null and serializes as blank", () => {
   const csv = helpers.serializePortfolioAnnualStatementCsv(statement);
 
   assert.equal(statement.propertyRows[0].expenseRatio, null);
-  assert.match(csv, /300\.00,-300\.00,4000\.00,-4300\.00,,0,0\r\n$/);
+  assert.match(csv, /300\.00,-300\.00,4000\.00,-4300\.00,0\.00,,,0,0\r\n$/);
 });
 
 test("serializes annual statement CSV with escaping", () => {
@@ -511,27 +522,27 @@ test("serializes annual report CSV with summary sections and transaction appendi
 
   assert.ok(
     csv.startsWith(
-      ",,,,,,,,,,,,,,,,\r\nPortfolio Summary,,,,,,,,,,,,,,,,\r\n,rent collected,taxes,insurance"
+      `${",".repeat(18)}\r\nPortfolio Summary${",".repeat(18)}\r\n,rent collected,taxes,insurance`
     )
   );
   assert.ok(
     csv.includes(
-      "\r\n,,,,,,,,,,,,,,,,\r\nProperty Summary,,,,,,,,,,,,,,,,\r\n,property address,rental status"
+      `\r\n${",".repeat(18)}\r\nProperty Summary${",".repeat(18)}\r\n,property address,rental status`
     )
   );
   assert.ok(
     csv.includes(
-      "\r\n,,,,,,,,,,,,,,,,\r\nTransaction Appendix,,,,,,,,,,,,,,,,\r\ndate,type,category,description,note,account,amount,property name,property address,,,,,,,,"
+      `\r\n${",".repeat(18)}\r\nTransaction Appendix${",".repeat(18)}\r\ndate,type,category,description,note,account,amount,property name,property address${",".repeat(10)}`
     )
   );
   assert.ok(
     csv.includes(
-      "\r\n2026-01-05,rental_income,,January rent,Tenant paid early,Operating Checking,1800.00,Duplex A,100 Main St,,,,,,,,\r\n"
+      `\r\n2026-01-05,rental_income,,January rent,Tenant paid early,Operating Checking,1800.00,Duplex A,100 Main St${",".repeat(10)}\r\n`
     )
   );
   assert.ok(
     csv.includes(
-      "\r\n2026-01-15,expense,maintenance,Plumbing repair,Reimbursed by owner reserve,Operating Checking,250.00,Duplex A,100 Main St,,,,,,,,\r\n"
+      `\r\n2026-01-15,expense,maintenance,Plumbing repair,Reimbursed by owner reserve,Operating Checking,250.00,Duplex A,100 Main St${",".repeat(10)}\r\n`
     )
   );
   assert.ok(csv.includes("\r\ntotal,1800.00,0.00,0.00,250.00"));
@@ -540,7 +551,7 @@ test("serializes annual report CSV with summary sections and transaction appendi
       .trimEnd()
       .split("\r\n")
       .map((row) => row.split(",").length),
-    Array(13).fill(17)
+    Array(13).fill(19)
   );
 });
 

@@ -37,6 +37,7 @@ export interface AnnualReportPortfolioSummary {
   mortgageBalance: number;
   equity: number;
   purchasePrice: number;
+  cashInvested: number;
   monthlyRent: number;
   monthlyMortgage: number;
 }
@@ -58,6 +59,7 @@ export interface AnnualReportPropertyScorecard {
   parcelNumber: string | null;
   purchasedAt: string | null;
   purchasePrice: number;
+  cashInvested: number;
   currentValue: number;
   mortgageBalance: number;
   equity: number;
@@ -72,6 +74,7 @@ export interface AnnualReportPropertyScorecard {
   noi: number;
   scheduledDebtService: number;
   cashFlowAfterDebtService: number;
+  cashOnCashReturn: number | null;
   expenseRatio: number | null;
   transactionCount: number;
   rentalIncomeTransactionCount: number;
@@ -219,6 +222,7 @@ function getPortfolioSummary(
     mortgageBalance,
     equity: currentValue - mortgageBalance,
     purchasePrice: sum(properties.map((property) => property.purchasePrice)),
+    cashInvested: sum(properties.map((property) => property.cashInvested ?? 0)),
     monthlyRent: sum(properties.map((property) => property.monthlyRent)),
     monthlyMortgage: sum(properties.map((property) => property.monthlyMortgage))
   };
@@ -303,6 +307,7 @@ function getPropertyScorecards(
       parcelNumber: property.parcelNumber,
       purchasedAt: property.purchasedAt,
       purchasePrice: property.purchasePrice,
+      cashInvested: row.cashInvested,
       currentValue: property.currentMarketValue,
       mortgageBalance: property.remainingMortgageBalance,
       equity: property.currentMarketValue - property.remainingMortgageBalance,
@@ -317,6 +322,7 @@ function getPropertyScorecards(
       noi: row.noi,
       scheduledDebtService: row.scheduledDebtService,
       cashFlowAfterDebtService: row.cashFlowAfterDebtService,
+      cashOnCashReturn: row.cashOnCashReturn,
       expenseRatio: row.expenseRatio,
       transactionCount: annualTransactions.length,
       rentalIncomeTransactionCount: propertyTransactionRows.filter(

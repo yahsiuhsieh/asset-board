@@ -60,6 +60,12 @@ test.describe("real estate browser smoke", () => {
     await expect(propertyCard).toContainText("Cedar Park Duplex");
     await expect(propertyCard).toContainText("1100 Cypress Creek Rd");
     await expect(propertyCard).toContainText("Rented");
+    await expect(propertyCard).toContainText("Current Value");
+    await expect(propertyCard).toContainText("YTD Rent Collected");
+    await expect(propertyCard).toContainText("YTD Operating Expenses");
+    await expect(propertyCard).toContainText("YTD Cash Flow");
+    await expect(propertyCard).toContainText("Expense Ratio");
+    await expect(propertyCard).toContainText("Cap Rate");
 
     await expectNoHorizontalOverflow(page);
     await page

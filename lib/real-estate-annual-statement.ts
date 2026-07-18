@@ -26,6 +26,8 @@ export interface RealEstateAnnualStatementRow {
   noi: number;
   scheduledDebtService: number;
   cashFlowAfterDebtService: number;
+  cashInvested: number;
+  cashOnCashReturn: number | null;
   expenseRatio: number | null;
   blockingIssueCount: number;
   warningIssueCount: number;
@@ -78,6 +80,8 @@ const portfolioAnnualStatementCsvHeaders = [
   "NOI",
   "scheduled debt service",
   "cash flow after debt service",
+  "cash invested",
+  "cash-on-cash return",
   "expense ratio",
   "blocking issue count",
   "warning issue count"
@@ -95,7 +99,7 @@ const portfolioAnnualReportTransactionCsvHeaders = [
   "property address"
 ] as const;
 
-const annualReportCsvColumnCount = 17;
+const annualReportCsvColumnCount = 19;
 
 function getCurrentYearMonth(today = new Date()): { year: number; month: number } {
   return {
@@ -184,6 +188,17 @@ function getExpenseRatio(
   return totalOperatingExpenses / rentCollected;
 }
 
+function getCashOnCashReturn(
+  cashFlowAfterDebtService: number,
+  cashInvested: number
+): number | null {
+  if (cashInvested <= 0) {
+    return null;
+  }
+
+  return cashFlowAfterDebtService / cashInvested;
+}
+
 export function getPortfolioAnnualStatement(
   properties: RealEstateAssetDetail[],
   year: string,
@@ -220,6 +235,7 @@ export function getPortfolioAnnualStatement(
     const scheduledDebtService =
       property.monthlyMortgage * getAnnualStatementMonthCount(property, year, today);
     const cashFlowAfterDebtService = noi - scheduledDebtService;
+    const cashInvested = property.cashInvested ?? 0;
     const { blockingIssueCount, warningIssueCount } = getQualityCounts(
       qualityResults,
       property.id
@@ -241,6 +257,11 @@ export function getPortfolioAnnualStatement(
       noi,
       scheduledDebtService,
       cashFlowAfterDebtService,
+      cashInvested,
+      cashOnCashReturn: getCashOnCashReturn(
+        cashFlowAfterDebtService,
+        cashInvested
+      ),
       expenseRatio: getExpenseRatio(totalOperatingExpenses, rentCollected),
       blockingIssueCount,
       warningIssueCount
@@ -255,6 +276,7 @@ export function getPortfolioAnnualStatement(
   const totalScheduledDebtService = sum(
     propertyRows.map((row) => row.scheduledDebtService)
   );
+  const totalCashInvested = sum(propertyRows.map((row) => row.cashInvested));
   const totalRow: RealEstateAnnualStatementRow = {
     propertyId: "portfolio-total",
     propertyName: "Portfolio Total",
@@ -271,6 +293,11 @@ export function getPortfolioAnnualStatement(
     noi: totalNoi,
     scheduledDebtService: totalScheduledDebtService,
     cashFlowAfterDebtService: totalNoi - totalScheduledDebtService,
+    cashInvested: totalCashInvested,
+    cashOnCashReturn: getCashOnCashReturn(
+      totalNoi - totalScheduledDebtService,
+      totalCashInvested
+    ),
     expenseRatio: getExpenseRatio(totalOperatingExpenses, totalRentCollected),
     blockingIssueCount: sum(propertyRows.map((row) => row.blockingIssueCount)),
     warningIssueCount: sum(propertyRows.map((row) => row.warningIssueCount))
@@ -296,7 +323,7 @@ function formatCurrencyCsvValue(value: number): string {
   return value.toFixed(2);
 }
 
-function formatExpenseRatioCsvValue(value: number | null): string {
+function formatPercentCsvValue(value: number | null): string {
   return value == null ? "" : `${(value * 100).toFixed(2)}%`;
 }
 
@@ -316,7 +343,9 @@ function getStatementCsvRow(row: RealEstateAnnualStatementRow): Array<string | n
     formatCurrencyCsvValue(row.noi),
     formatCurrencyCsvValue(row.scheduledDebtService),
     formatCurrencyCsvValue(row.cashFlowAfterDebtService),
-    formatExpenseRatioCsvValue(row.expenseRatio),
+    formatCurrencyCsvValue(row.cashInvested),
+    formatPercentCsvValue(row.cashOnCashReturn),
+    formatPercentCsvValue(row.expenseRatio),
     row.blockingIssueCount,
     row.warningIssueCount
   ];
@@ -337,7 +366,9 @@ function getStatementMetricCsvFields(
     formatCurrencyCsvValue(row.noi),
     formatCurrencyCsvValue(row.scheduledDebtService),
     formatCurrencyCsvValue(row.cashFlowAfterDebtService),
-    formatExpenseRatioCsvValue(row.expenseRatio),
+    formatCurrencyCsvValue(row.cashInvested),
+    formatPercentCsvValue(row.cashOnCashReturn),
+    formatPercentCsvValue(row.expenseRatio),
     row.blockingIssueCount,
     row.warningIssueCount
   ];

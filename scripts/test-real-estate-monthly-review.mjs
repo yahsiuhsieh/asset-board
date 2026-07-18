@@ -789,3 +789,65 @@ test("pending source rows claimed by another property are selected for cleanup",
 
   assert.deepEqual(Array.from(house2PendingCleanupIds), ["house-3-raw"]);
 });
+
+test("cleaned shared pending rent credits no longer block rent review", () => {
+  const pendingTransaction = transaction({
+    assetId: "house-2",
+    amount: 3500,
+    classification: null,
+    direction: "credit",
+    id: "house-2-pending-rent",
+    postedAt: "2026-02-05",
+    rawBankTransactionId: "shared-rent-raw",
+    rentPeriodMonth: "2026-02-01"
+  });
+  const property = {
+    id: "house-2",
+    monthlyRent: 0,
+    monthlyReviews: [],
+    propertyTransactions: [pendingTransaction],
+    purchasedAt: null,
+    rentalStatus: "rented"
+  };
+  const openAssessment = helpers.getMonthlyReviewAssessment(
+    property,
+    "2026-02",
+    afterFebruary
+  );
+
+  assert.equal(openAssessment.unclassifiedRentCreditCount, 1);
+  assert.equal(openAssessment.rentStatus, "needs_review");
+
+  const pendingCleanupIds =
+    ownershipHelpers.getPendingRawBankTransactionIdsClaimedByOtherAssets({
+      assetId: "house-2",
+      rows: [
+        {
+          asset_id: "house-2",
+          classification: null,
+          raw_bank_transaction_id: "shared-rent-raw"
+        },
+        {
+          asset_id: "house-3",
+          classification: "rental_income",
+          raw_bank_transaction_id: "shared-rent-raw"
+        }
+      ]
+    });
+  const cleanedProperty = {
+    ...property,
+    propertyTransactions: property.propertyTransactions.map((propertyTransaction) =>
+      pendingCleanupIds.has(propertyTransaction.rawBankTransactionId)
+        ? { ...propertyTransaction, classification: "ignored" }
+        : propertyTransaction
+    )
+  };
+  const cleanedAssessment = helpers.getMonthlyReviewAssessment(
+    cleanedProperty,
+    "2026-02",
+    afterFebruary
+  );
+
+  assert.equal(cleanedAssessment.unclassifiedRentCreditCount, 0);
+  assert.equal(cleanedAssessment.rentStatus, "ready");
+});

@@ -193,6 +193,7 @@ function makeSnapshots({
 function makeProperty({
   address,
   buildingCost,
+  cashInvested,
   county,
   currentMarketValue,
   landCost,
@@ -208,6 +209,7 @@ function makeProperty({
 }: {
   address: string;
   buildingCost: number;
+  cashInvested: number;
   county: string;
   currentMarketValue: number;
   landCost: number;
@@ -238,6 +240,7 @@ function makeProperty({
     purchasedAt,
     parcelNumber,
     purchasePrice,
+    cashInvested,
     currentMarketValue,
     remainingMortgageBalance,
     monthlyRent,
@@ -303,6 +306,7 @@ const fixtureProperties: RealEstateAssetDetail[] = [
     parcelNumber: "CP-1100",
     purchasedAt: "2025-08-15",
     purchasePrice: 520000,
+    cashInvested: 130000,
     currentMarketValue: 565000,
     remainingMortgageBalance: 360000,
     monthlyRent: 3200,
@@ -318,6 +322,7 @@ const fixtureProperties: RealEstateAssetDetail[] = [
     parcelNumber: "RR-2201",
     purchasedAt: "2026-02-10",
     purchasePrice: 390000,
+    cashInvested: 105000,
     currentMarketValue: 415000,
     remainingMortgageBalance: 255000,
     monthlyRent: 2400,
@@ -391,6 +396,7 @@ export function getE2ERealEstateAssets(): RealEstateAsset[] {
     purchasedAt: property.purchasedAt,
     parcelNumber: property.parcelNumber,
     purchasePrice: property.purchasePrice,
+    cashInvested: property.cashInvested,
     currentMarketValue: property.currentMarketValue,
     remainingMortgageBalance: property.remainingMortgageBalance,
     monthlyRent: property.monthlyRent,

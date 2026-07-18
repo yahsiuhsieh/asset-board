@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ArrowLeft,
   ChartNoAxesCombined,
@@ -12,12 +13,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   calculateAnnualNOI,
+  calculateCashOnCashReturn,
   calculateCapRate,
   calculateExpenseRatio,
   calculateMonthlyNetCashFlow,
   calculateMonthlyNOI,
-  getYtdAverageMonthlyOperatingExpenses,
-  calculatePropertyEquity
+  calculatePropertyEquity,
+  calculateTotalReturnSincePurchase,
+  calculateTotalReturnSincePurchaseAmount,
+  getYtdAverageMonthlyOperatingExpenses
 } from "@/lib/calculations";
 import { getRecordedExpensesForMonth } from "@/lib/real-estate-expenses";
 import { getExternalMapUrl } from "@/lib/maps";
@@ -27,6 +31,10 @@ import type { RealEstateAssetDetail } from "@/types/wealth";
 import { BankConnectionDialog } from "./BankConnectionDialog";
 import { CoverPhotoUploadButton } from "./CoverPhotoUploadButton";
 import { EditPropertyDialog } from "./EditPropertyDialog";
+import {
+  MetricBenchmarkInfo,
+  type MetricBenchmarkType
+} from "./MetricBenchmarkBand";
 import { MonthlyReviewWorkspace } from "./MonthlyReviewWorkspace";
 import { PropertyAnnualReportIssues } from "./PropertyAnnualReportIssues";
 import { PropertyHistoryCharts } from "./PropertyHistoryCharts";
@@ -60,12 +68,44 @@ function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0%";
+function formatPercent(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) {
+    return "N/A";
   }
 
   return percentFormatter.format(value);
+}
+
+function formatReturnMetric({
+  amount,
+  missingLabel,
+  ratio
+}: {
+  amount: number | null;
+  missingLabel: string;
+  ratio: number | null;
+}): string {
+  if (amount == null || ratio == null) {
+    return missingLabel;
+  }
+
+  return `${formatCurrency(amount)} (${formatPercent(ratio)})`;
+}
+
+function getSignedValueClassName(value: number | null): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (value > 0) {
+    return "text-emerald-600 dark:text-emerald-400";
+  }
+
+  if (value < 0) {
+    return "text-red-600 dark:text-red-400";
+  }
+
+  return undefined;
 }
 
 function getRentalStatusLabel(status: RealEstateAssetDetail["rentalStatus"]): string {
@@ -113,35 +153,51 @@ function MetricTile({
 }
 
 function DetailRow({
+  benchmarkMetric,
+  benchmarkValue,
   description,
   label,
-  value
+  value,
+  valueClassName
 }: {
-  description?: string;
+  benchmarkMetric?: MetricBenchmarkType;
+  benchmarkValue?: number | null;
+  description?: ReactNode;
   label: string;
   value: string;
+  valueClassName?: string;
 }) {
+  const hasInfo = Boolean(description || benchmarkMetric);
+
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/70 py-3 text-sm last:border-0">
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
         {label}
-        {description ? (
+        {hasInfo ? (
           <span className="group relative inline-flex">
             <button
               aria-label={`${label} info`}
               className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              title={description}
+              title={typeof description === "string" ? description : `${label} info`}
               type="button"
             >
               <Info className="h-3.5 w-3.5" />
             </button>
-            <span className="pointer-events-none absolute right-0 top-full z-40 mt-2 hidden w-72 max-w-[calc(100vw-6rem)] rounded-md border border-border bg-card px-3 py-2 text-xs font-medium leading-relaxed text-muted-foreground shadow-lg group-hover:block group-focus-within:block">
-              {description}
+            <span className="pointer-events-none absolute right-0 top-full z-40 mt-2 hidden w-96 max-w-[calc(100vw-4rem)] rounded-md border border-border bg-card px-3 py-2 text-xs font-medium leading-relaxed text-muted-foreground shadow-lg group-hover:block group-focus-within:block">
+              <span className="grid gap-3">
+                {description ? <span>{description}</span> : null}
+                {benchmarkMetric ? (
+                  <MetricBenchmarkInfo
+                    metric={benchmarkMetric}
+                    value={benchmarkValue ?? null}
+                  />
+                ) : null}
+              </span>
             </span>
           </span>
         ) : null}
       </span>
-      <span className="font-semibold">{value}</span>
+      <span className={`font-semibold ${valueClassName ?? ""}`}>{value}</span>
     </div>
   );
 }
@@ -162,6 +218,16 @@ export function PropertyDetailPage({
   const annualNOI = calculateAnnualNOI(property);
   const capRate = calculateCapRate(property);
   const expenseRatio = calculateExpenseRatio(property);
+  const cashOnCashReturn = calculateCashOnCashReturn(property);
+  const totalReturnSincePurchaseAmount =
+    calculateTotalReturnSincePurchaseAmount(property);
+  const totalReturnSincePurchase = calculateTotalReturnSincePurchase(property);
+  const totalReturnSincePurchaseLabel =
+    property.cashInvested <= 0
+      ? "Needs cash invested"
+      : !property.purchasedAt
+        ? "Needs purchase date"
+        : "N/A";
   const equity = calculatePropertyEquity(property);
   const externalMapUrl = getExternalMapUrl(property.address);
 
@@ -310,14 +376,40 @@ export function PropertyDetailPage({
                   value={formatCurrency(annualNOI)}
                 />
                 <DetailRow
+                  benchmarkMetric="capRate"
+                  benchmarkValue={capRate}
                   description="Annual NOI divided by the current property value."
                   label="Cap rate"
                   value={formatPercent(capRate)}
                 />
                 <DetailRow
+                  benchmarkMetric="expenseRatio"
+                  benchmarkValue={expenseRatio}
                   description="Average monthly operating expenses as a percentage of rental income."
                   label="Expense ratio"
                   value={formatPercent(expenseRatio)}
+                />
+                <DetailRow
+                  benchmarkMetric="cashOnCashReturn"
+                  benchmarkValue={cashOnCashReturn}
+                  description="Annual cash flow after debt service divided by cash invested."
+                  label="Cash-on-cash return"
+                  valueClassName={getSignedValueClassName(cashOnCashReturn)}
+                  value={
+                    property.cashInvested > 0
+                      ? formatPercent(cashOnCashReturn)
+                      : "Needs cash invested"
+                  }
+                />
+                <DetailRow
+                  description="Current equity plus cumulative cash flow after debt service, minus cash invested."
+                  label="Total return since purchase"
+                  valueClassName={getSignedValueClassName(totalReturnSincePurchaseAmount)}
+                  value={formatReturnMetric({
+                    amount: totalReturnSincePurchaseAmount,
+                    missingLabel: totalReturnSincePurchaseLabel,
+                    ratio: totalReturnSincePurchase
+                  })}
                 />
               </div>
             </div>
@@ -330,6 +422,11 @@ export function PropertyDetailPage({
                   value={formatCurrency(property.purchasePrice)}
                 />
                 <DetailRow
+                  description="Net owner cash still invested in the property."
+                  label="Cash invested"
+                  value={formatCurrency(property.cashInvested)}
+                />
+                <DetailRow
                   description="Latest stored market value for this property."
                   label="Current value"
                   value={formatCurrency(property.currentMarketValue)}
@@ -338,11 +435,6 @@ export function PropertyDetailPage({
                   description="Remaining unpaid loan balance on the property."
                   label="Mortgage balance"
                   value={formatCurrency(property.remainingMortgageBalance)}
-                />
-                <DetailRow
-                  description="Expected monthly mortgage payment for this property."
-                  label="Monthly mortgage"
-                  value={formatCurrency(property.monthlyMortgage)}
                 />
                 <DetailRow
                   description="Current value minus the remaining mortgage balance."

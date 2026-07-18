@@ -176,11 +176,13 @@ function ReportSection({
 }
 
 function MetricPanel({
+  children,
   icon: Icon,
   label,
   tone = "neutral",
   value
 }: {
+  children?: ReactNode;
   icon: typeof Building2;
   label: string;
   tone?: "neutral" | "positive" | "negative";
@@ -201,6 +203,7 @@ function MetricPanel({
       >
         {value}
       </p>
+      {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }
@@ -314,6 +317,7 @@ function PropertyScorecard({ scorecard }: { scorecard: AnnualReportPropertyScore
         <DetailMetric label="Mortgage Balance" value={formatCurrency(scorecard.mortgageBalance)} />
         <DetailMetric label="Equity" value={formatCurrency(scorecard.equity)} />
         <DetailMetric label="Purchase Price" value={formatCurrency(scorecard.purchasePrice)} />
+        <DetailMetric label="Cash Invested" value={formatCurrency(scorecard.cashInvested)} />
         <DetailMetric label="Monthly Rent" value={formatCurrency(scorecard.monthlyRent)} />
         <DetailMetric label="Monthly Mortgage" value={formatCurrency(scorecard.monthlyMortgage)} />
         <DetailMetric label="County" value={scorecard.county ?? "N/A"} />
@@ -326,6 +330,15 @@ function PropertyScorecard({ scorecard }: { scorecard: AnnualReportPropertyScore
           label="Cash Flow After Debt"
           value={formatCurrency(scorecard.cashFlowAfterDebtService)}
           valueClassName={getSignedCurrencyClassName(scorecard.cashFlowAfterDebtService)}
+        />
+        <DetailMetric
+          label="Cash-on-Cash Return"
+          value={formatPercent(scorecard.cashOnCashReturn)}
+          valueClassName={
+            scorecard.cashOnCashReturn == null
+              ? undefined
+              : getSignedCurrencyClassName(scorecard.cashOnCashReturn)
+          }
         />
         <DetailMetric label="Purchase Date" value={formatDate(scorecard.purchasedAt)} />
         <DetailMetric label="Parcel" value={scorecard.parcelNumber ?? "N/A"} />
@@ -1128,6 +1141,18 @@ export function AnnualReportPreviewPage({
               value={formatCurrency(report.statement.totalRow.cashFlowAfterDebtService)}
             />
             <MetricPanel
+              icon={TrendingUp}
+              label="Cash-on-Cash Return"
+              tone={
+                report.statement.totalRow.cashOnCashReturn == null
+                  ? "neutral"
+                  : report.statement.totalRow.cashOnCashReturn >= 0
+                    ? "positive"
+                    : "negative"
+              }
+              value={formatPercent(report.statement.totalRow.cashOnCashReturn)}
+            />
+            <MetricPanel
               icon={FileText}
               label="Expense Ratio"
               value={formatPercent(report.statement.totalRow.expenseRatio)}
@@ -1284,13 +1309,15 @@ export function AnnualReportPreviewPage({
           eyebrow="06"
           title="Debt & Cash Flow"
         >
-          <ReportTable printMode="compact">
+          <ReportTable minWidth="min-w-[72rem]" printMode="compact">
             <thead className="bg-secondary text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground print:bg-slate-100">
               <tr>
                 <th className="px-3 py-3 text-left">Property</th>
                 <th className="px-3 py-3 text-right">NOI</th>
                 <th className="px-3 py-3 text-right">Debt Service</th>
                 <th className="px-3 py-3 text-right">Cash Flow After Debt</th>
+                <th className="px-3 py-3 text-right">Cash Invested</th>
+                <th className="px-3 py-3 text-right">Cash-on-Cash Return</th>
                 <th className="px-3 py-3 text-right">Mortgage Balance</th>
                 <th className="px-3 py-3 text-right">Equity</th>
               </tr>
@@ -1304,6 +1331,8 @@ export function AnnualReportPreviewPage({
                   <td className={`px-3 py-3 text-right font-semibold ${getSignedCurrencyClassName(scorecard.cashFlowAfterDebtService)}`}>
                     {formatCurrency(scorecard.cashFlowAfterDebtService)}
                   </td>
+                  <td className="px-3 py-3 text-right">{formatCurrency(scorecard.cashInvested)}</td>
+                  <td className="px-3 py-3 text-right">{formatPercent(scorecard.cashOnCashReturn)}</td>
                   <td className="px-3 py-3 text-right">{formatCurrency(scorecard.mortgageBalance)}</td>
                   <td className="px-3 py-3 text-right">{formatCurrency(scorecard.equity)}</td>
                 </tr>

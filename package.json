@@ -8,6 +8,7 @@
     "cleanup:real-estate-mock-data": "node scripts/cleanup-real-estate-mock-data.mjs",
     "cleanup:real-estate-manual-legacy-data": "node scripts/cleanup-real-estate-manual-legacy-data.mjs",
     "lint": "eslint . --max-warnings=0",
+    "test:calculations": "node --test scripts/test-calculations.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",

@@ -40,6 +40,7 @@ export interface RealEstateAsset extends BaseAsset {
   purchasedAt: string | null;
   parcelNumber: string | null;
   purchasePrice: number;
+  cashInvested: number;
   currentMarketValue: number;
   remainingMortgageBalance: number;
   monthlyRent: number;
