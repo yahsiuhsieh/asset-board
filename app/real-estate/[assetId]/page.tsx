@@ -17,6 +17,7 @@ interface PageProps {
   }>;
   searchParams?: Promise<{
     annualReportYear?: string | string[];
+    reviewMonth?: string | string[];
   }>;
 }
 
@@ -26,6 +27,15 @@ function getRequestedAnnualReportYear(
   const value = searchParams?.annualReportYear;
 
   return Array.isArray(value) ? value[0] : value;
+}
+
+function getRequestedReviewMonth(
+  searchParams?: { reviewMonth?: string | string[] }
+): string | undefined {
+  const value = searchParams?.reviewMonth;
+  const reviewMonth = Array.isArray(value) ? value[0] : value;
+
+  return reviewMonth && /^\d{4}-\d{2}$/.test(reviewMonth) ? reviewMonth : undefined;
 }
 
 export default async function RealEstatePropertyPage({
@@ -59,6 +69,7 @@ export default async function RealEstatePropertyPage({
       annualQualityResult={annualQualityResult}
       annualReportYear={annualReportYear}
       annualReportYears={annualReportYears}
+      initialReviewMonth={getRequestedReviewMonth(resolvedSearchParams)}
       property={property}
       propertyOptions={propertyOptions.map((option) => ({
         address: option.address,

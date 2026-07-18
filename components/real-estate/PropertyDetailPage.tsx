@@ -48,6 +48,7 @@ interface PropertyDetailPageProps {
   annualQualityResult: PropertyAnnualQualityResult;
   annualReportYear: string;
   annualReportYears: string[];
+  initialReviewMonth?: string;
   property: RealEstateAssetDetail;
   propertyOptions: Array<Pick<RealEstateAssetDetail, "address" | "id" | "name">>;
   valuationUsage: PropertyValuationUsageStatus;
@@ -206,6 +207,7 @@ export function PropertyDetailPage({
   annualQualityResult,
   annualReportYear,
   annualReportYears,
+  initialReviewMonth,
   property,
   propertyOptions,
   valuationUsage
@@ -349,8 +351,9 @@ export function PropertyDetailPage({
         </Card>
       </section>
 
-      <section>
+      <section id="monthly-review">
         <MonthlyReviewWorkspace
+          initialReviewMonth={initialReviewMonth}
           property={property}
           propertyOptions={propertyOptions}
         />

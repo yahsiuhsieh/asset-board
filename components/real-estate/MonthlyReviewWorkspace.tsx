@@ -743,14 +743,18 @@ function ReviewMonthSelector({
 }
 
 export function MonthlyReviewWorkspace({
+  initialReviewMonth,
   property,
   propertyOptions
 }: {
+  initialReviewMonth?: string;
   property: RealEstateAssetDetail;
   propertyOptions: Array<Pick<RealEstateAssetDetail, "address" | "id" | "name">>;
 }) {
   const router = useRouter();
-  const [reviewMonth, setReviewMonth] = useState(getCurrentMonth());
+  const [reviewMonth, setReviewMonth] = useState(
+    initialReviewMonth ?? getCurrentMonth()
+  );
   const [closeState, closeAction] = useActionState(
     closeMonthlyReview.bind(null, property.id),
     initialActionState
@@ -770,6 +774,12 @@ export function MonthlyReviewWorkspace({
       router.refresh();
     }
   }, [closeState.status, reopenState.status, router]);
+
+  useEffect(() => {
+    if (initialReviewMonth) {
+      setReviewMonth(initialReviewMonth);
+    }
+  }, [initialReviewMonth]);
 
   return (
     <Card className="border-border bg-card">

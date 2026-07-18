@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/supabase-keepalive",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/jobs/monthly-real-estate-review",
+      "schedule": "0 14 5 * *"
     }
   ]
 }

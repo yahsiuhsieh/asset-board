@@ -8,7 +8,11 @@ import {
 } from "@/lib/site-auth";
 
 const PUBLIC_PATH_PREFIXES = ["/_next/", "/_vercel/"];
-const PUBLIC_PATHS = new Set(["/favicon.ico", "/icon.png"]);
+const PUBLIC_PATHS = new Set([
+  "/api/jobs/monthly-real-estate-review",
+  "/favicon.ico",
+  "/icon.png"
+]);
 const PUBLIC_FILE_PATTERN = /\.(?:css|gif|ico|jpg|jpeg|js|json|map|png|svg|txt|webp|xml)$/i;
 
 function isPublicPath(pathname: string): boolean {
