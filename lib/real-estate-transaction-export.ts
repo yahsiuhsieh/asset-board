@@ -1,4 +1,5 @@
 import { getTransactionNoteCsvValue } from "@/lib/real-estate-transaction-notes";
+import { isMonthInAnnualReportPeriod } from "@/lib/real-estate-annual-period";
 import type {
   RealEstateAssetDetail,
   RealEstatePropertyTransaction
@@ -63,7 +64,8 @@ export function getDefaultPortfolioAnnualExportYear(
 
 export function getPortfolioAnnualExportRows(
   properties: RealEstateAssetDetail[],
-  year: string
+  year: string,
+  throughMonth?: string | null
 ): PortfolioAnnualTransactionExportRow[] {
   return properties
     .flatMap((property) =>
@@ -71,7 +73,12 @@ export function getPortfolioAnnualExportRows(
         .filter(
           (transaction) =>
             isExportableTransaction(transaction) &&
-            getTransactionYear(transaction) === year
+            getTransactionYear(transaction) === year &&
+            isMonthInAnnualReportPeriod({
+              month: transaction.postedAt,
+              throughMonth,
+              year
+            })
         )
         .map((transaction) => ({
           date: transaction.postedAt,

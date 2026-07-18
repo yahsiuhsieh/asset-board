@@ -9,6 +9,7 @@ import {
   getPortfolioAnnualExportRows,
   type PortfolioAnnualTransactionExportRow
 } from "@/lib/real-estate-transaction-export";
+import { getAnnualReportPeriod } from "@/lib/real-estate-annual-period";
 import {
   isHardBlockingAnnualQualityIssue,
   type AnnualQualityIssue,
@@ -92,8 +93,10 @@ export interface AnnualReportTransactionSummary {
 }
 
 export interface PortfolioAnnualReportModel {
-  year: string;
   generatedAt: string;
+  periodLabel: string;
+  throughMonth: string | null;
+  year: string;
   portfolio: AnnualReportPortfolioSummary;
   status: AnnualReportStatus;
   statement: RealEstateAnnualStatement;
@@ -124,10 +127,13 @@ function getTransactionYear(transaction: RealEstatePropertyTransaction): string 
 
 function getAnnualTransactions(
   property: RealEstateAssetDetail,
-  year: string
+  year: string,
+  throughMonth?: string | null
 ): RealEstatePropertyTransaction[] {
   return property.propertyTransactions.filter(
-    (transaction) => getTransactionYear(transaction) === year
+    (transaction) =>
+      getTransactionYear(transaction) === year &&
+      (!throughMonth || transaction.postedAt.slice(0, 7) <= throughMonth)
   );
 }
 
@@ -273,7 +279,8 @@ function getPropertyScorecards(
   transactionRows: PortfolioAnnualTransactionExportRow[],
   annualQualityResults: PropertyAnnualQualityResult[],
   year: string,
-  generatedAt: Date
+  generatedAt: Date,
+  throughMonth?: string | null
 ): AnnualReportPropertyScorecard[] {
   const propertiesById = new Map(
     properties.map((property) => [property.id, property])
@@ -286,11 +293,12 @@ function getPropertyScorecards(
       throw new Error(`Missing annual report property ${row.propertyId}.`);
     }
 
-    const annualTransactions = getAnnualTransactions(property, year);
+    const annualTransactions = getAnnualTransactions(property, year, throughMonth);
     const reportMonthCount = getAnnualStatementMonthCount(
       property,
       year,
-      generatedAt
+      generatedAt,
+      throughMonth
     );
     const expectedRent = property.monthlyRent * reportMonthCount;
     const qualityResult = getQualityResult(annualQualityResults, property.id);
@@ -341,19 +349,28 @@ export function getPortfolioAnnualReportModel(
   properties: RealEstateAssetDetail[],
   year: string,
   annualQualityResults: PropertyAnnualQualityResult[],
-  generatedAt = new Date()
+  generatedAt = new Date(),
+  throughMonth?: string | null
 ): PortfolioAnnualReportModel {
+  const period = getAnnualReportPeriod({ throughMonth, year });
   const statement = getPortfolioAnnualStatement(
     properties,
-    year,
+    period.year,
     annualQualityResults,
-    generatedAt
+    generatedAt,
+    period.throughMonth
   );
-  const transactionRows = getPortfolioAnnualExportRows(properties, year);
+  const transactionRows = getPortfolioAnnualExportRows(
+    properties,
+    period.year,
+    period.throughMonth
+  );
 
   return {
-    year,
     generatedAt: generatedAt.toISOString(),
+    periodLabel: period.periodLabel,
+    throughMonth: period.throughMonth,
+    year: period.year,
     portfolio: getPortfolioSummary(properties),
     status: getAnnualReportStatus(annualQualityResults),
     statement,
@@ -363,8 +380,9 @@ export function getPortfolioAnnualReportModel(
       statement,
       transactionRows,
       annualQualityResults,
-      year,
-      generatedAt
+      period.year,
+      generatedAt,
+      period.throughMonth
     ),
     propertyComparisonRows: statement.propertyRows,
     annualQualityResults,

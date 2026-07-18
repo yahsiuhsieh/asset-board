@@ -39,19 +39,25 @@ async function loadTsModule(path, requireMap = {}) {
 const transactionNoteHelpers = await loadTsModule(
   "../lib/real-estate-transaction-notes.ts"
 );
+const annualPeriodHelpers = await loadTsModule(
+  "../lib/real-estate-annual-period.ts"
+);
 const annualStatementHelpers = await loadTsModule(
   "../lib/real-estate-annual-statement.ts",
   {
+    "@/lib/real-estate-annual-period": annualPeriodHelpers,
     "@/lib/real-estate-transaction-notes": transactionNoteHelpers
   }
 );
 const transactionExportHelpers = await loadTsModule(
   "../lib/real-estate-transaction-export.ts",
   {
+    "@/lib/real-estate-annual-period": annualPeriodHelpers,
     "@/lib/real-estate-transaction-notes": transactionNoteHelpers
   }
 );
 const helpers = await loadTsModule("../lib/real-estate-annual-report.ts", {
+  "@/lib/real-estate-annual-period": annualPeriodHelpers,
   "@/lib/real-estate-annual-quality": {
     isHardBlockingAnnualQualityIssue: (issue) =>
       issue.code === "mock_ledger_transactions" ||

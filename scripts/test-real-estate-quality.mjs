@@ -5,6 +5,33 @@ import vm from "node:vm";
 import ts from "typescript";
 
 async function loadQualityHelpers() {
+  const annualPeriodSource = await readFile(
+    new URL("../lib/real-estate-annual-period.ts", import.meta.url),
+    "utf8"
+  );
+  const { outputText: annualPeriodOutput } = ts.transpileModule(
+    annualPeriodSource,
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020
+      }
+    }
+  );
+  const annualPeriodModule = { exports: {} };
+
+  vm.runInNewContext(
+    annualPeriodOutput,
+    {
+      exports: annualPeriodModule.exports,
+      module: annualPeriodModule
+    },
+    {
+      filename: "real-estate-annual-period.ts"
+    }
+  );
+
   const monthlyReviewSource = await readFile(
     new URL("../lib/real-estate-monthly-review.ts", import.meta.url),
     "utf8"
@@ -88,6 +115,10 @@ async function loadQualityHelpers() {
 
         if (specifier === "@/lib/real-estate-data-coverage") {
           return dataCoverageModule.exports;
+        }
+
+        if (specifier === "@/lib/real-estate-annual-period") {
+          return annualPeriodModule.exports;
         }
 
         throw new Error(`Unexpected require: ${specifier}`);

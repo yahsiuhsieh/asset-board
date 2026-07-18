@@ -5,6 +5,10 @@ import type {
 } from "@/types/wealth";
 import { getPropertyAnnualDataCoverageIssues } from "@/lib/real-estate-data-coverage";
 import {
+  isMonthInAnnualReportPeriod,
+  normalizeAnnualReportThroughMonth
+} from "@/lib/real-estate-annual-period";
+import {
   getPropertyReviewMonths,
   getRentRecognitionMonth,
   normalizeReviewMonth
@@ -52,9 +56,18 @@ function getTransactionYear(transaction: RealEstatePropertyTransaction): string 
 
 function getTransactionsForYear(
   transactions: RealEstatePropertyTransaction[],
-  year: string
+  year: string,
+  throughMonth?: string | null
 ): RealEstatePropertyTransaction[] {
-  return transactions.filter((transaction) => getTransactionYear(transaction) === year);
+  return transactions.filter(
+    (transaction) =>
+      getTransactionYear(transaction) === year &&
+      isMonthInAnnualReportPeriod({
+        month: transaction.postedAt,
+        throughMonth,
+        year
+      })
+  );
 }
 
 function makeIssue(issue: AnnualQualityIssue): AnnualQualityIssue {
@@ -66,6 +79,19 @@ function splitIssues(issues: AnnualQualityIssue[]) {
     blockingIssues: issues.filter((issue) => issue.severity === "blocking"),
     warningIssues: issues.filter((issue) => issue.severity === "warning")
   };
+}
+
+function getThroughMonthReviewDate(
+  throughMonth: string | undefined
+): Date | undefined {
+  if (!throughMonth) {
+    return undefined;
+  }
+
+  const year = Number(throughMonth.slice(0, 4));
+  const month = Number(throughMonth.slice(5, 7));
+
+  return new Date(year, month, 1, 12);
 }
 
 export function getPortfolioAnnualReportYears(
@@ -112,10 +138,20 @@ export function getDefaultPortfolioAnnualReportYear(
 export function getPropertyAnnualQualityResult(
   property: RealEstateAssetDetail,
   year: string,
-  today = new Date()
+  today = new Date(),
+  throughMonth?: string | null
 ): PropertyAnnualQualityResult {
-  const reviewMonths = getPropertyReviewMonths(property, year, today);
-  const transactions = getTransactionsForYear(property.propertyTransactions, year);
+  const normalizedThroughMonth = normalizeAnnualReportThroughMonth(
+    throughMonth,
+    year
+  );
+  const reviewDate = getThroughMonthReviewDate(normalizedThroughMonth) ?? today;
+  const reviewMonths = getPropertyReviewMonths(property, year, reviewDate);
+  const transactions = getTransactionsForYear(
+    property.propertyTransactions,
+    year,
+    normalizedThroughMonth
+  );
   const monthlyReviews = property.monthlyReviews ?? [];
   const closedReviewMonths = new Set(
     monthlyReviews
@@ -135,7 +171,11 @@ export function getPropertyAnnualQualityResult(
         (transaction) =>
           transaction.classification === "rental_income" &&
           transaction.direction === "credit" &&
-          getRentRecognitionMonth(transaction).startsWith(year)
+          isMonthInAnnualReportPeriod({
+            month: getRentRecognitionMonth(transaction),
+            throughMonth: normalizedThroughMonth,
+            year
+          })
       )
       .map(getRentRecognitionMonth)
   );
@@ -154,7 +194,7 @@ export function getPropertyAnnualQualityResult(
   );
   const incompleteBankCoverageMonths = getPropertyAnnualDataCoverageIssues({
     property,
-    today,
+    today: reviewDate,
     year
   }).map((assessment) => assessment.reviewMonth);
   const issues: AnnualQualityIssue[] = [];
@@ -303,10 +343,11 @@ export function getPropertyAnnualQualityResult(
 export function getPortfolioAnnualQualityResults(
   properties: RealEstateAssetDetail[],
   year: string,
-  today = new Date()
+  today = new Date(),
+  throughMonth?: string | null
 ): PropertyAnnualQualityResult[] {
   return properties.map((property) =>
-    getPropertyAnnualQualityResult(property, year, today)
+    getPropertyAnnualQualityResult(property, year, today, throughMonth)
   );
 }
 

@@ -10,6 +10,7 @@ import {
 const PUBLIC_PATH_PREFIXES = ["/_next/", "/_vercel/"];
 const PUBLIC_PATHS = new Set([
   "/api/jobs/monthly-real-estate-review",
+  "/api/jobs/semiannual-real-estate-report",
   "/favicon.ico",
   "/icon.png"
 ]);

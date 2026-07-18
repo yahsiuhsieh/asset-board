@@ -1,4 +1,8 @@
 import { getTransactionNoteCsvValue } from "@/lib/real-estate-transaction-notes";
+import {
+  isMonthInAnnualReportPeriod,
+  normalizeAnnualReportThroughMonth
+} from "@/lib/real-estate-annual-period";
 import type {
   RealEstateAssetDetail,
   RealEstateExpenseCategory,
@@ -115,16 +119,28 @@ function getTransactionYear(transaction: RealEstatePropertyTransaction): string 
 export function getAnnualStatementMonthCount(
   property: RealEstateAssetDetail,
   year: string,
-  today = new Date()
+  today = new Date(),
+  throughMonth?: string | null
 ): number {
   const numericYear = Number(year);
   const current = getCurrentYearMonth(today);
+  const normalizedThroughMonth = normalizeAnnualReportThroughMonth(
+    throughMonth,
+    year
+  );
 
-  if (!Number.isInteger(numericYear) || numericYear > current.year) {
+  if (
+    !Number.isInteger(numericYear) ||
+    (numericYear > current.year && !normalizedThroughMonth)
+  ) {
     return 0;
   }
 
-  const endMonth = numericYear === current.year ? current.month : 12;
+  const endMonth = normalizedThroughMonth
+    ? Number(normalizedThroughMonth.slice(5, 7))
+    : numericYear === current.year
+      ? current.month
+      : 12;
   let startMonth = 1;
 
   if (property.purchasedAt) {
@@ -154,10 +170,17 @@ export function getAnnualStatementMonthCount(
 
 function getAnnualTransactions(
   property: RealEstateAssetDetail,
-  year: string
+  year: string,
+  throughMonth?: string | null
 ): RealEstatePropertyTransaction[] {
   return property.propertyTransactions.filter(
-    (transaction) => getTransactionYear(transaction) === year
+    (transaction) =>
+      getTransactionYear(transaction) === year &&
+      isMonthInAnnualReportPeriod({
+        month: transaction.postedAt,
+        throughMonth,
+        year
+      })
   );
 }
 
@@ -203,10 +226,19 @@ export function getPortfolioAnnualStatement(
   properties: RealEstateAssetDetail[],
   year: string,
   qualityResults: AnnualStatementQualityCounts[] = [],
-  today = new Date()
+  today = new Date(),
+  throughMonth?: string | null
 ): RealEstateAnnualStatement {
+  const normalizedThroughMonth = normalizeAnnualReportThroughMonth(
+    throughMonth,
+    year
+  );
   const propertyRows = properties.map((property) => {
-    const annualTransactions = getAnnualTransactions(property, year);
+    const annualTransactions = getAnnualTransactions(
+      property,
+      year,
+      normalizedThroughMonth
+    );
     const categoryTotals = Object.fromEntries(
       annualStatementExpenseCategories.map((category) => [category, 0])
     ) as Record<RealEstateExpenseCategory, number>;
@@ -233,7 +265,8 @@ export function getPortfolioAnnualStatement(
     );
     const noi = rentCollected - totalOperatingExpenses;
     const scheduledDebtService =
-      property.monthlyMortgage * getAnnualStatementMonthCount(property, year, today);
+      property.monthlyMortgage *
+      getAnnualStatementMonthCount(property, year, today, normalizedThroughMonth);
     const cashFlowAfterDebtService = noi - scheduledDebtService;
     const cashInvested = property.cashInvested ?? 0;
     const { blockingIssueCount, warningIssueCount } = getQualityCounts(

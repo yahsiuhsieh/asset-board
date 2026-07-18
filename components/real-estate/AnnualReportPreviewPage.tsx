@@ -941,6 +941,7 @@ export function AnnualReportPreviewPage({
     const params = new URLSearchParams(searchParams.toString());
 
     params.set("year", year);
+    params.delete("throughMonth");
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
@@ -1051,7 +1052,7 @@ export function AnnualReportPreviewPage({
                 Annual Property Management Report
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
-                {report.year} Portfolio Report
+                {report.periodLabel} Portfolio Report
               </h2>
               <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-600 dark:text-muted-foreground print:text-slate-600">
                 Financial performance, rent collection, operating expenses, debt service,

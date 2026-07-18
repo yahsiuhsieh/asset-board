@@ -4,6 +4,7 @@ import {
   getPortfolioAnnualQualityResults,
   getPortfolioAnnualReportYears
 } from "@/lib/real-estate-annual-quality";
+import { normalizeAnnualReportThroughMonth } from "@/lib/real-estate-annual-period";
 import { getPortfolioAnnualReportModel } from "@/lib/real-estate-annual-report";
 import { getRealEstateAssetsWithCoverPhoto } from "@/lib/real-estate";
 
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams?: Promise<{
+    throughMonth?: string | string[];
     year?: string | string[];
   }>;
 }
@@ -23,6 +25,24 @@ function getRequestedYear(
   return Array.isArray(value) ? value[0] : value;
 }
 
+function getRequestedThroughMonth(
+  searchParams?: { throughMonth?: string | string[] },
+  year?: string
+): string | undefined {
+  const value = searchParams?.throughMonth;
+  const throughMonth = Array.isArray(value) ? value[0] : value;
+
+  if (!throughMonth || !year) {
+    return undefined;
+  }
+
+  try {
+    return normalizeAnnualReportThroughMonth(throughMonth, year);
+  } catch {
+    return undefined;
+  }
+}
+
 export default async function AnnualReportPage({ searchParams }: PageProps) {
   const properties = await getRealEstateAssetsWithCoverPhoto();
   const resolvedSearchParams = await searchParams;
@@ -31,14 +51,23 @@ export default async function AnnualReportPage({ searchParams }: PageProps) {
     annualReportYears,
     getRequestedYear(resolvedSearchParams)
   );
+  const selectedThroughMonth = getRequestedThroughMonth(
+    resolvedSearchParams,
+    selectedAnnualReportYear
+  );
+  const generatedAt = new Date();
   const annualQualityResults = getPortfolioAnnualQualityResults(
     properties,
-    selectedAnnualReportYear
+    selectedAnnualReportYear,
+    generatedAt,
+    selectedThroughMonth
   );
   const report = getPortfolioAnnualReportModel(
     properties,
     selectedAnnualReportYear,
-    annualQualityResults
+    annualQualityResults,
+    generatedAt,
+    selectedThroughMonth
   );
 
   return (

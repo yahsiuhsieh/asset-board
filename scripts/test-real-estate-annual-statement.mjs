@@ -39,7 +39,11 @@ async function loadTsModule(path, requireMap = {}) {
 const transactionNoteHelpers = await loadTsModule(
   "../lib/real-estate-transaction-notes.ts"
 );
+const annualPeriodHelpers = await loadTsModule(
+  "../lib/real-estate-annual-period.ts"
+);
 const helpers = await loadTsModule("../lib/real-estate-annual-statement.ts", {
+  "@/lib/real-estate-annual-period": annualPeriodHelpers,
   "@/lib/real-estate-transaction-notes": transactionNoteHelpers
 });
 const today = new Date("2026-04-30T12:00:00.000Z");

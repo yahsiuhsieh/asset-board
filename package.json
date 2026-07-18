@@ -21,6 +21,7 @@
     "test:real-estate-provider-containment": "node --test scripts/test-real-estate-provider-containment.mjs",
     "test:real-estate-quality": "node --test scripts/test-real-estate-quality.mjs",
     "test:real-estate-rules": "node --test scripts/test-real-estate-transaction-rules.mjs",
+    "test:real-estate-semiannual-report": "node --test scripts/test-real-estate-semiannual-report-email.mjs",
     "test:real-estate-statement": "node --test scripts/test-real-estate-annual-statement.mjs",
     "verify:browser": "npm run lint && npm run build && npm run test:e2e"
   },
