@@ -9,11 +9,13 @@ import {
   MONTHLY_AUTO_REVIEW_CLOSE_NOTE,
   type RealEstateMonthlyReviewCloseResult
 } from "@/lib/real-estate-monthly-review-service";
-import { getMonthlyReviewAssessment } from "@/lib/real-estate-monthly-review";
+import {
+  getMonthlyReviewAssessment,
+  type MonthlyReviewSubstatus
+} from "@/lib/real-estate-monthly-review";
 import type { RealEstateAssetDetail } from "@/types/wealth";
 
 export type MonthlyAutoReviewPropertyStatus =
-  | "already_closed"
   | "blocked"
   | "closed"
   | "error"
@@ -24,18 +26,25 @@ export interface MonthlyAutoReviewPropertyResult {
   blockers: string[];
   closed: boolean;
   error: string | null;
+  expenseStatus: MonthlyReviewSubstatus;
+  expenseTransactionsNeedingReview: number;
   missingExpenseCategoryCount: number;
   pendingExpenseTransactionCount: number;
   pendingRentCreditCount: number;
   propertyName: string;
+  recordedExpenseCount: number;
+  recordedExpenses: number;
+  rentCollected: number;
+  rentCreditsNeedingReview: number;
+  rentStatus: MonthlyReviewSubstatus;
   reviewUrl: string;
   ruleMatchedExpenseCount: number;
   status: MonthlyAutoReviewPropertyStatus;
   syncedRentCount: number;
+  targetRent: number;
 }
 
 export interface MonthlyAutoReviewTotals {
-  alreadyClosed: number;
   blocked: number;
   closed: number;
   errors: number;
@@ -136,9 +145,11 @@ export function summarizeMonthlyReviewCloseResult({
   return {
     assetId: property.id,
     blockers: closeResult.blockers,
-    closed:
-      closeResult.status === "closed" || closeResult.status === "already_closed",
+    closed: closeResult.status === "closed",
     error: null,
+    expenseStatus: assessment.expenseStatus,
+    expenseTransactionsNeedingReview:
+      assessment.unclassifiedExpenseCount + assessment.missingExpenseCategoryCount,
     missingExpenseCategoryCount: assessment.missingExpenseCategoryCount,
     pendingExpenseTransactionCount:
       closeResult.expenseSyncResult?.pendingReviewCount ??
@@ -147,6 +158,11 @@ export function summarizeMonthlyReviewCloseResult({
       closeResult.rentSyncResult?.pendingReviewCount ??
       assessment.unclassifiedRentCreditCount,
     propertyName: property.name,
+    recordedExpenseCount: assessment.recordedExpenseCount,
+    recordedExpenses: assessment.recordedExpenses,
+    rentCollected: assessment.rentCollected,
+    rentCreditsNeedingReview: assessment.unclassifiedRentCreditCount,
+    rentStatus: assessment.rentStatus,
     reviewUrl: buildPropertyMonthlyReviewUrl({
       appUrl,
       assetId: property.id,
@@ -154,7 +170,8 @@ export function summarizeMonthlyReviewCloseResult({
     }),
     ruleMatchedExpenseCount: closeResult.expenseSyncResult?.ruleMatchedCount ?? 0,
     status: closeResult.status,
-    syncedRentCount: closeResult.rentSyncResult?.autoMatchedCount ?? 0
+    syncedRentCount: closeResult.rentSyncResult?.autoMatchedCount ?? 0,
+    targetRent: assessment.targetRent
   };
 }
 
@@ -177,10 +194,18 @@ export function summarizeMonthlyReviewError({
     blockers: [`sync error: ${message}`],
     closed: false,
     error: message,
+    expenseStatus: assessment.expenseStatus,
+    expenseTransactionsNeedingReview:
+      assessment.unclassifiedExpenseCount + assessment.missingExpenseCategoryCount,
     missingExpenseCategoryCount: assessment.missingExpenseCategoryCount,
     pendingExpenseTransactionCount: assessment.unclassifiedExpenseCount,
     pendingRentCreditCount: assessment.unclassifiedRentCreditCount,
     propertyName: property.name,
+    recordedExpenseCount: assessment.recordedExpenseCount,
+    recordedExpenses: assessment.recordedExpenses,
+    rentCollected: assessment.rentCollected,
+    rentCreditsNeedingReview: assessment.unclassifiedRentCreditCount,
+    rentStatus: assessment.rentStatus,
     reviewUrl: buildPropertyMonthlyReviewUrl({
       appUrl,
       assetId: property.id,
@@ -188,7 +213,8 @@ export function summarizeMonthlyReviewError({
     }),
     ruleMatchedExpenseCount: 0,
     status: "error",
-    syncedRentCount: 0
+    syncedRentCount: 0,
+    targetRent: assessment.targetRent
   };
 }
 
@@ -196,8 +222,6 @@ export function getMonthlyAutoReviewTotals(
   properties: MonthlyAutoReviewPropertyResult[]
 ): MonthlyAutoReviewTotals {
   return {
-    alreadyClosed: properties.filter((property) => property.status === "already_closed")
-      .length,
     blocked: properties.filter((property) => property.status === "blocked").length,
     closed: properties.filter((property) => property.status === "closed").length,
     errors: properties.filter((property) => property.status === "error").length,
@@ -222,14 +246,17 @@ function toEmailPropertySummary(
     assetId: property.assetId,
     blockers: property.blockers,
     error: property.error,
-    missingExpenseCategoryCount: property.missingExpenseCategoryCount,
-    pendingExpenseTransactionCount: property.pendingExpenseTransactionCount,
-    pendingRentCreditCount: property.pendingRentCreditCount,
+    expenseStatus: property.expenseStatus,
+    expenseTransactionsNeedingReview: property.expenseTransactionsNeedingReview,
     propertyName: property.propertyName,
+    recordedExpenseCount: property.recordedExpenseCount,
+    recordedExpenses: property.recordedExpenses,
+    rentCollected: property.rentCollected,
+    rentCreditsNeedingReview: property.rentCreditsNeedingReview,
+    rentStatus: property.rentStatus,
     reviewUrl: property.reviewUrl,
-    ruleMatchedExpenseCount: property.ruleMatchedExpenseCount,
     status: property.status,
-    syncedRentCount: property.syncedRentCount
+    targetRent: property.targetRent
   };
 }
 

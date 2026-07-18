@@ -163,7 +163,6 @@ export interface ExpenseTransactionSyncResult {
 }
 
 export type MonthlyReviewCloseStatus =
-  | "already_closed"
   | "blocked"
   | "closed"
   | "would_close";
@@ -1924,7 +1923,7 @@ export async function closeRealEstateMonthlyReview({
       expenseSyncResult: null,
       message: "Month is already closed.",
       rentSyncResult: null,
-      status: "already_closed",
+      status: "closed",
       wroteLedgerRows: false
     };
   }

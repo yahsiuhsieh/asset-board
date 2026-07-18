@@ -316,7 +316,7 @@ test("service dry run does not write a close row", async () => {
   assert.equal(supabaseCalls, 0);
 });
 
-test("already closed month skips writes and returns already_closed", async () => {
+test("already closed month skips writes and returns closed", async () => {
   let supabaseCalls = 0;
   const currentProperty = property({
     monthlyReviews: [
@@ -343,7 +343,7 @@ test("already closed month skips writes and returns already_closed", async () =>
     reviewMonth: "2026-06-01"
   });
 
-  assert.equal(result.status, "already_closed");
+  assert.equal(result.status, "closed");
   assert.equal(supabaseCalls, 0);
 });
 
@@ -375,7 +375,7 @@ test("sync errors become property blockers without stopping the batch", async ()
   ]);
 });
 
-test("email renderer includes HTML, text fallback, status, blockers, and review links", () => {
+test("email renderer uses financial summary metrics and short needs-review subject", () => {
   const rendered = emailHelpers.renderMonthlyReviewEmail({
     dryRun: false,
     properties: [
@@ -383,15 +383,18 @@ test("email renderer includes HTML, text fallback, status, blockers, and review 
         assetId: "property-1",
         blockers: ["bank coverage needs sync"],
         error: null,
-        missingExpenseCategoryCount: 1,
-        pendingExpenseTransactionCount: 2,
-        pendingRentCreditCount: 3,
+        expenseStatus: "needs_review",
+        expenseTransactionsNeedingReview: 3,
         propertyName: "Test Property",
+        recordedExpenseCount: 2,
+        recordedExpenses: 450,
+        rentCollected: 0,
+        rentCreditsNeedingReview: 1,
+        rentStatus: "needs_review",
         reviewUrl:
           "https://assetboard.example/real-estate/property-1?reviewMonth=2026-06#monthly-review",
-        ruleMatchedExpenseCount: 4,
         status: "blocked",
-        syncedRentCount: 5
+        targetRent: 1000
       }
     ],
     requiresReview: true,
@@ -400,11 +403,62 @@ test("email renderer includes HTML, text fallback, status, blockers, and review 
 
   assert.equal(
     rendered.subject,
-    "AssetBoard monthly review needs review: 2026-06"
+    "Monthly Review Needs Review: 2026-06"
   );
   assert.match(rendered.html, /<table/);
+  assert.match(rendered.html, /Rent received: \$0 \/ \$1,000/);
+  assert.match(rendered.html, /Recorded expenses: \$450/);
+  assert.match(rendered.html, /Expense transactions: 2/);
+  assert.match(rendered.html, /Rent credits needing review: 1/);
+  assert.match(rendered.html, /Expense transactions needing review: 3/);
+  assert.match(
+    rendered.html,
+    /color:#991b1b;font-weight:700;">Rent received: \$0 \/ \$1,000/
+  );
   assert.match(rendered.html, /bank coverage needs sync/);
   assert.match(rendered.html, /Open monthly review/);
+  assert.doesNotMatch(rendered.html, /Rent synced/);
+  assert.doesNotMatch(rendered.html, /Rule-matched expenses/);
   assert.match(rendered.text, /Test Property: Needs review/);
+  assert.match(rendered.text, /Rent received: \$0 \/ \$1,000/);
   assert.match(rendered.text, /Review: https:\/\/assetboard\.example/);
+});
+
+test("email renderer uses closed subject and final metrics for closed months", () => {
+  const rendered = emailHelpers.renderMonthlyReviewEmail({
+    dryRun: false,
+    properties: [
+      {
+        assetId: "property-1",
+        blockers: [],
+        error: null,
+        expenseStatus: "ready",
+        expenseTransactionsNeedingReview: 0,
+        propertyName: "Closed Property",
+        recordedExpenseCount: 3,
+        recordedExpenses: 875,
+        rentCollected: 1800,
+        rentCreditsNeedingReview: 0,
+        rentStatus: "ready",
+        reviewUrl:
+          "https://assetboard.example/real-estate/property-1?reviewMonth=2026-06#monthly-review",
+        status: "closed",
+        targetRent: 1800
+      }
+    ],
+    requiresReview: false,
+    reviewMonth: "2026-06"
+  });
+
+  assert.equal(rendered.subject, "Monthly Review Closed: 2026-06");
+  assert.match(rendered.html, /Closed Property/);
+  assert.match(rendered.html, /Closed/);
+  assert.match(rendered.html, /Rent received: \$1,800 \/ \$1,800/);
+  assert.match(rendered.html, /Recorded expenses: \$875/);
+  assert.match(rendered.html, /Expense transactions: 3/);
+  assert.doesNotMatch(rendered.html, /Already closed/);
+  assert.doesNotMatch(rendered.html, /Rent synced: 0/);
+  assert.doesNotMatch(rendered.html, /Rule-matched expenses: 0/);
+  assert.match(rendered.text, /Monthly Review Closed: 2026-06/);
+  assert.match(rendered.text, /Rent received: \$1,800 \/ \$1,800/);
 });

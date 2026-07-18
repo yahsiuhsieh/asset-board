@@ -2,14 +2,17 @@ export interface MonthlyReviewEmailPropertySummary {
   assetId: string;
   blockers: string[];
   error: string | null;
-  missingExpenseCategoryCount: number;
-  pendingExpenseTransactionCount: number;
-  pendingRentCreditCount: number;
+  expenseStatus: "ready" | "needs_review";
+  expenseTransactionsNeedingReview: number;
   propertyName: string;
   reviewUrl: string;
-  ruleMatchedExpenseCount: number;
+  recordedExpenseCount: number;
+  recordedExpenses: number;
+  rentCollected: number;
+  rentCreditsNeedingReview: number;
+  rentStatus: "ready" | "needs_review";
   status: string;
-  syncedRentCount: number;
+  targetRent: number;
 }
 
 export interface MonthlyReviewEmailSummary {
@@ -60,10 +63,6 @@ function getStatusLabel(status: string): string {
     return "Closed";
   }
 
-  if (status === "already_closed") {
-    return "Already closed";
-  }
-
   if (status === "would_close") {
     return "Would close";
   }
@@ -76,7 +75,7 @@ function getStatusLabel(status: string): string {
 }
 
 function getStatusColor(status: string): { background: string; color: string } {
-  if (status === "closed" || status === "already_closed" || status === "would_close") {
+  if (status === "closed" || status === "would_close") {
     return {
       background: "#dcfce7",
       color: "#166534"
@@ -89,17 +88,60 @@ function getStatusColor(status: string): { background: string; color: string } {
   };
 }
 
-function formatCount(label: string, value: number): string {
-  return `${label}: ${value}`;
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  currency: "USD",
+  maximumFractionDigits: 0,
+  style: "currency"
+});
+
+function formatCurrency(value: number): string {
+  return currencyFormatter.format(value);
 }
 
-function getPropertyDetails(property: MonthlyReviewEmailPropertySummary): string[] {
+interface PropertyDetailLine {
+  isWarning: boolean;
+  label: string;
+  value: string;
+}
+
+function shouldHighlightRent(property: MonthlyReviewEmailPropertySummary): boolean {
+  return (
+    (property.status === "blocked" || property.status === "error") &&
+    (property.rentCollected <= 0 || property.rentStatus === "needs_review")
+  );
+}
+
+function getPropertyDetails(
+  property: MonthlyReviewEmailPropertySummary
+): PropertyDetailLine[] {
   return [
-    formatCount("Rent synced", property.syncedRentCount),
-    formatCount("Rule-matched expenses", property.ruleMatchedExpenseCount),
-    formatCount("Rent credits needing review", property.pendingRentCreditCount),
-    formatCount("Expense transactions needing review", property.pendingExpenseTransactionCount),
-    formatCount("Expenses missing category", property.missingExpenseCategoryCount)
+    {
+      isWarning: shouldHighlightRent(property),
+      label: "Rent received",
+      value: `${formatCurrency(property.rentCollected)} / ${formatCurrency(
+        property.targetRent
+      )}`
+    },
+    {
+      isWarning: false,
+      label: "Recorded expenses",
+      value: formatCurrency(property.recordedExpenses)
+    },
+    {
+      isWarning: false,
+      label: "Expense transactions",
+      value: String(property.recordedExpenseCount)
+    },
+    {
+      isWarning: property.rentCreditsNeedingReview > 0,
+      label: "Rent credits needing review",
+      value: String(property.rentCreditsNeedingReview)
+    },
+    {
+      isWarning: property.expenseTransactionsNeedingReview > 0,
+      label: "Expense transactions needing review",
+      value: String(property.expenseTransactionsNeedingReview)
+    }
   ];
 }
 
@@ -107,8 +149,8 @@ export function getMonthlyReviewEmailSubject(
   summary: Pick<MonthlyReviewEmailSummary, "requiresReview" | "reviewMonth">
 ): string {
   return summary.requiresReview
-    ? `AssetBoard monthly review needs review: ${summary.reviewMonth}`
-    : `AssetBoard monthly review closed: ${summary.reviewMonth}`;
+    ? `Monthly Review Needs Review: ${summary.reviewMonth}`
+    : `Monthly Review Closed: ${summary.reviewMonth}`;
 }
 
 export function renderMonthlyReviewEmail(
@@ -128,7 +170,15 @@ export function renderMonthlyReviewEmail(
             .join("")}</ul>`
         : '<p style="margin:8px 0 0;color:#166534;">No blockers.</p>';
       const details = getPropertyDetails(property)
-        .map((detail) => `<li>${escapeHtml(detail)}</li>`)
+        .map((detail) => {
+          const style = detail.isWarning
+            ? "color:#991b1b;font-weight:700;"
+            : "color:#374151;";
+
+          return `<li style="${style}">${escapeHtml(detail.label)}: ${escapeHtml(
+            detail.value
+          )}</li>`;
+        })
         .join("");
 
       return `
@@ -178,8 +228,12 @@ export function renderMonthlyReviewEmail(
     "",
     ...summary.properties.flatMap((property) => [
       `${property.propertyName}: ${getStatusLabel(property.status)}`,
-      ...(property.blockers.length ? property.blockers.map((blocker) => `- ${blocker}`) : ["- No blockers"]),
-      ...getPropertyDetails(property).map((detail) => `- ${detail}`),
+      ...(property.blockers.length
+        ? property.blockers.map((blocker) => `- ${blocker}`)
+        : ["- No blockers"]),
+      ...getPropertyDetails(property).map(
+        (detail) => `- ${detail.label}: ${detail.value}`
+      ),
       `- Review: ${property.reviewUrl}`,
       ""
     ])

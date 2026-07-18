@@ -3139,11 +3139,7 @@ export async function closeMonthlyReview(
       return errorState(result.message);
     }
 
-    if (result.status === "already_closed") {
-      return successState("Month is already closed.");
-    }
-
-    return successState("");
+    return successState(result.message);
   } catch (error) {
     return errorState(error instanceof Error ? error.message : "Could not close month.");
   }
